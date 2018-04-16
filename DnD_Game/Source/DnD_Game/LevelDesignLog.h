@@ -2,7 +2,7 @@
 
 #pragma once
 #include <vector>
-//#include <json.hpp>
+#include <map>
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -19,10 +19,10 @@ public:
 	FDecorative()
 	{
 		name = "";
-		position = FVector(0,0,0);
+		position = FVector2D(0,0);
 	}
 
-	FDecorative(FString Name, FVector Position)
+	FDecorative(FString Name, FVector2D Position)
 	{
 		name = Name;
 		position = Position;
@@ -32,7 +32,7 @@ public:
 	FString name;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decorative")
-	FVector position;
+	FVector2D position;
 };
 
 UCLASS()
@@ -61,10 +61,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
 	bool SaveLogTo(FString location);
 
+	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
+	bool IsGridSpaceOccupied(FVector2D position) const;
+
 private:
 
 	//json m_savedata;
 	FString m_levelName;
 	std::vector<FDecorative> m_placedObjects;
+	std::map<std::pair<int, int>, bool> m_occupiedGridSpaces;
 		
 };

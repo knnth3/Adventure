@@ -30,6 +30,8 @@ void ALevelDesignLog::Tick(float DeltaTime)
 void ALevelDesignLog::AddNewObject(FDecorative newItem)
 {
 	m_placedObjects.push_back(newItem);
+	std::pair<int, int> newPos((int)newItem.position.X, (int)newItem.position.Y);
+	m_occupiedGridSpaces[newPos] = true;
 }
 
 void ALevelDesignLog::SetLevelName(FString name)
@@ -79,5 +81,17 @@ bool ALevelDesignLog::SaveLogTo(FString location)
 	}
 
 	return true;
+}
+
+bool ALevelDesignLog::IsGridSpaceOccupied(FVector2D position) const
+{
+	std::pair<int, int> newPos((int)position.X, (int)position.Y);
+	auto found = m_occupiedGridSpaces.find(newPos);
+	if (found != m_occupiedGridSpaces.end())
+	{
+		return found->second;
+	}
+
+	return false;
 }
 
