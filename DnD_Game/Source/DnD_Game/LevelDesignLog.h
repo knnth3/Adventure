@@ -10,6 +10,26 @@
 
 //using json = nlohmann::json;
 
+struct SaveObject
+{
+	SaveObject()
+	{
+		id = 0;
+		x = 0;
+		y = 0;
+	}
+	SaveObject(int ID, float X, float Y)
+	{
+		id = ID;
+		x = X;
+		y = Y;
+	}
+	int id;
+	float x;
+	float y;
+	float z;
+};
+
 USTRUCT(BlueprintType)
 struct DND_GAME_API FDecorative
 {
@@ -26,6 +46,11 @@ public:
 	{
 		name = Name;
 		position = Position;
+	}
+
+	SaveObject GetSaveObject()const
+	{
+		return SaveObject(0, position.X, position.Y);
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decorative")
@@ -63,6 +88,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
 	bool IsGridSpaceOccupied(FVector2D position) const;
+
+	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
+	bool LoadLogFrom(FString location);
 
 private:
 

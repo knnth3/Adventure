@@ -3,7 +3,14 @@
 #include "LevelDesignLog.h"
 #include "PlatformFilemanager.h"
 #include "FileHelper.h"
+#include "MapSaveParser.h"
+#include "FileManager.h"
+#include "Serialization/Archive.h"
+#include "Runtime/Core/Public/Serialization/ArchiveSaveCompressedProxy.h"
+#include "Runtime/Core/Public/Serialization/ArchiveLoadCompressedProxy.h"
 #include <fstream> 
+
+#define FILE_EXT ".map"
 
 // Sets default values
 ALevelDesignLog::ALevelDesignLog()
@@ -41,27 +48,42 @@ void ALevelDesignLog::SetLevelName(FString name)
 
 bool ALevelDesignLog::SaveLogTo(FString location)
 {
-	std::string title(TCHAR_TO_UTF8(*m_levelName));
-	//for (const auto& obj : m_placedObjects)
-	//{
-	//	std::string objName(TCHAR_TO_UTF8(*obj.name));
-	//	json temp;
-	//	temp[objName]["Position"].push_back(obj.position.X);
-	//	temp[objName]["Position"].push_back(obj.position.Y);
-	//	temp[objName]["Position"].push_back(obj.position.Z);
-	//	m_savedata[title].push_back(temp);
-	//}
-
-	//std::stringstream buffer;
-	//buffer << std::setw(4) << m_savedata << std::endl;
-
-	FString SaveDirectory = FString(FPlatformProcess::UserDir()) + "/DnD_Game";
-	FString FileName = m_levelName + ".json";
-	//buffer.str().c_str()
-	FString TextToSave = FString();
 	bool AllowOverwriting = false;
 
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+	FString SaveDirectory = FString(FPlatformProcess::UserDir()) + "/DnD_Game";
+	FString FileName = m_levelName + FILE_EXT;
+	std::string title(TCHAR_TO_UTF8(*m_levelName));
+
+
+	MapSaveParser<SaveObject> parser;
+	TArray<uint8> saveData;
+
+	//Load in all save files before write
+	for (const auto& obj : m_placedObjects)
+	{
+		parser.push_back(obj.GetSaveObject());
+	}
+
+	if (parser.empty())
+		return false;
+
+	std::string buffer = parser.to_str();
+	saveData.Append((uint8*)&buffer[0], buffer.size());
+
+	TArray<uint8> CompressedData;
+	FArchiveSaveCompressedProxy Compressor =
+		FArchiveSaveCompressedProxy(CompressedData, ECompressionFlags::COMPRESS_ZLIB);
+
+	Compressor << saveData;
+	Compressor.Flush();
+
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::FromInt((int)buffer.size()));
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::FromInt((int)saveData.Num()));
+	}
 
 	// CreateDirectoryTree returns true if the destination
 	// directory existed prior to call or has been created
@@ -70,14 +92,7 @@ bool ALevelDesignLog::SaveLogTo(FString location)
 	{
 		// Get absolute file path
 		FString AbsoluteFilePath = SaveDirectory + "/" + FileName;
-
-		//// Allow overwriting or file doesn't already exist
-		//if (AllowOverwriting || !PlatformFile::FileExists(*AbsoluteFilePath))
-		//{
-		//	FFileHelper::SaveStringToFile(TextToSave, *AbsoluteFilePath);
-		//}
-
-		FFileHelper::SaveStringToFile(TextToSave, *AbsoluteFilePath);
+		FFileHelper::SaveArrayToFile(saveData, *AbsoluteFilePath);
 	}
 
 	return true;
@@ -93,5 +108,39 @@ bool ALevelDesignLog::IsGridSpaceOccupied(FVector2D position) const
 	}
 
 	return false;
+}
+
+bool ALevelDesignLog::LoadLogFrom(FString location)
+{
+	TArray<uint8> compressedData;
+	FArchiveLoadCompressedProxy decompressor =
+		FArchiveLoadCompressedProxy(compressedData, ECompressionFlags::COMPRESS_ZLIB);
+	
+	if (decompressor.GetError())
+	{
+		//TODO: Handle error
+		return false;
+	}
+
+	TArray<uint8> DecompressedBinaryArray;
+	decompressor << DecompressedBinaryArray;
+
+	decompressor.FlushCache();
+	compressedData.Empty();
+
+
+	std::string buffer(*DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num());
+
+	MapSaveParser<SaveObject> parser;
+	std::vector<SaveObject> loadedObjects;
+	if (!parser.read(buffer, loadedObjects))
+	{
+		//TODO: Handle error
+		return false;
+	}
+
+
+
+	return true;
 }
 
