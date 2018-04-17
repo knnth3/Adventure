@@ -71,13 +71,6 @@ bool ALevelDesignLog::SaveLogTo(FString location)
 	std::string buffer = parser.to_str();
 	saveData.Append((uint8*)&buffer[0], buffer.size());
 
-	TArray<uint8> CompressedData;
-	FArchiveSaveCompressedProxy Compressor =
-		FArchiveSaveCompressedProxy(CompressedData, ECompressionFlags::COMPRESS_ZLIB);
-
-	Compressor << saveData;
-	Compressor.Flush();
-
 
 	if (GEngine)
 	{
@@ -112,35 +105,60 @@ bool ALevelDesignLog::IsGridSpaceOccupied(FVector2D position) const
 
 bool ALevelDesignLog::LoadLogFrom(FString location)
 {
-	TArray<uint8> compressedData;
-	FArchiveLoadCompressedProxy decompressor =
-		FArchiveLoadCompressedProxy(compressedData, ECompressionFlags::COMPRESS_ZLIB);
-	
-	if (decompressor.GetError())
-	{
-		//TODO: Handle error
+	FString SaveDirectory = FString(FPlatformProcess::UserDir()) + "/DnD_Game";
+	FString AbsoluteFilePath = SaveDirectory + "/" + location;
+
+	TArray<uint8> saveData;
+	if (!FFileHelper::LoadFileToArray(saveData, *AbsoluteFilePath))
 		return false;
-	}
 
-	TArray<uint8> DecompressedBinaryArray;
-	decompressor << DecompressedBinaryArray;
-
-	decompressor.FlushCache();
-	compressedData.Empty();
-
-
-	std::string buffer(*DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num());
+	std::string buffer((char*)saveData.GetData(), saveData.Num());
 
 	MapSaveParser<SaveObject> parser;
 	std::vector<SaveObject> loadedObjects;
 	if (!parser.read(buffer, loadedObjects))
 	{
 		//TODO: Handle error
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("parser failed"));
+		}
 		return false;
 	}
 
+	location.RemoveFromEnd(TEXT(FILE_EXT));
+	SetLevelName(location);
 
+	for (const auto& obj : loadedObjects)
+	{
+		FDecorative decor(obj);
+		AddNewObject(decor);
+	}
 
 	return true;
 }
+
+int ALevelDesignLog::GetActorCount() const
+{
+	return (int)m_placedObjects.size();
+}
+
+UStaticMesh * ALevelDesignLog::GetMeshOf(int index) const
+{
+	if (index > m_placedObjects.size() || index < 0)
+		return nullptr;
+
+	FString path = "/Game/Models/Ruins/Nature/" + m_placedObjects[index].name;
+	return Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), nullptr, *path));
+}
+
+bool ALevelDesignLog::GetInfoOf(int index, FDecorative& obj) const
+{
+	if (index > m_placedObjects.size() || index < 0)
+		return false;
+
+	obj = m_placedObjects[index];
+	return true;
+}
+
 

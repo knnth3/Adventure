@@ -10,24 +10,48 @@
 
 //using json = nlohmann::json;
 
+struct ShortString
+{
+	ShortString()
+	{
+	}
+
+	ShortString(FString string)
+	{
+		int size = (string.Len() < 10) ? string.Len() : 10;
+		for (int index = 0; index < size; index++)
+		{
+			data[index] = string[index];
+		}
+		data[9] = 0;
+	}
+
+	char data[10] = {};
+};
+
 struct SaveObject
 {
 	SaveObject()
 	{
-		id = 0;
+		name = ShortString();
 		x = 0;
 		y = 0;
 	}
-	SaveObject(int ID, float X, float Y)
+	SaveObject(FString Name, float X, float Y)
 	{
-		id = ID;
+		name = Name;
 		x = X;
 		y = Y;
 	}
-	int id;
+
+	FString to_fstr()const
+	{
+		FString str;
+	}
+
+	ShortString name;
 	float x;
 	float y;
-	float z;
 };
 
 USTRUCT(BlueprintType)
@@ -48,9 +72,16 @@ public:
 		position = Position;
 	}
 
+	FDecorative(SaveObject obj)
+	{
+		name = FString(obj.name.data);
+		position.X = obj.x;
+		position.Y = obj.y;
+	}
+
 	SaveObject GetSaveObject()const
 	{
-		return SaveObject(0, position.X, position.Y);
+		return SaveObject(name, position.X, position.Y);
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Decorative")
@@ -92,9 +123,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
 	bool LoadLogFrom(FString location);
 
+	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
+	int GetActorCount()const;
+
+	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
+	UStaticMesh* GetMeshOf(int index)const;
+
+	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
+	bool GetInfoOf(int index, FDecorative& obj) const;
+
+	//UClass* DefaultPawnClass = FindObject<UClass>(ANY_PACKAGE, *pawnClassName);
+
 private:
 
-	//json m_savedata;
 	FString m_levelName;
 	std::vector<FDecorative> m_placedObjects;
 	std::map<std::pair<int, int>, bool> m_occupiedGridSpaces;
