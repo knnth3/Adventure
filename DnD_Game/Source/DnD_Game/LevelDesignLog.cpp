@@ -3,11 +3,11 @@
 #include "LevelDesignLog.h"
 #include "PlatformFilemanager.h"
 #include "FileHelper.h"
-#include "MapSaveParser.h"
 #include "FileManager.h"
 #include "Serialization/Archive.h"
 #include "Runtime/Core/Public/Serialization/ArchiveSaveCompressedProxy.h"
 #include "Runtime/Core/Public/Serialization/ArchiveLoadCompressedProxy.h"
+#include "Engine/Engine.h"
 #include <fstream> 
 
 #define FILE_EXT ".map"
@@ -15,19 +15,18 @@
 // Sets default values
 ALevelDesignLog::ALevelDesignLog()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	m_mapRows = 10;
+	m_mapColumns = 10;
+	PrimaryActorTick.bCanEverTick = false;
 
 }
 
-// Called when the game starts or when spawned
 void ALevelDesignLog::BeginPlay()
 {
 	Super::BeginPlay();
 	
 }
 
-// Called every frame
 void ALevelDesignLog::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -46,37 +45,43 @@ void ALevelDesignLog::SetLevelName(FString name)
 	m_levelName = name;
 }
 
+void ALevelDesignLog::SetLevelSize(int rows, int columns)
+{
+	m_mapRows = rows;
+	m_mapColumns = columns;
+}
+
+void ALevelDesignLog::SetLevelInfo(FString name, int rows, int columns)
+{
+	m_levelName = name;
+	m_mapRows = rows;
+	m_mapColumns = columns;
+}
+
 bool ALevelDesignLog::SaveLogTo(FString location)
 {
-	bool AllowOverwriting = false;
-
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 	FString SaveDirectory = FString(FPlatformProcess::UserDir()) + "/DnD_Game";
 	FString FileName = m_levelName + FILE_EXT;
 	std::string title(TCHAR_TO_UTF8(*m_levelName));
 
+	MapFileHeader header;
+	header.Columns = m_mapColumns;
+	header.Rows = m_mapRows;
+	header.Name = m_levelName;
 
-	MapSaveParser<SaveObject> parser;
-	TArray<uint8> saveData;
+	MapSaveParser<SaveObject> parser(header);
 
 	//Load in all save files before write
 	for (const auto& obj : m_placedObjects)
 	{
-		parser.push_back(obj.GetSaveObject());
+		parser.Push_back(obj.GetSaveObject());
 	}
 
-	if (parser.empty())
-		return false;
+	auto buffer = parser.Data();
 
-	std::string buffer = parser.to_str();
+	TArray<uint8> saveData;
 	saveData.Append((uint8*)&buffer[0], buffer.size());
-
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::FromInt((int)buffer.size()));
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::FromInt((int)saveData.Num()));
-	}
 
 	// CreateDirectoryTree returns true if the destination
 	// directory existed prior to call or has been created
@@ -86,6 +91,36 @@ bool ALevelDesignLog::SaveLogTo(FString location)
 		// Get absolute file path
 		FString AbsoluteFilePath = SaveDirectory + "/" + FileName;
 		FFileHelper::SaveArrayToFile(saveData, *AbsoluteFilePath);
+	}
+
+	return true;
+}
+
+bool ALevelDesignLog::LoadLogFrom(FString location)
+{
+	FString SaveDirectory = FString(FPlatformProcess::UserDir()) + "/DnD_Game";
+	FString AbsoluteFilePath = SaveDirectory + "/" + location;
+
+	TArray<uint8> saveData;
+	if (!FFileHelper::LoadFileToArray(saveData, *AbsoluteFilePath))
+		return false;
+
+	uint8_t* temp = saveData.GetData();
+	std::vector<byte> buffer(temp, temp + saveData.Num());
+
+	MapSaveParser<SaveObject> parser;
+
+	if (!parser.Load(buffer))
+		return false;
+
+	MapFileHeader header = parser.GetMapHeaderInfo();
+	SetLevelName(header.Name.to_fstr());
+	SetLevelSize(header.Rows, header.Columns);
+
+	for (const auto& obj : parser.GetObjects())
+	{
+		FDecorative decor(obj);
+		AddNewObject(decor);
 	}
 
 	return true;
@@ -101,41 +136,6 @@ bool ALevelDesignLog::IsGridSpaceOccupied(FVector2D position) const
 	}
 
 	return false;
-}
-
-bool ALevelDesignLog::LoadLogFrom(FString location)
-{
-	FString SaveDirectory = FString(FPlatformProcess::UserDir()) + "/DnD_Game";
-	FString AbsoluteFilePath = SaveDirectory + "/" + location;
-
-	TArray<uint8> saveData;
-	if (!FFileHelper::LoadFileToArray(saveData, *AbsoluteFilePath))
-		return false;
-
-	std::string buffer((char*)saveData.GetData(), saveData.Num());
-
-	MapSaveParser<SaveObject> parser;
-	std::vector<SaveObject> loadedObjects;
-	if (!parser.read(buffer, loadedObjects))
-	{
-		//TODO: Handle error
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("parser failed"));
-		}
-		return false;
-	}
-
-	location.RemoveFromEnd(TEXT(FILE_EXT));
-	SetLevelName(location);
-
-	for (const auto& obj : loadedObjects)
-	{
-		FDecorative decor(obj);
-		AddNewObject(decor);
-	}
-
-	return true;
 }
 
 int ALevelDesignLog::GetActorCount() const
@@ -159,6 +159,24 @@ bool ALevelDesignLog::GetInfoOf(int index, FDecorative& obj) const
 
 	obj = m_placedObjects[index];
 	return true;
+}
+
+void ALevelDesignLog::GetLevelInfo(FString & name, int & rows, int & columns) const
+{
+	name = m_levelName;
+	rows = m_mapRows;
+	columns = m_mapColumns;
+}
+
+void ALevelDesignLog::GetLevelSize(int & rows, int & columns) const
+{
+	rows = m_mapRows;
+	columns = m_mapColumns;
+}
+
+void ALevelDesignLog::GetLevelName(FString & name) const
+{
+	name = m_levelName;
 }
 
 
