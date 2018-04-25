@@ -102,6 +102,9 @@ public:
 	virtual bool LoadLogFrom(FString location);
 
 	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
+	virtual void ClearLog();
+
+	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
 	virtual bool IsGridSpaceOccupied(FVector2D position) const;
 
 	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
@@ -122,14 +125,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "LevelDesign")
 	virtual void GetLevelName(FString& name) const;
 
-	//UClass* DefaultPawnClass = FindObject<UClass>(ANY_PACKAGE, *pawnClassName);
+
 
 private:
 
-	FString m_levelName;
-	int m_mapRows;
-	int m_mapColumns;
-	std::vector<FDecorative> m_placedObjects;
+	int                                 m_mapRows;
+	int                                 m_mapColumns;
+	FString                             m_levelName;
+	std::vector<FDecorative>            m_placedObjects;
 	std::map<std::pair<int, int>, bool> m_occupiedGridSpaces;
 		
 };

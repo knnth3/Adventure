@@ -113,6 +113,9 @@ bool ALevelDesignLog::LoadLogFrom(FString location)
 	if (!parser.Load(buffer))
 		return false;
 
+	//Clear previous log (if exists) before loading in new info
+	ClearLog();
+
 	MapFileHeader header = parser.GetMapHeaderInfo();
 	SetLevelName(header.Name.to_fstr());
 	SetLevelSize(header.Rows, header.Columns);
@@ -124,6 +127,15 @@ bool ALevelDesignLog::LoadLogFrom(FString location)
 	}
 
 	return true;
+}
+
+void ALevelDesignLog::ClearLog()
+{
+	m_mapRows = 0;
+	m_mapColumns = 0;
+	m_levelName = "";
+	m_placedObjects.clear();
+	m_occupiedGridSpaces.clear();
 }
 
 bool ALevelDesignLog::IsGridSpaceOccupied(FVector2D position) const
@@ -145,11 +157,14 @@ int ALevelDesignLog::GetActorCount() const
 
 UStaticMesh * ALevelDesignLog::GetMeshOf(int index) const
 {
-	if (index > m_placedObjects.size() || index < 0)
-		return nullptr;
+	UStaticMesh* foundMesh = nullptr;
+	if (index < m_placedObjects.size() && index > 0)
+	{
+		FString path = "/Game/Models/Ruins/Nature/" + m_placedObjects[index].name;
+		foundMesh = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), nullptr, *path));
+	}
 
-	FString path = "/Game/Models/Ruins/Nature/" + m_placedObjects[index].name;
-	return Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), nullptr, *path));
+	return foundMesh;
 }
 
 bool ALevelDesignLog::GetInfoOf(int index, FDecorative& obj) const
