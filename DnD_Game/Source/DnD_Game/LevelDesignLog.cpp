@@ -158,7 +158,7 @@ int ALevelDesignLog::GetActorCount() const
 UStaticMesh * ALevelDesignLog::GetMeshOf(int index) const
 {
 	UStaticMesh* foundMesh = nullptr;
-	if (index < m_placedObjects.size() && index > 0)
+	if (index < m_placedObjects.size() && index >= 0)
 	{
 		FString path = "/Game/Models/Ruins/Nature/" + m_placedObjects[index].name;
 		foundMesh = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), nullptr, *path));
