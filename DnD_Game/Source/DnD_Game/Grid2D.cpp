@@ -2,6 +2,9 @@
 
 #include "Grid2D.h"
 #define MAKE_CELL(x) GridCellPtr(new GridCell(x))
+#define PRIORITY_QUEUE(T) std::priority_queue<std::shared_ptr<T>, std::vector<std::shared_ptr<T>>, shared_ptr_compare<T>>
+#include <queue>
+#include <functional>
 
 AGrid2D::AGrid2D()
 {
@@ -31,8 +34,8 @@ GridCellPtr AGrid2D::At(int x, int y)const
 
 int AGrid2D::GetDistance(int x1, int y1, int x2, int y2)const
 {
-	int xDistance = fabsf(x1 - x2);
-	int yDistance = fabsf(y1 - y2);
+	int xDistance = abs(x1 - x2);
+	int yDistance = abs(y1 - y2);
 
 	if(xDistance > yDistance)
 		return (14 * yDistance) + 10 * (xDistance - yDistance);
@@ -139,77 +142,59 @@ bool AstarPathFind::FindPath(AGrid2D * grid, int x1, int y1, int x2, int y2, std
 	if (!start || !end)
 		return false;
 
-	std::list<GridCellPtr> openSet;
-	std::list<GridCellPtr> closedSet;
+	PRIORITY_QUEUE(GridCell) openQueue;
+	std::map<coordinate, GridCellPtr> openSet;
+	std::map<coordinate, GridCellPtr> closedSet;
 
-	openSet.push_back(start);
+	openQueue.push(start);
+	openSet[start->Location] = start;
 
-	while (!openSet.empty())
+
+	while (!openQueue.empty())
 	{
-		auto current = openSet.begin();
-		//Relplace
-		for (auto iterator = openSet.begin(); iterator != openSet.end(); ++iterator)
-		{
-			auto curr = current->get();
-			auto item = iterator->get();
-			if (item->F_Cost() <= curr->F_Cost())
-			{
-				current = iterator;
-			}
-			else if (item->F_Cost() == curr->F_Cost())
-			{
-				if (item->H_Cost < curr->H_Cost)
-				{
-					current = iterator;
-				}
-			}
-		}
+		auto current = openQueue.top();
+		openQueue.pop();
+		openSet.erase(current->Location);
 
-		GridCellPtr found = *current;
-		openSet.erase(current);
-		closedSet.push_back(found);
+		closedSet[current->Location] = current;
 
-		if (found == end)
+		if (current == end)
 		{
 			//Finished
 			list = TraceParentOwnership(start, end);
 			return true;
 		}
 
-		for (const auto& neighbor : found->GetEmptyNeighbors())
+		for (const auto& neighbor : current->GetEmptyNeighbors())
 		{
-			bool bInClosedSet = false;
-			for (const auto& closedCell : closedSet)
+			if (closedSet.find(neighbor->Location) != closedSet.end())
 			{
-				if (neighbor == closedCell)
-				{
-					bInClosedSet = true;
-				}
+				continue;
 			}
 
-			if (!bInClosedSet)
+			int newG_Cost = current->G_Cost + grid->GetDistance(current, neighbor);
+
+			bool bInOpenSet = false;
+			if (openSet.find(neighbor->Location) != openSet.end())
 			{
-				int newCost = found->G_Cost + grid->GetDistance(found, neighbor);
+				bInOpenSet = true;
+			}
 
-				bool bInOpenSet = false;
-				for (const auto& openCell : openSet)
+			if (neighbor->Location == std::pair<int, int>(8, 9))
+			{
+				printf("");
+			}
+
+			if (newG_Cost < neighbor->G_Cost || !bInOpenSet)
+			{
+				neighbor->G_Cost = newG_Cost;
+				neighbor->H_Cost = grid->GetDistance(neighbor, end);
+				neighbor->Parent = current;
+
+				if (!bInOpenSet)
 				{
-					if (neighbor == openCell)
-					{
-						bInOpenSet = true;
-					}
-				}
-
-				if (newCost < neighbor->G_Cost || !bInOpenSet)
-				{
-					neighbor->G_Cost = newCost;
-					neighbor->H_Cost = grid->GetDistance(neighbor, end);
-					neighbor->Parent = found;
-
-					if (!bInOpenSet)
-					{
-						openSet.push_back(neighbor);
-					}
+					openQueue.push(neighbor);
+					openSet[neighbor->Location] = neighbor;
 				}
 			}
 		}

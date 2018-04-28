@@ -12,6 +12,15 @@
 
 typedef std::pair<int, int> coordinate;
 
+template <typename T>
+struct shared_ptr_compare
+{
+	bool operator () (std::shared_ptr<T> a, std::shared_ptr<T> b) const
+	{
+		return !(*a < *b);
+	}
+};
+
 struct DND_GAME_API GridCell
 {
 	GridCell()
@@ -49,9 +58,19 @@ struct DND_GAME_API GridCell
 		Location = location;
 	}
 
-	int F_Cost()
+	int F_Cost()const
 	{
 		return H_Cost + G_Cost;
+	}
+
+	bool operator<(const GridCell& b)
+	{
+		if (F_Cost() == b.F_Cost())
+		{
+			return H_Cost <= b.H_Cost;
+		}
+
+		return F_Cost() < b.F_Cost();
 	}
 
 	std::list<std::shared_ptr<GridCell>> GetEmptyNeighbors()
