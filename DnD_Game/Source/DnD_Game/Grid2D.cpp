@@ -32,6 +32,11 @@ GridCellPtr AGrid2D::At(int x, int y)const
 	return cell;
 }
 
+GridCellPtr AGrid2D::At(coordinate location) const
+{
+	return At(location.first, location.second);
+}
+
 int AGrid2D::GetDistance(int x1, int y1, int x2, int y2)const
 {
 	int xDistance = abs(x1 - x2);
@@ -129,6 +134,74 @@ void AGrid2D::Clear()
 	m_gridRows = 0;
 	m_gridColumns = 0;
 	m_gridIndex.clear();
+}
+
+void AGrid2D::SetSpawnLocations(const TArray<FVector2D>& locations)
+{
+	for (const auto& item : locations)
+	{
+		coordinate location(-item.X, item.Y);
+		GridCellPtr cell = At(location);
+		if (cell)
+		{
+			m_spawnLocations.push_back(cell->Location);
+		}
+	}
+}
+
+bool AGrid2D::GetSpawnPositionForActor(FVector2D & GridLocation)
+{
+	for (const auto& location : m_spawnLocations)
+	{
+		GridCellPtr cell = At(location);
+		if (cell && !cell->Ocupied)
+		{
+			GridLocation.X = -location.first;
+			GridLocation.Y = location.second;
+			cell->Ocupied = true;
+			return true;
+		}
+	}
+	return false;
+}
+
+void AGrid2D::RemoveSpawnLocation(int x, int y)
+{
+	for (int index = 0; index < m_spawnLocations.size(); index++)
+	{
+		if (m_spawnLocations[index] == coordinate(x, y))
+		{
+			//Order of spawn locations do not matter
+			int lastIndex = m_spawnLocations.size() - 1;
+			if (index < lastIndex)
+			{
+				m_spawnLocations[index] = m_spawnLocations[lastIndex];
+				m_spawnLocations.pop_back();
+			}
+			else
+			{
+				m_spawnLocations.pop_back();
+			}
+		}
+	}
+}
+
+void AGrid2D::SetOccupied(int x, int y)
+{
+	GridCellPtr cell = At(-x, y);
+
+	if (cell)
+		cell->Ocupied = true;
+}
+
+bool AGrid2D::IsOccupied(int x, int y)const
+{
+	GridCellPtr cell = At(-x, y);
+
+	if (cell)
+		return cell->Ocupied;
+
+	return false;
 }
 
 bool AstarPathFind::FindPath(AGrid2D * grid, int x1, int y1, int x2, int y2, std::list<coordinate>& list)

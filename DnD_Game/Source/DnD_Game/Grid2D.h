@@ -5,9 +5,9 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <vector>
 
 #include "CoreMinimal.h"
-//#include "Engine\Source\Runtime\Core\Public\Containers\Array.h"
 #include "Grid2D.generated.h"
 
 typedef std::pair<int, int> coordinate;
@@ -156,6 +156,7 @@ public:
 	AGrid2D();
 	AGrid2D(int rows, int columns);
 	GridCellPtr At(int x, int y)const;
+	GridCellPtr At(coordinate location)const;
 	int GetDistance(int x1, int y1, int x2, int y2)const;
 	int GetDistance(const GridCellPtr& from, const GridCellPtr& to)const;
 	bool FindPath(int x1, int y1, int x2, int y2, std::list<coordinate>& list);
@@ -169,10 +170,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Grid2D")
 	void Clear();
 
+	//Order of spawn locations will not matter
+	UFUNCTION(BlueprintCallable, Category = "Grid2D")
+	void SetSpawnLocations(const TArray<FVector2D>& locations);
+
+	UFUNCTION(BlueprintCallable, Category = "Grid2D")
+	void RemoveSpawnLocation(int x, int y);
+
+	UFUNCTION(BlueprintCallable, Category = "Grid2D")
+	void SetOccupied(int x, int y);
+
+	UFUNCTION(BlueprintCallable, Category = "Grid2D")
+	bool IsOccupied(int x, int y)const;
+
+	//False implies all spawn points are occupied
+	UFUNCTION(BlueprintCallable, Category = "Grid2D")
+	bool GetSpawnPositionForActor(FVector2D& GridLocation);
+
 private:
 
 	int                               m_gridRows;
 	int                               m_gridColumns;
+	std::vector<coordinate>           m_spawnLocations;
 	std::map<coordinate, GridCellPtr> m_gridIndex;
 };
 
