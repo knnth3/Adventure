@@ -5,3 +5,5 @@
 
 IMPLEMENT_PRIMARY_GAME_MODULE( FDefaultGameModuleImpl, Adventure, "Adventure" );
  
+//Log Types
+DEFINE_LOG_CATEGORY(LogNotice);

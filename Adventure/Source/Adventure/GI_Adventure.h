@@ -18,11 +18,4 @@ public:
 
 	UGI_Adventure();
 
-	UFUNCTION(BlueprintCallable)
-	void LoadMainMenu();
-
-private:
-
-	TSubclassOf<class UUserWidget> m_UMGBlueprint;
-
 };
