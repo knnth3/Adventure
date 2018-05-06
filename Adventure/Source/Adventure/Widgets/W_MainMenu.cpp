@@ -18,6 +18,13 @@ bool UW_MainMenu::Initialize()
 	{
 		Play->OnClicked.AddDynamic(this, &UW_MainMenu::LoadNextState);
 	}
+	if (Exit)
+	{
+		Exit->OnClicked.AddDynamic(this, &UW_MainMenu::CloseGame);
+	}
+
+	m_joinSettings.Address = "127.0.0.1";
+	m_joinSettings.Port = 1234;
 
 	m_active = ACTIVE_MENU::HOME;
 	return preInit;
@@ -28,18 +35,16 @@ void UW_MainMenu::LoadNextState()
 	switch (m_active)
 	{
 	case ACTIVE_MENU::HOME:
-		UE_LOG(LogNotice, Error, TEXT("Load Next state was Home"));
+		UE_LOG(LogNotice, Error, TEXT("Load Next state was HOME"));
 		break;
 	case ACTIVE_MENU::JOIN:
-		JoinGame("");
+		JoinGame(m_joinSettings.Address);
 		break;
 	case ACTIVE_MENU::HOST:
-		HostGame("");
+		HostGame(m_hostSettings.MapName);
 		break;
 	case ACTIVE_MENU::GAMEBUILDER:
-		UE_LOG(LogNotice, Error, TEXT("Load Next state was GameBuilder"));
-		break;
-	case ACTIVE_MENU::CUSTOM:
+		UE_LOG(LogNotice, Display, TEXT("Load Next state was GameBuilder"));
 		break;
 	default:
 		break;
@@ -93,6 +98,20 @@ void UW_MainMenu::ShowGameBuilderMenu()
 	}
 }
 
+void UW_MainMenu::ShowHomeMenu()
+{
+	if (SubMenu && m_homeMenu)
+	{
+		SubMenu->SetActiveWidget(m_homeMenu);
+		m_active = ACTIVE_MENU::HOME;
+	}
+}
+
+void UW_MainMenu::ShowCustom()
+{
+	m_active = ACTIVE_MENU::CUSTOM;
+}
+
 void UW_MainMenu::SetHostGameMenuClass(TSubclassOf<UW_MainMenu_Child> HostMenuClass)
 {
 	if (SubMenu && HostMenuClass)
@@ -139,6 +158,24 @@ void UW_MainMenu::SetGameBuilderMenuClass(TSubclassOf<UW_MainMenu_Child> GameBui
 			{
 				m_gameBuilderMenu->ConnectTo(this);
 				SubMenu->AddChild(m_gameBuilderMenu);
+			}
+		}
+	}
+}
+
+void UW_MainMenu::SetHomeMenuClass(TSubclassOf<class UW_MainMenu_Child> HomeMenuClass)
+{
+	if (SubMenu && HomeMenuClass)
+	{
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			m_homeMenu = CreateWidget<UW_MainMenu_Child>(World, HomeMenuClass);
+			if (m_homeMenu)
+			{
+				m_homeMenu->ConnectTo(this);
+				SubMenu->AddChild(m_homeMenu);
+				SubMenu->SetActiveWidget(m_homeMenu);
 			}
 		}
 	}
@@ -193,7 +230,31 @@ void UW_MainMenu::Deactivate()
 	RemoveFromViewport();
 }
 
-void UW_MainMenu::SetGameBuilderSettings(GAMEBUILDER_SETTINGS settings)
+void UW_MainMenu::SetGameBuilderSettings(FGAMEBUILDER_SETTINGS settings)
 {
 	m_gbSettings = settings;
+	//UE_LOG(LogNotice, Error, TEXT("Load Next state was JOIN: %s"), *m_joinSettings.Address);
+}
+
+void UW_MainMenu::SetJoinGameSettings(FJOINGAME_SETTINGS settings)
+{
+	m_joinSettings = settings;
+}
+
+void UW_MainMenu::SetHostGameSettings(FHOSTGAME_SETTINGS settings)
+{
+	m_hostSettings = settings;
+}
+
+void UW_MainMenu::CloseGame()
+{
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		APlayerController* controller = World->GetFirstPlayerController();
+		if (controller)
+		{
+			controller->ConsoleCommand("quit", true);
+		}
+	}
 }

@@ -24,7 +24,7 @@ protected:
 	void RequestHostGame(const FString mapName);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void RequestJoinGame(const FString mapName);
+	void RequestJoinGame(const FString address = "127.0.0.1", const int port = 1234);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void RequestLaunchGameBuilder(const bool newMap = true, const int rows = 100, const int columns = 100, const FString mapName = "");
