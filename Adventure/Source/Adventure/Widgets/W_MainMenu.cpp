@@ -23,9 +23,6 @@ bool UW_MainMenu::Initialize()
 		Exit->OnClicked.AddDynamic(this, &UW_MainMenu::CloseGame);
 	}
 
-	m_joinSettings.Address = "127.0.0.1";
-	m_joinSettings.Port = 1234;
-
 	m_active = ACTIVE_MENU::HOME;
 	return preInit;
 }
@@ -38,10 +35,10 @@ void UW_MainMenu::LoadNextState()
 		UE_LOG(LogNotice, Error, TEXT("Load Next state was HOME"));
 		break;
 	case ACTIVE_MENU::JOIN:
-		JoinGame(m_joinSettings.Address);
+		JoinGame();
 		break;
 	case ACTIVE_MENU::HOST:
-		HostGame(m_hostSettings.MapName);
+		HostGame();
 		break;
 	case ACTIVE_MENU::GAMEBUILDER:
 		UE_LOG(LogNotice, Display, TEXT("Load Next state was GameBuilder"));
@@ -51,23 +48,23 @@ void UW_MainMenu::LoadNextState()
 	}
 }
 
-void UW_MainMenu::HostGame(const FString mapName)
+void UW_MainMenu::HostGame()
 {
-	if (m_interface)
+	if (m_interface && m_hostSettings)
 	{
-		m_interface->HostGame(mapName);
+		m_interface->HostGame(*m_hostSettings);
 	}
 }
 
-void UW_MainMenu::JoinGame(const FString address)
+void UW_MainMenu::JoinGame()
 {
-	if (m_interface)
+	if (m_interface && m_joinSettings)
 	{
-		m_interface->JoinGame(address);
+		m_interface->JoinGame(*m_joinSettings);
 	}
 }
 
-void UW_MainMenu::LoadEditor(const FString mapName)
+void UW_MainMenu::LoadEditor()
 {
 }
 
@@ -232,18 +229,45 @@ void UW_MainMenu::Deactivate()
 
 void UW_MainMenu::SetGameBuilderSettings(FGAMEBUILDER_SETTINGS settings)
 {
-	m_gbSettings = settings;
+	m_gbSettings = std::make_unique<FGAMEBUILDER_SETTINGS>(settings);
 	//UE_LOG(LogNotice, Error, TEXT("Load Next state was JOIN: %s"), *m_joinSettings.Address);
 }
 
 void UW_MainMenu::SetJoinGameSettings(FJOINGAME_SETTINGS settings)
 {
-	m_joinSettings = settings;
+	m_joinSettings = std::make_unique<FJOINGAME_SETTINGS>(settings);
 }
 
 void UW_MainMenu::SetHostGameSettings(FHOSTGAME_SETTINGS settings)
 {
-	m_hostSettings = settings;
+	m_hostSettings = std::make_unique<FHOSTGAME_SETTINGS>(settings);
+}
+
+void UW_MainMenu::RefreshServerList()
+{
+	if (m_interface)
+	{
+		FSESSION_SEARCH_SETTINGS settings;
+		m_interface->FindSessions(settings);
+	}
+}
+
+const TArray<FString> UW_MainMenu::GetServerList() const
+{
+	if (m_interface)
+	{
+		return m_interface->GetServerList();
+	}
+	return TArray<FString>();
+}
+
+bool UW_MainMenu::IsServerQueryActive()const
+{
+	if (m_interface)
+	{
+		return m_interface->IsServerQueryActive();
+	}
+	return false;
 }
 
 void UW_MainMenu::CloseGame()

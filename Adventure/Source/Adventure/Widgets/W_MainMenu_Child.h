@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UI_MainMenu.h"
 #include "Blueprint/UserWidget.h"
 #include "W_MainMenu_Child.generated.h"
 
@@ -21,13 +22,19 @@ public:
 protected:
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void RequestHostGame(const FString mapName);
+	void RequestHostGame(FHOSTGAME_SETTINGS settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void RequestJoinGame(const FString address = "127.0.0.1", const int port = 1234);
+	void RequestJoinGame(FJOINGAME_SETTINGS settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void RequestLaunchGameBuilder(const bool newMap = true, const int rows = 100, const int columns = 100, const FString mapName = "");
+	void RequestLaunchGameBuilder(FGAMEBUILDER_SETTINGS settings);
+
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	const TArray<FString> GetServerList()const;
+
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	virtual bool IsServerQueryActive()const;
 
 private:
 

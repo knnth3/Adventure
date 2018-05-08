@@ -2,11 +2,9 @@
 
 #pragma once
 
+#include "Adventure.h"
 #include "UI_MainMenu.h"
-#include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
-#include "OnlineSubsystem.h"
-#include "OnlineSessionInterface.h"
 #include "GI_Adventure.generated.h"
 
 /**
@@ -19,38 +17,49 @@ class ADVENTURE_API UGI_Adventure : public UGameInstance, public IUI_MainMenu
 
 public:
 
-	UGI_Adventure();
+	UGI_Adventure(const FObjectInitializer& ObjectInitializer);
 	virtual void Init()override;
-
-	//Online session callbacks
-	void OnCreateSession(FName name, bool success);
-	void OnRemoveSession(FName name, bool success);
-	void OnFoundSessions(bool success);
 
 	UFUNCTION(BlueprintCallable)
 	void Disconnect();
 
 	UFUNCTION(BlueprintCallable)
-	void JoinGame(const FString address);
+	virtual bool JoinGame(FJOINGAME_SETTINGS settings)override;
 
 	UFUNCTION(BlueprintCallable)
-	void HostGame(const FString map);
+	virtual bool HostGame(FHOSTGAME_SETTINGS settings)override;
+
+	UFUNCTION(BlueprintCallable)
+	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings)override;
 
 	UFUNCTION(BlueprintCallable)
 	void LoadMainMenu();
 
 	UFUNCTION(BlueprintCallable)
-	const TArray<FString> GetSessionSearchResults()const;
+	const TArray<FString> GetServerList()const;
 
 	UFUNCTION(BlueprintCallable)
-	bool IsFindingSessions()const;
+	virtual bool IsServerQueryActive()const;
+
+protected:
+
+	//Online session callbacks
+	void OnCreateOnlineSessionComplete(FName SessionName, bool bWasSuccessful);
+	void OnStartOnlineSessionComplete(FName SessionName, bool bWasSuccessful);
+	void OnFindOnlineSessionsComplete(bool bWasSuccessful);
+	void OnJoinOnlineSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type result);
+	void OnDestroyOnlineSessionComplete(FName SessionName, bool bWasSuccessful);
+	void OnNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString);
 
 private:
 
-	bool bFindingSessions;
+	//Main Menu
 	class UW_MainMenu* m_mainMenu;
-	IOnlineSessionPtr m_onlineSession;
 	TSubclassOf<class UW_MainMenu> MenuClass;
+
+	//Online Sessions
+	bool bFindingSessions;
 	TArray<FString> m_sessionSearchResults;
-	TSharedPtr<FOnlineSessionSearch> m_sessionSearch;
+	TSharedPtr<class FOnlineSessionSearch> SessionSearch;
+	TSharedPtr<class FOnlineSessionSettings> SessionSettings;
 };

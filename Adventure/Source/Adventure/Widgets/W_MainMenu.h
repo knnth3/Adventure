@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <memory>
 #include "CoreMinimal.h"
 #include "UI_MainMenu.h"
 #include "Blueprint/UserWidget.h"
@@ -18,48 +19,6 @@ enum class ACTIVE_MENU
 	HOST,
 	GAMEBUILDER,
 	CUSTOM
-};
-
-USTRUCT(BlueprintType)
-struct FGAMEBUILDER_SETTINGS
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameBuilder Settings")
-	int Rows = 10;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameBuilder Settings")
-	int Colums = 10;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameBuilder Settings")
-	bool bNewMap = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameBuilder Settings")
-	FString MapName = "";
-};
-
-USTRUCT(BlueprintType)
-struct FJOINGAME_SETTINGS
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Join Game Settings")
-	int Port = 1234;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Join Game Settings")
-	FString Address = "";
-};
-
-USTRUCT(BlueprintType)
-struct FHOSTGAME_SETTINGS
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host Game Settings")
-	int MaxPlayers = 10;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host Game Settings")
-	FString MapName = "";
 };
 
 UCLASS()
@@ -82,6 +41,15 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void SetHostGameSettings(FHOSTGAME_SETTINGS settings);
+
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	void RefreshServerList();
+
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	const TArray<FString> GetServerList()const;
+
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	virtual bool IsServerQueryActive()const;
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void CloseGame();
@@ -125,7 +93,6 @@ protected:
 	class UButton* Exit;
 
 public:
-
 	void AddCallbackInterface(IUI_MainMenu* Interface);
 	bool Activate();
 	void Deactivate();
@@ -135,17 +102,17 @@ private:
 	UFUNCTION()
 	void LoadNextState();
 
-	void HostGame(const FString mapName);
-	void JoinGame(const FString address = "127.0.0.1");
-	void LoadEditor(const FString mapName = "");
+	void HostGame();
+	void JoinGame();
+	void LoadEditor();
 
 	ACTIVE_MENU m_active;
-	FHOSTGAME_SETTINGS m_hostSettings;
-	FJOINGAME_SETTINGS m_joinSettings;
-	FGAMEBUILDER_SETTINGS m_gbSettings;
 	IUI_MainMenu* m_interface = nullptr;
 	class UW_MainMenu_Child* m_homeMenu = nullptr;
 	class UW_MainMenu_Child* m_hostMenu = nullptr;
 	class UW_MainMenu_Child* m_joinMenu = nullptr;
 	class UW_MainMenu_Child* m_gameBuilderMenu = nullptr;
+	std::unique_ptr<FHOSTGAME_SETTINGS> m_hostSettings;
+	std::unique_ptr<FJOINGAME_SETTINGS> m_joinSettings;
+	std::unique_ptr<FGAMEBUILDER_SETTINGS> m_gbSettings;
 };
