@@ -5,6 +5,9 @@
 APC_Adventure_Default::APC_Adventure_Default()
 {
 	bShowMouseCursor = true;
+	bEnableClickEvents = true;
+	bEnableMouseOverEvents = true;
+	bEnableTouchEvents = true;
 	//FInputModeDataBase input;
 	//SetInputMode();
 }
