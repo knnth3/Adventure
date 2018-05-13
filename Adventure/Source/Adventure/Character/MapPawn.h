@@ -18,7 +18,7 @@ struct ADVENTURE_API FStatSheet
 
 	//Meters per second
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	float MoveSpeed = 10;
+	float MoveSpeed = 5;
 
 };
 
@@ -42,14 +42,30 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Stat Sheet")
+	//Set the pawns destination location
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void SetDestination(FVector WorldLocation);
+
+	//Returns the pawns stats
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	FStatSheet GetStatSheet()const;
 
 private:
 
+	//Moves a pawn if its destination is not the same as its position
 	void MovePawn(float DeltaTime);
 
-	bool bMoving;
+	//Server Functions
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetDestination(FVector WorldLocation);
+
+	UPROPERTY(Replicated)
 	FStatSheet m_stats;
+
+	UPROPERTY(Replicated)
+	bool bMoving;
+
+	UPROPERTY(Replicated)
 	FVector m_destination;
 };
