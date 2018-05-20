@@ -15,8 +15,16 @@ class ADVENTURE_API AGM_Adventure_MainMenu : public AGameModeBase
 {
 	GENERATED_BODY()
 	
+protected:
+	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+
 public:
 
 	AGM_Adventure_MainMenu();
+
+private:
+
+	class AActor * NewActor;
 
 };

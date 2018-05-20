@@ -6,7 +6,32 @@
 #include "GameFramework/Pawn.h"
 #include "MapPawn.generated.h"
 
+USTRUCT(BlueprintType)
+struct FCameraSettings
+{
+	GENERATED_BODY()
 
+	//Units in Degrees
+		UPROPERTY(BlueprintReadWrite)
+		float AngularVelocity;
+
+	//Units in m/s
+	UPROPERTY(BlueprintReadWrite)
+	float ZoomSpeed;
+
+	UPROPERTY(BlueprintReadWrite)
+	float MaxUpRotation;
+
+	UPROPERTY(BlueprintReadWrite)
+	float MaxDownRotation;
+
+	UPROPERTY(BlueprintReadWrite)
+	float MaxInZoom;
+
+	UPROPERTY(BlueprintReadWrite)
+	float MaxOutZoom;
+
+};
 
 USTRUCT(BlueprintType)
 struct ADVENTURE_API FStatSheet
@@ -32,6 +57,21 @@ public:
 	AMapPawn();
 
 protected:
+	/** Units in meters/seconds/degrees */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	FCameraSettings CameraSettings;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
+	class USceneComponent* Scene;
+
+	/** Camera boom positioning the camera behind the character */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
+	class USpringArmComponent* CameraBoom;
+
+	/** Follow camera */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	class UCameraComponent* FollowCamera;
+
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 

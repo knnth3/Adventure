@@ -4,7 +4,6 @@
 #include "Basics.h"
 #include "DrawDebugHelpers.h"
 #include "Adventure.h"
-#include "Components/InputComponent.h"
 
 FString GetStringOf(ENetRole Role)
 {
@@ -30,6 +29,37 @@ AMapPawn::AMapPawn()
 	PrimaryActorTick.bCanEverTick = true;
 	bMoving = false;
 	bReplicates = true;
+
+	CameraSettings.AngularVelocity = 240.0f;
+	CameraSettings.ZoomSpeed = TO_CENTIMETERS(50.0f);
+	CameraSettings.MaxUpRotation = -85.0f;
+	CameraSettings.MaxDownRotation = -45.0f;
+	CameraSettings.MaxOutZoom = TO_CENTIMETERS(8.0f);
+	CameraSettings.MaxInZoom = TO_CENTIMETERS(2.0f);
+
+	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	PrimaryActorTick.bCanEverTick = true;
+
+	// Don't rotate when the controller rotates. Let that just affect the camera.
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
+
+	//Create a static mesh component
+	Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Focus"));
+	RootComponent = Scene;
+
+	// Create a camera boom (pulls in towards the player if there is a collision)
+	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	CameraBoom->SetupAttachment(Scene);
+	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character	
+	CameraBoom->bUsePawnControlRotation = false; // Rotate the arm based on the controller
+	CameraBoom->bEnableCameraRotationLag = true;
+	CameraBoom->CameraRotationLagSpeed = 10.0f;
+												 // Create a follow camera
+	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
+	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 }
 
 // Called when the game starts or when spawned
@@ -68,13 +98,17 @@ void AMapPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 //Set the pawns destination location
 void AMapPawn::SetDestination(FVector WorldLocation)
 {
-	m_destination.X = WorldLocation.X;
-	m_destination.Y = WorldLocation.Y;
-	m_destination.Z = GetActorLocation().Z;
+	FVector DistanceBetween = WorldLocation - GetActorLocation();
+	if (DistanceBetween.Size2D() > 50.0f)
+	{
+		m_destination.X = WorldLocation.X;
+		m_destination.Y = WorldLocation.Y;
+		m_destination.Z = GetActorLocation().Z;
 
-	bMoving = true;
+		bMoving = true;
 
-	Server_SetDestination(WorldLocation);
+		Server_SetDestination(WorldLocation);
+	}
 }
 
 //Returns the pawns stats
@@ -92,7 +126,7 @@ void AMapPawn::MovePawn(float DeltaTime)
 		FVector TravelVector = m_destination - CurrentLocation;
 		FVector DeltaLocation = TravelVector.GetSafeNormal() * (m_stats.MoveSpeed * 100) * DeltaTime;
 
-		if (TravelVector.Size() >= DeltaLocation.Size())
+		if (TravelVector.Size2D() >= DeltaLocation.Size2D())
 		{
 			AddActorWorldOffset(DeltaLocation);
 		}

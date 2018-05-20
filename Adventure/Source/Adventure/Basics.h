@@ -7,12 +7,51 @@
 #include "Engine/EngineTypes.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
-#include "FGridVector.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "Basics.generated.h"
+
+#define TO_CENTIMETERS(M) M * 100.0f
+#define TO_METERS(CM) CM / 100.0f
+
+#define CELL_LENGTH (TO_CENTIMETERS(1.0f))
+#define CELL_WIDTH (TO_CENTIMETERS(1.0f))
 
 /**
  * 
  */
+
+USTRUCT(BlueprintType)
+struct ADVENTURE_API FGridCoordinate
+{
+	GENERATED_BODY()
+
+	FGridCoordinate();
+	FGridCoordinate(int32 x, int32 y);
+	FGridCoordinate(FVector Location3D);
+
+	bool operator==(const FGridCoordinate& b);
+
+	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")
+	int32 X;
+
+	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")
+	int32 Y;
+
+};
+
+UCLASS()
+class UGridFunctions : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "GridFunctions")
+	static FVector GridToWorldLocation(const FGridCoordinate& Location);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "GridFunctions")
+	static FGridCoordinate WorldToGridLocation(const FVector& Location);
+};
+
 UCLASS()
 class ADVENTURE_API UBasicFunctions : public UObject
 {
