@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Basics.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "MapPawn.generated.h"
@@ -12,8 +13,8 @@ struct FCameraSettings
 	GENERATED_BODY()
 
 	//Units in Degrees
-		UPROPERTY(BlueprintReadWrite)
-		float AngularVelocity;
+	UPROPERTY(BlueprintReadWrite)
+	float AngularVelocity;
 
 	//Units in m/s
 	UPROPERTY(BlueprintReadWrite)
@@ -58,18 +59,18 @@ public:
 
 protected:
 	/** Units in meters/seconds/degrees */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	FCameraSettings CameraSettings;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
 	class USceneComponent* Scene;
 
 	/** Camera boom positioning the camera behind the character */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
 	class USpringArmComponent* CameraBoom;
 
 	/** Follow camera */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	class UCameraComponent* FollowCamera;
 
 	// Called when the game starts or when spawned
@@ -84,7 +85,7 @@ public:
 
 	//Set the pawns destination location
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void SetDestination(FVector WorldLocation);
+	void SetDestination(FGridCoordinate GridLocation);
 
 	//Returns the pawns stats
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
@@ -98,7 +99,7 @@ private:
 	//Server Functions
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetDestination(FVector WorldLocation);
+	void Server_SetDestination(FGridCoordinate GridLocation);
 
 	UPROPERTY(Replicated)
 	FStatSheet m_stats;

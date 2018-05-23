@@ -2,12 +2,17 @@
 
 #pragma once
 
+#include <utility>
+#include <memory>
+#include <vector>
+
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "Engine/EngineTypes.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "DrawDebugHelpers.h"
 #include "Basics.generated.h"
 
 #define TO_CENTIMETERS(M) M * 100.0f
@@ -20,6 +25,39 @@
  * 
  */
 
+typedef std::pair<int, int> CoordinatePair;
+
+template <typename T>
+using vector2D = std::vector<std::vector<T>>;
+
+template <typename T>
+struct shared_ptr_compare
+{
+	bool operator () (std::shared_ptr<T> a, std::shared_ptr<T> b) const
+	{
+		return !(*a < *b);
+	}
+};
+
+
+inline FString GetStringOf(ENetRole Role)
+{
+	switch (Role)
+	{
+	case ROLE_None:
+		return "Role: None";
+	case ROLE_SimulatedProxy:
+		return "Role: Simulated Proxy";
+	case ROLE_AutonomousProxy:
+		return "Role: Autonomous Proxy";
+	case ROLE_Authority:
+		return "Role: Authority";
+	default:
+		return "Role: Error Encountered";
+	}
+}
+
+
 USTRUCT(BlueprintType)
 struct ADVENTURE_API FGridCoordinate
 {
@@ -30,6 +68,7 @@ struct ADVENTURE_API FGridCoordinate
 	FGridCoordinate(FVector Location3D);
 
 	bool operator==(const FGridCoordinate& b);
+	CoordinatePair toPair()const;
 
 	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")
 	int32 X;

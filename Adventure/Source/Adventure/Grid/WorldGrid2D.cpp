@@ -13,11 +13,17 @@ AWorldGrid2D::AWorldGrid2D()
 {
 	m_gridRows = 0;
 	m_gridColumns = 0;
+	bReplicates = true;
+	PrimaryActorTick.bCanEverTick = true;
+	bCanBeDamaged = false;
 }
 
-AWorldGrid2D::AWorldGrid2D(int Rows, int Columns)
+void AWorldGrid2D::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	MakeGrid(Rows, Columns);
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AWorldGrid2D, m_gridRows);
+	DOREPLIFETIME(AWorldGrid2D, m_gridColumns);
 }
 
 GridCellPtr AWorldGrid2D::At(FGridCoordinate Location) const
@@ -115,6 +121,15 @@ void AWorldGrid2D::MakeGrid(int Rows, int Columns)
 			}
 		}
 	}
+	Multicast_MakeGrid(Rows, Columns);
+
+}
+
+void AWorldGrid2D::Multicast_MakeGrid_Implementation(int Rows, int Columns)
+{
+	SetActorScale3D(FVector(Rows * TO_METERS(CELL_LENGTH), Columns * TO_METERS(CELL_WIDTH), 1.0f));
+	SetActorLocation(FVector(-(Rows * CELL_LENGTH) * 0.5f, (Columns * CELL_WIDTH) * 0.5f, 0.0f));
+	OnGridResize(Rows, Columns);
 }
 
 bool AWorldGrid2D::FindPath(FGridCoordinate Begin, FGridCoordinate End, TArray<FGridCoordinate>& List)
@@ -165,6 +180,16 @@ bool AWorldGrid2D::GetOpenSpawnLocation(FGridCoordinate& GridLocation)
 		}
 	}
 	return false;
+}
+
+void AWorldGrid2D::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+}
+
+void AWorldGrid2D::CreateStaticMesh()
+{
+
 }
 
 void AWorldGrid2D::RemoveSpawnLocation(FGridCoordinate Location)

@@ -31,8 +31,10 @@ class ADVENTURE_API APickUp : public AStaticMeshActor
 	float Length;
 
 private:
-
+	UPROPERTY(Replicated)
 	float m_elapsedTime;
+
+	UPROPERTY(Replicated)
 	FVector m_originalPosition;
 	
 };

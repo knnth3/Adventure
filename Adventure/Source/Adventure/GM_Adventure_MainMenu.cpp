@@ -2,6 +2,7 @@
 #include "GM_Adventure_MainMenu.h"
 
 #include "Grid/WorldGrid2D.h"
+#include "Grid/WorldGrid.h"
 #include "Character/MapPawn.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Adventure.h"
@@ -9,6 +10,7 @@
 AGM_Adventure_MainMenu::AGM_Adventure_MainMenu()
 {
 	UE_LOG(LogNotice, Display, TEXT("Using GameMode:  %s"), *this->GetName());
+	static ConstructorHelpers::FClassFinder<AWorldGrid> WorldGridBPClass(TEXT("/Game/Blueprints/Grid/BP_WorldGrid"));
 	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/Blueprints/Characters/MapPawn/BP_MapPawn"));
 	static ConstructorHelpers::FClassFinder<APlayerController> PlayerController(TEXT("/Script/Adventure.PC_Adventure_Default"));
 
@@ -22,6 +24,12 @@ AGM_Adventure_MainMenu::AGM_Adventure_MainMenu()
 		UE_LOG(LogNotice, Error, TEXT("NO DEFAULT PLAYER CONTROLLER CLASS FOUND"));
 	}
 
+	if (!WorldGridBPClass.Class)
+	{
+		UE_LOG(LogNotice, Error, TEXT("NO BP WORLD GRID CLASS FOUND"));
+	}
+
+	GridClass = WorldGridBPClass.Class;
 	DefaultPawnClass = PlayerPawnBPClass.Class;
 	PlayerControllerClass = PlayerController.Class;
 }
@@ -30,10 +38,12 @@ void AGM_Adventure_MainMenu::InitGame(const FString & MapName, const FString & O
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	TActorIterator<AWorldGrid2D> GridItr(GetWorld());
-	if (GridItr)
+	FVector Location(0.0f);
+	WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
+
+	if (WorldGrid)
 	{
-		GridItr->MakeGrid(10, 10);
+		WorldGrid->Initialize(5, 10);
 
 		//Make spawn points
 		TArray<FGridCoordinate> SpawnLocations = {
@@ -43,7 +53,7 @@ void AGM_Adventure_MainMenu::InitGame(const FString & MapName, const FString & O
 			{0 ,6}
 		};
 
-		GridItr->SetSpawnLocations(SpawnLocations);
+		WorldGrid->SetSpawnLocations(SpawnLocations);
 
 		//Make sure the object being spawned has collision turned off
 		//The spawner's spawn param does not work and will fail if the object
@@ -64,11 +74,10 @@ AActor* AGM_Adventure_MainMenu::ChoosePlayerStart_Implementation(AController* Pl
 {
 	UE_LOG(LogNotice, Warning, TEXT("New Character Spawned"));
 
-	TActorIterator<AWorldGrid2D> GridItr(GetWorld());
-	if (GridItr)
+	if (WorldGrid)
 	{
 		FGridCoordinate SpawnLocation;
-		if (GridItr->GetOpenSpawnLocation(SpawnLocation))
+		if (WorldGrid->GetOpenSpawnLocation(SpawnLocation))
 		{
 			UE_LOG(LogNotice, Warning, TEXT("Spawn point checked out: (%d, %d)"), SpawnLocation.X, SpawnLocation.Y);
 

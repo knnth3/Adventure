@@ -14,18 +14,6 @@
 
 typedef std::pair<int, int> coordinate;
 
-template <typename T>
-using vector2D = std::vector<std::vector<T>>;
-
-template <typename T>
-struct shared_ptr_compare
-{
-	bool operator () (std::shared_ptr<T> a, std::shared_ptr<T> b) const
-	{
-		return !(*a < *b);
-	}
-};
-
 struct ADVENTURE_API GridCell
 {
 	GridCell();
@@ -66,13 +54,12 @@ class ADVENTURE_API AWorldGrid2D : public AActor
 public:
 
 	AWorldGrid2D();
-	AWorldGrid2D(int Rows, int Columns);
 	GridCellPtr At(FGridCoordinate Location)const;
 	int GetDistance(FGridCoordinate Begin, FGridCoordinate End)const;
 	int GetDistance(const GridCellPtr& Begin, const GridCellPtr& End)const;
 
 	UFUNCTION(BlueprintCallable, Category = "Grid2D")
-	void MakeGrid(int rows, int columns);
+	void MakeGrid(int Rows, int Columns);
 
 	UFUNCTION(BlueprintCallable, Category = "Grid2D")
 	bool FindPath(FGridCoordinate Begin, FGridCoordinate End, TArray<FGridCoordinate>& list);
@@ -97,12 +84,32 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Grid2D")
 	bool GetOpenSpawnLocation(FGridCoordinate& GridLocation);
 
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+protected:
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mesh")
+	class UStaticMeshComponent* StaticMesh;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Map Pawn")
+	void OnGridResize(int rows, int columns);
+
 private:
 
-	int                                    m_gridRows;
-	int                                    m_gridColumns;
-	vector2D<GridCellPtr>                  m_grid;
-	std::vector<FGridCoordinate>           m_spawnLocations;
+	UFUNCTION(NetMulticast, reliable)
+	void Multicast_MakeGrid(int rows, int columns);
+
+	void CreateStaticMesh();
+
+	UPROPERTY(Replicated)
+	int m_gridRows;
+
+	UPROPERTY(Replicated)
+	int m_gridColumns;
+
+	vector2D<GridCellPtr>        m_grid;
+	std::vector<FGridCoordinate> m_spawnLocations;
 };
 
 class ADVENTURE_API AstarPathFind

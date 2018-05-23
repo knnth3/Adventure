@@ -25,6 +25,7 @@ public:
 
 private:
 
-	class AActor * NewActor;
+	TSubclassOf<class AWorldGrid> GridClass;
+	class AWorldGrid* WorldGrid;
 
 };

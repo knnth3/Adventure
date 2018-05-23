@@ -26,10 +26,15 @@ bool FGridCoordinate::operator==(const FGridCoordinate & b)
 	return (X == b.X && Y == b.Y);
 }
 
+CoordinatePair FGridCoordinate::toPair()const
+{
+	return CoordinatePair(X, Y);
+}
+
 FVector UGridFunctions::GridToWorldLocation(const FGridCoordinate& Location)
 {
 	return FVector(
-		(Location.X * CELL_LENGTH) - (CELL_LENGTH * 0.5f), 
+		-(Location.X * CELL_LENGTH) - (CELL_LENGTH * 0.5f), 
 		(Location.Y * CELL_WIDTH) + (CELL_WIDTH * 0.5f),
 		0.0f
 	);
@@ -38,7 +43,7 @@ FVector UGridFunctions::GridToWorldLocation(const FGridCoordinate& Location)
 FGridCoordinate UGridFunctions::WorldToGridLocation(const FVector& Location)
 {
 	return FGridCoordinate(
-		FMath::TruncToInt(Location.X / CELL_LENGTH),
+		-FMath::TruncToInt(Location.X / CELL_LENGTH),
 		FMath::TruncToInt(Location.Y / CELL_WIDTH)
 	);
 }

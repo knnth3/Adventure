@@ -1,26 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-
 #include "MapPawn.h"
-#include "Basics.h"
-#include "DrawDebugHelpers.h"
-#include "Adventure.h"
 
-FString GetStringOf(ENetRole Role)
-{
-	switch (Role)
-	{
-	case ROLE_None:
-		return "Role: None";
-	case ROLE_SimulatedProxy:
-		return "Role: Simulated Proxy";
-	case ROLE_AutonomousProxy:
-		return "Role: Autonomous Proxy";
-	case ROLE_Authority:
-		return "Role: Authority";
-	default:
-		return "Role: Error Encountered";
-	}
-}
+#include "Grid/WorldGrid.h"
+#include "Adventure.h"
 
 // Sets default values
 AMapPawn::AMapPawn()
@@ -96,19 +78,32 @@ void AMapPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 }
 
 //Set the pawns destination location
-void AMapPawn::SetDestination(FVector WorldLocation)
+void AMapPawn::SetDestination(FGridCoordinate GridLocation)
 {
-	FVector DistanceBetween = WorldLocation - GetActorLocation();
-	if (DistanceBetween.Size2D() > 50.0f)
-	{
-		m_destination.X = WorldLocation.X;
-		m_destination.Y = WorldLocation.Y;
-		m_destination.Z = GetActorLocation().Z;
+	/** Possible Optimization */
+	//if (!HasAuthority())
+	//{
+	//	TActorIterator<AWorldGrid> GridItr(GetWorld());
+	//	if (GridItr)
+	//	{
+	//		if (!GridItr->IsOccupied(GridLocation))
+	//		{
+	//			FVector WorldLocation = UGridFunctions::GridToWorldLocation(GridLocation);
+	//			FVector DistanceBetween = WorldLocation - GetActorLocation();
 
-		bMoving = true;
+	//			if (DistanceBetween.Size2D() > 0.0f)
+	//			{
+	//				m_destination.X = WorldLocation.X;
+	//				m_destination.Y = WorldLocation.Y;
+	//				m_destination.Z = GetActorLocation().Z;
 
-		Server_SetDestination(WorldLocation);
-	}
+	//				bMoving = true;
+	//			}
+	//		}
+	//	}
+	//}
+
+	Server_SetDestination(GridLocation);
 }
 
 //Returns the pawns stats
@@ -122,19 +117,51 @@ void AMapPawn::MovePawn(float DeltaTime)
 {
 	if (bMoving)
 	{
-		FVector CurrentLocation = GetActorLocation();
-		FVector TravelVector = m_destination - CurrentLocation;
-		FVector DeltaLocation = TravelVector.GetSafeNormal() * (m_stats.MoveSpeed * 100) * DeltaTime;
-
-		if (TravelVector.Size2D() >= DeltaLocation.Size2D())
+		if (HasAuthority())
 		{
-			AddActorWorldOffset(DeltaLocation);
+			TActorIterator<AWorldGrid> GridItr(GetWorld());
+			if (GridItr)
+			{
+				FVector CurrentLocation = GetActorLocation();
+				FVector TravelVector = m_destination - CurrentLocation;
+				FVector DeltaLocation = TravelVector.GetSafeNormal() * (m_stats.MoveSpeed * 100) * DeltaTime;
+
+				//Travel only the distance needed to reach the destination
+				if (TravelVector.Size2D() < DeltaLocation.Size2D())
+				{
+					DeltaLocation = TravelVector;
+					bMoving = false;
+				}
+
+				//If our next path is blocked, stop.
+				FGridCoordinate pos = UGridFunctions::WorldToGridLocation(CurrentLocation);
+				FGridCoordinate dest = UGridFunctions::WorldToGridLocation(CurrentLocation + DeltaLocation);
+				if (!(pos == dest) &&!GridItr->MovePawn(pos, dest))
+				{
+					m_destination = UGridFunctions::GridToWorldLocation(pos);
+					bMoving = true;
+				}
+				else
+				{
+					AddActorWorldOffset(DeltaLocation);
+				}
+			}
 		}
 		else
 		{
-			AddActorWorldOffset(TravelVector);
+			//Clients can do the normal work based off the info recieved from the server
+			FVector CurrentLocation = GetActorLocation();
+			FVector TravelVector = m_destination - CurrentLocation;
+			FVector DeltaLocation = TravelVector.GetSafeNormal() * (m_stats.MoveSpeed * 100) * DeltaTime;
 
-			bMoving = false;
+			//Travel only the distance needed to reach the destination
+			if (TravelVector.Size2D() < DeltaLocation.Size2D())
+			{
+				DeltaLocation = TravelVector;
+				bMoving = false;
+			}
+
+			AddActorWorldOffset(DeltaLocation);
 		}
 	}
 }
@@ -150,16 +177,29 @@ void AMapPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetime
 
 //Server functions
 
-void AMapPawn::Server_SetDestination_Implementation(FVector WorldLocation)
+void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation)
 {
-	m_destination.X = WorldLocation.X;
-	m_destination.Y = WorldLocation.Y;
-	m_destination.Z = GetActorLocation().Z;
+	TActorIterator<AWorldGrid> GridItr(GetWorld());
+	if (GridItr)
+	{
+		if (!GridItr->IsOccupied(GridLocation))
+		{
+			FVector WorldLocation = UGridFunctions::GridToWorldLocation(GridLocation);
+			FVector DistanceBetween = WorldLocation - GetActorLocation();
 
-	bMoving = true;
+			if (DistanceBetween.Size2D() > 0.0f)
+			{
+				m_destination.X = WorldLocation.X;
+				m_destination.Y = WorldLocation.Y;
+				m_destination.Z = GetActorLocation().Z;
+
+				bMoving = true;
+			}
+		}
+	}
 }
 
-bool AMapPawn::Server_SetDestination_Validate(FVector WorldLocation)
+bool AMapPawn::Server_SetDestination_Validate(FGridCoordinate WorldLocation)
 {
 	return true;
 }
