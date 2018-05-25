@@ -8,6 +8,5 @@ APC_Adventure_Default::APC_Adventure_Default()
 	bEnableClickEvents = true;
 	bEnableMouseOverEvents = true;
 	bEnableTouchEvents = true;
-	//FInputModeDataBase input;
-	//SetInputMode();
+
 }

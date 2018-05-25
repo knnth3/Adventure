@@ -44,7 +44,11 @@ struct ADVENTURE_API FStatSheet
 
 	//Meters per second
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	float MoveSpeed = 5;
+	float MoveSpeed = 5.0f;
+
+	//Rotate Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
+	float TurnSpeed = 15.0f;
 
 };
 
@@ -73,8 +77,14 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	class UCameraComponent* FollowCamera;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
+	class USkeletalMeshComponent* PawnBody;
+
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	// Called when the pawn is about to be destroyed
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:	
 	// Called every frame
@@ -91,22 +101,55 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	FStatSheet GetStatSheet()const;
 
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	bool IsMoving()const;
+
+protected:
+	//BP Overridable functions
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Map Pawn")
+	void BeginMove();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Map Pawn")
+	void EndMove();
+
 private:
 
 	//Moves a pawn if its destination is not the same as its position
 	void MovePawn(float DeltaTime);
 
+	//Rotates a pawn
+	void RotatePawn(float DeltaTime);
+
+	//Get a delta position given the time and speed from pawn stats
+	FVector GetNextMove(float DeltaTime, bool& bHasNextMove);
+
+	//Gets the current position in grid space
+	FGridCoordinate GetActorGridLocation()const;
+
+	//Checks against the WorldGrid to see if a move is valid
+	bool IsMoveValid(FVector DeltaLocation)const;
+
 	//Server Functions
+
+	UFUNCTION()
+	void OnDestination_Rep();
+
+	UFUNCTION()
+	void OnRotation_Rep();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SetDestination(FGridCoordinate GridLocation);
 
 	UPROPERTY(Replicated)
-	FStatSheet m_stats;
+	FStatSheet CharacterStats;
 
-	UPROPERTY(Replicated)
-	bool bMoving;
+	UPROPERTY(ReplicatedUsing = OnDestination_Rep)
+	FVector FinalDestination;
 
-	UPROPERTY(Replicated)
-	FVector m_destination;
+	UPROPERTY(ReplicatedUsing = OnRotation_Rep)
+	FRotator Rotation;
+
+	bool bMoveCharacter;
+	bool bRotateCharacter;
 };

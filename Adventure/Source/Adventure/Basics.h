@@ -15,20 +15,26 @@
 #include "DrawDebugHelpers.h"
 #include "Basics.generated.h"
 
-#define TO_CENTIMETERS(M) M * 100.0f
-#define TO_METERS(CM) CM / 100.0f
-
-#define CELL_LENGTH (TO_CENTIMETERS(1.0f))
-#define CELL_WIDTH (TO_CENTIMETERS(1.0f))
-
 /**
  * 
  */
+
+const static float CELL_LENGTH_FEET = 5.0f;
+const static float CELL_WIDTH_FEET = 5.0f;
 
 typedef std::pair<int, int> CoordinatePair;
 
 template <typename T>
 using vector2D = std::vector<std::vector<T>>;
+
+enum class UNITS
+{
+	CENTIMETERS,
+	METERS,
+	INCHES,
+	FEET,
+	YARDS,
+};
 
 template <typename T>
 struct shared_ptr_compare
@@ -39,6 +45,90 @@ struct shared_ptr_compare
 	}
 };
 
+class Conversions
+{
+
+public:
+
+	class Centimeters
+	{
+	public:
+
+		static float ToFeet(const float& Units);
+
+		static float ToInches(const float& Units);
+
+		static float ToYards(const float& Units);
+
+		static float ToMeters(const float& Units);
+	};
+
+	class Inches
+	{
+	public:
+		static float ToFeet(const float& Units);
+
+		static float ToCentimeters(const float& Units);
+
+		static float ToYards(const float& Units);
+
+		static float ToMeters(const float& Units);
+	};
+
+	class Meters
+	{
+	public:
+		static float ToCentimeters(const float& Units);
+
+		static float ToFeet(const float& Units);
+
+		static float ToInches(const float& Units);
+
+		static float ToYards(const float& Units);
+
+	};
+
+	class Feet
+	{
+	public:
+		static float ToCentimeters(const float& Units);
+
+		static float ToInches(const float& Units);
+
+		static float ToYards(const float& Units);
+
+		static float ToMeters(const float& Units);
+	};
+};
+
+inline void GetGridDimensions(float& CellLength, float& CellWidth, UNITS units)
+{
+	switch (units)
+	{
+	case UNITS::CENTIMETERS:
+		CellLength = Conversions::Feet::ToCentimeters(CELL_LENGTH_FEET);
+		CellWidth = Conversions::Feet::ToCentimeters(CELL_WIDTH_FEET);
+		break;
+	case UNITS::METERS:
+		CellLength = Conversions::Feet::ToMeters(CELL_LENGTH_FEET);
+		CellWidth = Conversions::Feet::ToMeters(CELL_WIDTH_FEET);
+		break;
+	case UNITS::INCHES:
+		CellLength = Conversions::Feet::ToInches(CELL_LENGTH_FEET);
+		CellWidth = Conversions::Feet::ToInches(CELL_WIDTH_FEET);
+		break;
+	case UNITS::FEET:
+		CellLength = CELL_LENGTH_FEET;
+		CellWidth = CELL_WIDTH_FEET;
+		break;
+	case UNITS::YARDS:
+		CellLength = Conversions::Feet::ToYards(CELL_LENGTH_FEET);
+		CellWidth = Conversions::Feet::ToYards(CELL_WIDTH_FEET);
+		break;
+	default:
+		break;
+	}
+}
 
 inline FString GetStringOf(ENetRole Role)
 {
@@ -68,6 +158,7 @@ struct ADVENTURE_API FGridCoordinate
 	FGridCoordinate(FVector Location3D);
 
 	bool operator==(const FGridCoordinate& b);
+	bool operator!=(const FGridCoordinate& b);
 	CoordinatePair toPair()const;
 
 	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")

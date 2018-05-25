@@ -1,7 +1,6 @@
 // Fill out your copyright Warning in the Description page of Project Settings.
 #include "GM_Adventure_MainMenu.h"
 
-#include "Grid/WorldGrid2D.h"
 #include "Grid/WorldGrid.h"
 #include "Character/MapPawn.h"
 #include "UObject/ConstructorHelpers.h"
@@ -12,7 +11,7 @@ AGM_Adventure_MainMenu::AGM_Adventure_MainMenu()
 	UE_LOG(LogNotice, Display, TEXT("Using GameMode:  %s"), *this->GetName());
 	static ConstructorHelpers::FClassFinder<AWorldGrid> WorldGridBPClass(TEXT("/Game/Blueprints/Grid/BP_WorldGrid"));
 	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/Blueprints/Characters/MapPawn/BP_MapPawn"));
-	static ConstructorHelpers::FClassFinder<APlayerController> PlayerController(TEXT("/Script/Adventure.PC_Adventure_Default"));
+	static ConstructorHelpers::FClassFinder<APlayerController> PlayerController(TEXT("/Game/Blueprints/PlayerControllers/BP_PC_Adventure_Default"));
 
 	if (!PlayerPawnBPClass.Class)
 	{

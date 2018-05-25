@@ -149,6 +149,15 @@ bool AWorldGrid::MovePawn(FGridCoordinate Location, FGridCoordinate Destination)
 	return moved;
 }
 
+void AWorldGrid::RemoveActorFromPlay(FGridCoordinate Location)
+{
+	CellPtr FoundLocation = At(Location);
+	if (FoundLocation)
+	{
+		FoundLocation->Ocupied = false;
+	}
+}
+
 void AWorldGrid::OnScale_Rep()
 {
 	PlaneVisual->SetWorldScale3D(Scale);
@@ -164,8 +173,15 @@ void AWorldGrid::SetUpGridVisual()
 	UStaticMeshComponent* PlaneMesh = Cast<UStaticMeshComponent>(RootComponent);
 	if (PlaneMesh)
 	{
-		PlaneMesh->SetRelativeLocation(FVector(-TO_CENTIMETERS((float)GridDimensions.Rows * 0.5f), TO_CENTIMETERS((float)GridDimensions.Columns * 0.5f), 0.0f));
-		PlaneMesh->SetWorldScale3D(FVector(GridDimensions.Rows, GridDimensions.Columns, 1.0f));
+
+		float Length_Meters, Width_Meters;
+		float Length_Cm, Width_Cm;
+
+		GetGridDimensions(Length_Meters, Width_Meters, UNITS::METERS);
+		GetGridDimensions(Length_Cm, Width_Cm, UNITS::CENTIMETERS);
+
+		PlaneMesh->SetRelativeLocation(FVector(-Length_Cm * GridDimensions.Rows * 0.5f, Width_Cm * GridDimensions.Columns * 0.5f, 0.0f));
+		PlaneMesh->SetWorldScale3D(FVector(Length_Meters * GridDimensions.Rows, Width_Meters * GridDimensions.Columns, 1.0f));
 
 		UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(Material, this);
 		if (DynamicMaterial)

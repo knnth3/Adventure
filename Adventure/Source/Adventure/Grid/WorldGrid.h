@@ -95,6 +95,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool MovePawn(FGridCoordinate Location, FGridCoordinate Destination);
 
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	void RemoveActorFromPlay(FGridCoordinate Location);
+
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
