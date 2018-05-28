@@ -93,6 +93,7 @@ public:
 
 	virtual bool JoinGame(FJOINGAME_SETTINGS settings) = 0;
 	virtual bool HostGame(FHOSTGAME_SETTINGS settings) = 0;
+	virtual bool LoadGameBuilder(FGAMEBUILDER_SETTINGS settings) = 0;
 	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings) = 0;
 	virtual const TArray<FString> GetServerList()const = 0;
 	virtual bool IsServerQueryActive()const = 0;

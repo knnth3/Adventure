@@ -41,7 +41,7 @@ void UW_MainMenu::LoadNextState()
 		HostGame();
 		break;
 	case ACTIVE_MENU::GAMEBUILDER:
-		UE_LOG(LogNotice, Display, TEXT("Load Next state was GameBuilder"));
+		LoadEditor();
 		break;
 	default:
 		break;
@@ -66,6 +66,10 @@ void UW_MainMenu::JoinGame()
 
 void UW_MainMenu::LoadEditor()
 {
+	if (m_interface && m_gbSettings)
+	{
+		m_interface->LoadGameBuilder(*m_gbSettings);
+	}
 }
 
 void UW_MainMenu::ShowHostMenu()

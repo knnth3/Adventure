@@ -120,6 +120,8 @@ bool UGI_Adventure::HostGame(FHOSTGAME_SETTINGS settings)
 
 			SessionSettings->Set(SETTING_MAPNAME, settings.MapName, EOnlineDataAdvertisementType::ViaOnlineService);
 
+			HostGameSettings = settings;
+
 			// Our delegate should get called when this is complete (doesn't need to be successful!)
 			return Sessions->CreateSession(0 , SESSION_NAME, *SessionSettings);
 		}
@@ -130,6 +132,14 @@ bool UGI_Adventure::HostGame(FHOSTGAME_SETTINGS settings)
 	}
 
 	return false;
+}
+
+bool UGI_Adventure::LoadGameBuilder(FGAMEBUILDER_SETTINGS settings)
+{
+	FName mapName = "/Game/Maps/GameBuilder/Level_GameBuilder";
+	FString options = "Name=" + settings.MapName + " Size=" + FString::FromInt(settings.Rows) + ":" + FString::FromInt(settings.Colums);
+	UGameplayStatics::OpenLevel(GetWorld(), mapName, true, options);
+	return true;
 }
 
 void UGI_Adventure::FindSessions(FSESSION_SEARCH_SETTINGS settings)
@@ -194,12 +204,17 @@ void UGI_Adventure::LoadMainMenu()
 
 const TArray<FString> UGI_Adventure::GetServerList() const
 {
-	return m_sessionSearchResults;
+	return SessionSearchResults;
 }
 
 bool UGI_Adventure::IsServerQueryActive()const
 {
 	return bFindingSessions;
+}
+
+FHOSTGAME_SETTINGS UGI_Adventure::GetHostSettings() const
+{
+	return HostGameSettings;
 }
 
 
@@ -267,7 +282,7 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 			{
 				// "SessionSearch->SearchResults" is an Array that contains all the information. You can access the Session in this and get a lot of information.
 				// This can be customized later on with your own classes to add more information that can be set and displayed
-				m_sessionSearchResults.Empty();
+				SessionSearchResults.Empty();
 				for (int32 SearchIdx = 0; SearchIdx < SessionSearch->SearchResults.Num(); SearchIdx++)
 				{
 					// OwningUserName is just the SessionName for now. I guess you can create your own Host Settings class and GameSession Class and add a proper GameServer Name here.
@@ -278,7 +293,7 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 					if (settings.Get(SETTING_MAPNAME, SessionName))
 					{
 						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Number: %d | Sessionname: %s "), SearchIdx + 1, *SessionName));
-						m_sessionSearchResults.Push(SessionName + " - " + SessionSearch->SearchResults[SearchIdx].GetSessionIdStr());
+						SessionSearchResults.Push(SessionName + " - " + SessionSearch->SearchResults[SearchIdx].GetSessionIdStr());
 					}
 					else
 					{

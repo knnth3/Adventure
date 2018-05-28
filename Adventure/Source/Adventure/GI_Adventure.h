@@ -30,6 +30,9 @@ public:
 	virtual bool HostGame(FHOSTGAME_SETTINGS settings)override;
 
 	UFUNCTION(BlueprintCallable)
+	virtual bool LoadGameBuilder(FGAMEBUILDER_SETTINGS settings)override;
+
+	UFUNCTION(BlueprintCallable)
 	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings)override;
 
 	UFUNCTION(BlueprintCallable)
@@ -40,6 +43,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool IsServerQueryActive()const;
+
+	UFUNCTION(BlueprintCallable)
+	FHOSTGAME_SETTINGS GetHostSettings()const;
 
 protected:
 
@@ -59,7 +65,8 @@ private:
 
 	//Online Sessions
 	bool bFindingSessions;
-	TArray<FString> m_sessionSearchResults;
+	FHOSTGAME_SETTINGS HostGameSettings;
+	TArray<FString> SessionSearchResults;
 	TSharedPtr<class FOnlineSessionSearch> SessionSearch;
 	TSharedPtr<class FOnlineSessionSettings> SessionSettings;
 };
