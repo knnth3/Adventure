@@ -98,10 +98,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	void RemoveActorFromPlay(FGridCoordinate Location);
 
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool AddInteractible(int Type, FGridCoordinate Location);
+
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 protected:
+
+	UPROPERTY(EditAnywhere, Category="Spawnables")
+	TArray<TSubclassOf<class AInteractable>> InteractableClasses;
+
+	UPROPERTY(EditAnywhere, Category = "Spawnables")
+	TArray<UStaticMesh*> InteractableMeshes;
+
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
@@ -131,8 +141,12 @@ private:
 	void SetUpGridVisual();
 	void SetUpGridLogical();
 
+	//Class Refrences
+	TSubclassOf<class AInteractable> InteractableClass;
+
 	//C++ standard
 	bool bInitialized;
 	vector2D<CellPtr> LogicalGrid;
 	std::vector<FGridCoordinate> SpawnLocations;
+	TArray<class AInteractable*> Interactables;
 };

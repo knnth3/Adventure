@@ -3,6 +3,7 @@
 
 #include "Basics.h"
 #include "Adventure.h"
+#include "Interactable.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/MaterialParameterCollection.h"
@@ -17,6 +18,14 @@
 // Sets default values
 AWorldGrid::AWorldGrid()
 {
+	static ConstructorHelpers::FClassFinder<AInteractable> BP_Interactable(TEXT("/Game/Blueprints/Grid/BP_Interactable"));
+	if (!BP_Interactable.Class)
+	{
+		UE_LOG(LogNotice, Error, TEXT("NO INTERACTABLE CLASS FOUND"));
+	}
+
+	InteractableClass = BP_Interactable.Class;
+
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -156,6 +165,31 @@ void AWorldGrid::RemoveActorFromPlay(FGridCoordinate Location)
 	{
 		FoundLocation->Ocupied = false;
 	}
+}
+
+bool AWorldGrid::AddInteractible(int Type, FGridCoordinate Location)
+{
+	CellPtr FoundLocation = At(Location);
+	if (FoundLocation && !FoundLocation->Ocupied)
+	{
+		FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+		AInteractable* NewPawn = Cast<AInteractable>(GetWorld()->SpawnActor(*InteractableClass, &WorldLocation));
+		if (NewPawn)
+		{
+			int MeshNum = InteractableMeshes.Num();
+
+			if (MeshNum > Type && Type >= 0)
+			{
+				NewPawn->SetStaticMesh(InteractableMeshes[Type]);
+			}
+
+			FoundLocation->Ocupied = true;
+			Interactables.Push(NewPawn);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void AWorldGrid::OnScale_Rep()

@@ -9,6 +9,10 @@
 
 #define SESSION_NAME EName::NAME_GameSession
 
+const static FName MAP_MULTIPLAYER = "/Game/Maps/Multiplayer/Level_Multiplayer";
+const static FName MAP_MAIN_MENU = "/Game/Maps/MainMenu/Level_MainMenu";
+const static FName MAP_GAMEBUILDER = "/Game/Maps/GameBuilder/Level_GameBuilder";
+
 UGI_Adventure::UGI_Adventure(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -136,9 +140,8 @@ bool UGI_Adventure::HostGame(FHOSTGAME_SETTINGS settings)
 
 bool UGI_Adventure::LoadGameBuilder(FGAMEBUILDER_SETTINGS settings)
 {
-	FName mapName = "/Game/Maps/GameBuilder/Level_GameBuilder";
 	FString options = "Name=" + settings.MapName + " Size=" + FString::FromInt(settings.Rows) + ":" + FString::FromInt(settings.Colums);
-	UGameplayStatics::OpenLevel(GetWorld(), mapName, true, options);
+	UGameplayStatics::OpenLevel(GetWorld(), MAP_GAMEBUILDER, true, options);
 	return true;
 }
 
@@ -255,8 +258,7 @@ void UGI_Adventure::OnStartOnlineSessionComplete(FName SessionName, bool bWasSuc
 			m_mainMenu->Deactivate();
 		}
 
-		FName mapName = "/Game/Maps/ThirdPersonExampleMap";
-		UGameplayStatics::OpenLevel(GetWorld(), mapName, true, "listen");
+		UGameplayStatics::OpenLevel(GetWorld(), MAP_MULTIPLAYER, true, "listen");
 	}
 }
 
@@ -357,8 +359,7 @@ void UGI_Adventure::OnDestroyOnlineSessionComplete(FName SessionName, bool bWasS
 			// If it was successful, we just load another level (could be a MainMenu!)
 			if (bWasSuccessful)
 			{
-				FName mapName = "/Game/Maps/MainMenu/Level_MainMenu";
-				UGameplayStatics::OpenLevel(GetWorld(), mapName, true);
+				UGameplayStatics::OpenLevel(GetWorld(), MAP_MAIN_MENU, true);
 			}
 		}
 	}
