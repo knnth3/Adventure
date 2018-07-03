@@ -9,6 +9,22 @@
 /**
  * 
  */
+
+USTRUCT(BlueprintType)
+struct FCharacterStat
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	FString Name;
+
+	UPROPERTY(BlueprintReadWrite)
+	int Value;
+
+	UPROPERTY(BlueprintReadWrite)
+	int MaxValue;
+};
+
 UCLASS()
 class ADVENTURE_API APC_Adventure_Default : public APlayerController
 {

@@ -8,8 +8,9 @@
 #include "UnrealNames.h"
 
 #define SESSION_NAME EName::NAME_GameSession
+#define SETTING_SESSION FName(TEXT("SESSION_ID"))
 
-const static FName MAP_MULTIPLAYER = "/Game/Maps/Multiplayer/Level_Multiplayer";
+const static FName MAP_MULTIPLAYER = "/Game/Maps/Multiplayer/Lobby/Level_Lobby";
 const static FName MAP_MAIN_MENU = "/Game/Maps/MainMenu/Level_MainMenu";
 const static FName MAP_GAMEBUILDER = "/Game/Maps/GameBuilder/Level_GameBuilder";
 
@@ -123,6 +124,7 @@ bool UGI_Adventure::HostGame(FHOSTGAME_SETTINGS settings)
 			SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
 
 			SessionSettings->Set(SETTING_MAPNAME, settings.MapName, EOnlineDataAdvertisementType::ViaOnlineService);
+			SessionSettings->Set(SETTING_SESSION, settings.SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
 
 			HostGameSettings = settings;
 
@@ -287,15 +289,15 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 				SessionSearchResults.Empty();
 				for (int32 SearchIdx = 0; SearchIdx < SessionSearch->SearchResults.Num(); SearchIdx++)
 				{
-					// OwningUserName is just the SessionName for now. I guess you can create your own Host Settings class and GameSession Class and add a proper GameServer Name here.
-					// This is something you can't do in Blueprint for example!
-
-					FString SessionName;
+					FString MapName;
+					FString SessionID;
 					auto settings = SessionSearch->SearchResults[SearchIdx].Session.SessionSettings;
-					if (settings.Get(SETTING_MAPNAME, SessionName))
+					if (settings.Get(SETTING_MAPNAME, MapName) && settings.Get(SETTING_SESSION, SessionID))
 					{
-						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Number: %d | Sessionname: %s "), SearchIdx + 1, *SessionName));
-						SessionSearchResults.Push(SessionName + " - " + SessionSearch->SearchResults[SearchIdx].GetSessionIdStr());
+						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Number: %d | SessionID: %s "), SearchIdx + 1, *SessionID));
+						//ID of online service session if needed
+						//SessionSearch->SearchResults[SearchIdx].GetSessionIdStr()
+						SessionSearchResults.Push(SessionID + "'s game: " + MapName);
 					}
 					else
 					{
@@ -353,14 +355,9 @@ void UGI_Adventure::OnDestroyOnlineSessionComplete(FName SessionName, bool bWasS
 	{
 		// Get the SessionInterface from the OnlineSubsystem
 		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
-
 		if (Sessions.IsValid())
 		{
-			// If it was successful, we just load another level (could be a MainMenu!)
-			if (bWasSuccessful)
-			{
-				UGameplayStatics::OpenLevel(GetWorld(), MAP_MAIN_MENU, true);
-			}
+			UGameplayStatics::OpenLevel(GetWorld(), MAP_MAIN_MENU, true);
 		}
 	}
 }

@@ -31,6 +31,9 @@ struct FJOINGAME_SETTINGS
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Join Game Settings")
+	FName Username = "Anonymous";
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Join Game Settings")
 	int Port = 1234;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Join Game Settings")

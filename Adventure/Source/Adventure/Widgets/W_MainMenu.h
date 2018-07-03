@@ -57,6 +57,9 @@ protected:
 	//Navigation functions
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	void LoadNextState();
+
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void ShowHostMenu();
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
@@ -87,9 +90,6 @@ protected:
 	class UWidgetSwitcher* SubMenu;
 
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
-	class UButton* Play;
-
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
 	class UButton* Exit;
 
 public:
@@ -98,9 +98,6 @@ public:
 	void Deactivate();
 
 private:
-
-	UFUNCTION()
-	void LoadNextState();
 
 	void HostGame();
 	void JoinGame();

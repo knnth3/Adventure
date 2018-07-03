@@ -12,7 +12,11 @@ void UW_MainMenu_Child::RequestHostGame(FHOSTGAME_SETTINGS settings)
 {
 	if (m_mainMenu)
 	{
-		m_mainMenu->SetHostGameSettings(settings);
+		if (!settings.SessionName.IsEmpty() && !settings.MapName.IsEmpty())
+		{
+			m_mainMenu->SetHostGameSettings(settings);
+			m_mainMenu->LoadNextState();
+		}
 	}
 }
 
@@ -21,6 +25,7 @@ void UW_MainMenu_Child::RequestJoinGame(FJOINGAME_SETTINGS settings)
 	if (m_mainMenu)
 	{
 		m_mainMenu->SetJoinGameSettings(settings);
+		m_mainMenu->LoadNextState();
 	}
 }
 

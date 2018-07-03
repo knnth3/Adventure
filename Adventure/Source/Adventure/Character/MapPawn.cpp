@@ -89,7 +89,7 @@ void AMapPawn::Tick(float DeltaTime)
 	FString IsMoving = "Moving: " + FString::FromInt(bMoveCharacter);
 
 	GetStringOf(Role);
-	DrawDebugString(GetWorld(), FVector(0,0,100), IsMoving, this, FColor::White, DeltaTime);
+	//DrawDebugString(GetWorld(), FVector(0,0,100), IsMoving, this, FColor::White, DeltaTime);
 }
 
 // Called to bind functionality to input

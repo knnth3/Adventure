@@ -14,10 +14,6 @@ bool UW_MainMenu::Initialize()
 	{
 		UE_LOG(LogNotice, Error, TEXT("Failed to create menu: %s"), *this->GetName());
 	}
-	if (Play)
-	{
-		Play->OnClicked.AddDynamic(this, &UW_MainMenu::LoadNextState);
-	}
 	if (Exit)
 	{
 		Exit->OnClicked.AddDynamic(this, &UW_MainMenu::CloseGame);
