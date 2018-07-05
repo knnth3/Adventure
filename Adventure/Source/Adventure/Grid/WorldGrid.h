@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <list>
+#include <map>
 
 #include "Basics.h"
 #include "CoreMinimal.h"
@@ -75,11 +76,21 @@ public:
 	// Sets default values for this actor's properties
 	AWorldGrid();
 
-	CellPtr At(FGridCoordinate Location)const;
+	CellPtr At(const FGridCoordinate& Location)const;
 
 	//Sets up the grid with logic and visual objects
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	void Initialize(int Rows, int Columns);
+
+	//Order may vary depending on spawn location availability
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool SetSpawnLocation(int type, const FGridCoordinate& Location);
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool RemoveSpawnLocation(const FGridCoordinate& Location);
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool CheckIfSpawnLocation(const FGridCoordinate& Location);
 
 	//Order may vary depending on spawn location availability
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
@@ -90,24 +101,30 @@ public:
 	bool GetOpenSpawnLocation(FGridCoordinate& GridLocation);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool IsOccupied(FGridCoordinate Location)const;
+	bool IsOccupied(const FGridCoordinate& Location)const;
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool MovePawn(FGridCoordinate Location, FGridCoordinate Destination);
+	bool MovePawn(const FGridCoordinate& Location, const FGridCoordinate& Destination);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void RemoveActorFromPlay(FGridCoordinate Location);
+	void RemoveActorFromPlay(const FGridCoordinate& Location);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool AddInteractible(int Type, FGridCoordinate Location);
+	bool AddInteractable(int Type, const FGridCoordinate& Location);
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool RemoveInteractable(const FGridCoordinate& Location);
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	FGridCoordinate GetSize()const;
+
 protected:
 
-	UPROPERTY(EditAnywhere, Category="Spawnables")
-	TArray<TSubclassOf<class AInteractable>> InteractableClasses;
+	UPROPERTY(EditAnywhere, Category = "Spawnables")
+	TArray<TSubclassOf<AActor>> SpawnerClasses;
 
 	UPROPERTY(EditAnywhere, Category = "Spawnables")
 	TArray<UStaticMesh*> InteractableMeshes;
@@ -147,6 +164,7 @@ private:
 	//C++ standard
 	bool bInitialized;
 	vector2D<CellPtr> LogicalGrid;
-	std::vector<FGridCoordinate> SpawnLocations;
-	TArray<class AInteractable*> Interactables;
+	std::map<CoordinatePair, FGridCoordinate> SpawnLocations;
+
+	std::map<CoordinatePair, class AActor*> VisualGridRefrences;
 };

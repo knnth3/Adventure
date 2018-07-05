@@ -26,12 +26,18 @@ FGridCoordinate::FGridCoordinate(FVector Location3D)
 	Y = temp.Y;
 }
 
-bool FGridCoordinate::operator==(const FGridCoordinate & b)
+FGridCoordinate::FGridCoordinate(CoordinatePair Location)
+{
+	X = Location.first;
+	Y = Location.second;
+}
+
+bool FGridCoordinate::operator==(const FGridCoordinate & b)const
 {
 	return (X == b.X && Y == b.Y);
 }
 
-bool FGridCoordinate::operator!=(const FGridCoordinate & b)
+bool FGridCoordinate::operator!=(const FGridCoordinate & b)const
 {
 	return !operator==(b);
 }
@@ -39,6 +45,11 @@ bool FGridCoordinate::operator!=(const FGridCoordinate & b)
 CoordinatePair FGridCoordinate::toPair()const
 {
 	return CoordinatePair(X, Y);
+}
+
+bool FGridCoordinate::IsZero() const
+{
+	return !(X && Y);
 }
 
 FVector UGridFunctions::GridToWorldLocation(const FGridCoordinate& Location)

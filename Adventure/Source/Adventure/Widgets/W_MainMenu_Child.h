@@ -36,6 +36,9 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	virtual bool IsServerQueryActive()const;
 
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	bool GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ext);
+
 private:
 
 	class UW_MainMenu* m_mainMenu = nullptr;

@@ -50,7 +50,7 @@ void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifet
 	DOREPLIFETIME(AWorldGrid, GridDimensions);
 }
 
-CellPtr AWorldGrid::At(FGridCoordinate Location) const
+CellPtr AWorldGrid::At(const FGridCoordinate& Location) const
 {
 	CellPtr FoundCell = nullptr;
 
@@ -79,6 +79,73 @@ void AWorldGrid::Initialize(int Rows, int Columns)
 	}
 }
 
+bool AWorldGrid::SetSpawnLocation(int type, const FGridCoordinate & Location)
+{
+	CellPtr FoundCell = At(Location);
+	bool bExists = CheckIfSpawnLocation(Location);
+	if (FoundCell && !FoundCell->Ocupied && !bExists)
+	{
+		int SpawnerClassNum = SpawnerClasses.Num();
+		if (type >= 0 && type < SpawnerClassNum)
+		{
+			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+			UWorld* world = GetWorld();
+			if (world)
+			{
+				AActor* NewPawn = Cast<AActor>(world->SpawnActor(*SpawnerClasses[type], &WorldLocation));
+
+				if (NewPawn)
+				{
+					VisualGridRefrences[Location.toPair()] = NewPawn;
+					SpawnLocations[Location.toPair()] = Location;
+					return true;
+				}
+				else
+				{
+					UE_LOG(LogNotice, Error, TEXT("Failed to create spawn class"));
+				}
+			}
+			else
+			{
+				UE_LOG(LogNotice, Error, TEXT("Could not pull world pointer while creating spawn location."));
+			}
+		}
+		else
+		{
+			UE_LOG(LogNotice, Error, TEXT("Ignored spawn creation, could not find index matching type %s"), *FString::FromInt(type));
+		}
+	}
+	else
+	{
+		UE_LOG(LogNotice, Error, TEXT("Ignoring spawn creation, location already exists."));
+	}
+
+	return false;
+}
+
+bool AWorldGrid::RemoveSpawnLocation(const FGridCoordinate & Location)
+{
+	if (CheckIfSpawnLocation(Location))
+	{
+		UWorld* world = GetWorld();
+		if (world)
+		{
+			SpawnLocations.erase(Location.toPair());
+			world->DestroyActor(VisualGridRefrences[Location.toPair()]);
+			VisualGridRefrences.erase(Location.toPair());
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool AWorldGrid::CheckIfSpawnLocation(const FGridCoordinate & Location)
+{
+	return (SpawnLocations.find(Location.toPair()) != SpawnLocations.end());
+}
+
 // Called when the game starts or when spawned
 void AWorldGrid::BeginPlay()
 {
@@ -95,15 +162,16 @@ void AWorldGrid::Tick(float DeltaTime)
 	DrawDebugString(GetWorld(), FVector(-100, 100, 0), role, this, FColor::White, DeltaTime);
 }
 
+FGridCoordinate AWorldGrid::GetSize() const
+{
+	return FGridCoordinate(GridDimensions.Rows, GridDimensions.Columns);
+}
+
 void AWorldGrid::SetSpawnLocations(const TArray<FGridCoordinate>& Locations)
 {
 	for (const auto& item : Locations)
 	{
-		CellPtr FoundCell = At(item);
-		if (FoundCell)
-		{
-			SpawnLocations.push_back(FoundCell->Location);
-		}
+		SetSpawnLocation(0, item);
 	}
 }
 
@@ -111,11 +179,11 @@ bool AWorldGrid::GetOpenSpawnLocation(FGridCoordinate & GridLocation)
 {
 	for (const auto& location : SpawnLocations)
 	{
-		CellPtr FoundCell = At(location);
+		CellPtr FoundCell = At(location.second);
 		if (FoundCell && !FoundCell->Ocupied)
 		{
-			GridLocation.X = location.X;
-			GridLocation.Y = location.Y;
+			GridLocation.X = location.second.X;
+			GridLocation.Y = location.second.Y;
 			FoundCell->Ocupied = true;
 			return true;
 		}
@@ -123,7 +191,7 @@ bool AWorldGrid::GetOpenSpawnLocation(FGridCoordinate & GridLocation)
 	return false;
 }
 
-bool AWorldGrid::IsOccupied(FGridCoordinate Location) const
+bool AWorldGrid::IsOccupied(const FGridCoordinate& Location) const
 {
 	CellPtr FoundCell = At(Location);
 
@@ -138,11 +206,11 @@ bool AWorldGrid::IsOccupied(FGridCoordinate Location) const
 	return true;
 }
 
-bool AWorldGrid::MovePawn(FGridCoordinate Location, FGridCoordinate Destination)
+bool AWorldGrid::MovePawn(const FGridCoordinate& Location, const FGridCoordinate& Destination)
 {
 	bool moved = false;
 
-	if (!(Location == Destination))
+	if (Location != Destination)
 	{
 		CellPtr FoundLocation = At(Location);
 		CellPtr FoundDestination = At(Destination);
@@ -158,7 +226,7 @@ bool AWorldGrid::MovePawn(FGridCoordinate Location, FGridCoordinate Destination)
 	return moved;
 }
 
-void AWorldGrid::RemoveActorFromPlay(FGridCoordinate Location)
+void AWorldGrid::RemoveActorFromPlay(const FGridCoordinate& Location)
 {
 	CellPtr FoundLocation = At(Location);
 	if (FoundLocation)
@@ -167,25 +235,47 @@ void AWorldGrid::RemoveActorFromPlay(FGridCoordinate Location)
 	}
 }
 
-bool AWorldGrid::AddInteractible(int Type, FGridCoordinate Location)
+bool AWorldGrid::AddInteractable(int Type, const FGridCoordinate& Location)
 {
 	CellPtr FoundLocation = At(Location);
-	if (FoundLocation && !FoundLocation->Ocupied)
+	bool isSpawnLocation = CheckIfSpawnLocation(Location);
+	if (FoundLocation && !FoundLocation->Ocupied && !isSpawnLocation)
 	{
-		FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-		AInteractable* NewPawn = Cast<AInteractable>(GetWorld()->SpawnActor(*InteractableClass, &WorldLocation));
-		if (NewPawn)
+		int MeshNum = InteractableMeshes.Num();
+		if (MeshNum > Type && Type >= 0)
 		{
-			int MeshNum = InteractableMeshes.Num();
-
-			if (MeshNum > Type && Type >= 0)
+			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+			AInteractable* NewPawn = Cast<AInteractable>(GetWorld()->SpawnActor(*InteractableClass, &WorldLocation));
+			if (NewPawn)
 			{
 				NewPawn->SetStaticMesh(InteractableMeshes[Type]);
-			}
 
-			FoundLocation->Ocupied = true;
-			Interactables.Push(NewPawn);
-			return true;
+				FoundLocation->Ocupied = true;
+
+				VisualGridRefrences[Location.toPair()] = NewPawn;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool AWorldGrid::RemoveInteractable(const FGridCoordinate & Location)
+{
+	CellPtr FoundLocation = At(Location);
+	if (FoundLocation)
+	{
+		UWorld* world = GetWorld();
+		if (world)
+		{
+			if (world->DestroyActor(VisualGridRefrences[Location.toPair()]))
+			{
+				VisualGridRefrences.erase(Location.toPair());
+				FoundLocation->Ocupied = false;
+
+				return true;
+			}
 		}
 	}
 

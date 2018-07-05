@@ -5,6 +5,50 @@
 #include "FileHelper.h"
 #include "FileManager.h"
 
+
+
+void FMapSettings::Insert(FName key, FName obj)
+{
+	auto found = m_names.find(key);
+	if (found != m_names.end())
+	{
+		found->second.push_back(obj);
+	}
+	else
+	{
+		m_names[key] = std::vector<FName>();
+		m_names[key].push_back(obj);
+	}
+}
+
+void FMapSettings::Insert(FName key, int obj)
+{
+	auto found = m_integers.find(key);
+	if (found != m_integers.end())
+	{
+		found->second.push_back(obj);
+	}
+	else
+	{
+		m_integers[key] = std::vector<int>();
+		m_integers[key].push_back(obj);
+	}
+}
+
+void FMapSettings::Insert(FName key, float obj)
+{
+	auto found = m_floats.find(key);
+	if (found != m_floats.end())
+	{
+		found->second.push_back(obj);
+	}
+	else
+	{
+		m_floats[key] = std::vector<float>();
+		m_floats[key].push_back(obj);
+	}
+}
+
 MapFileReader::MapFileReader()
 {
 }
@@ -127,35 +171,44 @@ void MapFileReader::SerializeObjects(FArchive & Archive, FMapSettings& Settings)
 {
 	for (const auto& names : Settings.GetNames())
 	{
-		FName Tag = names.first;
-		FName Value = names.second;
-		int Type = 1;
+		for (const auto& sub : names.second)
+		{
+			FName Tag = names.first;
+			FName Value = sub;
+			int Type = 1;
 
-		Archive << Tag;
-		Archive << Type;
-		Archive << Value;
+			Archive << Tag;
+			Archive << Type;
+			Archive << Value;
+		}
 	}
 
-	for (const auto& names : Settings.GetIntegers())
+	for (const auto& integers : Settings.GetIntegers())
 	{
-		FName Tag = names.first;
-		int Value = names.second;
-		int Type = 2;
+		for (const auto& sub : integers.second)
+		{
+			FName Tag = integers.first;
+			int Value = sub;
+			int Type = 2;
 
-		Archive << Tag;
-		Archive << Type;
-		Archive << Value;
+			Archive << Tag;
+			Archive << Type;
+			Archive << Value;
+		}
 	}
 
-	for (const auto& names : Settings.GetFloats())
+	for (const auto& floats : Settings.GetFloats())
 	{
-		FName Tag = names.first;
-		float Value = names.second;
-		int Type = 3;
+		for (const auto& sub : floats.second)
+		{
+			FName Tag = floats.first;
+			float Value = sub;
+			int Type = 3;
 
-		Archive << Tag;
-		Archive << Type;
-		Archive << Value;
+			Archive << Tag;
+			Archive << Type;
+			Archive << Value;
+		}
 	}
 }
 

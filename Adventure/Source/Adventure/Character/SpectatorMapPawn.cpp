@@ -30,22 +30,6 @@ ASpectatorMapPawn::ASpectatorMapPawn()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 }
 
-bool ASpectatorMapPawn::RequestSpawnInteractible(int Type, FGridCoordinate Location)
-{
-	if (HasAuthority())
-	{
-		TActorIterator<AWorldGrid> GridItr(GetWorld());
-		if (GridItr)
-		{
-			if (!GridItr->AddInteractible(Type, Location))
-			{
-				UE_LOG(LogNotice, Warning, TEXT("Could not spawn Interactable at occupied location."));
-			}
-		}
-	}
-	return false;
-}
-
 // Called when the game starts or when spawned
 void ASpectatorMapPawn::BeginPlay()
 {

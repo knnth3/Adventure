@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Basics.h"
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "GM_GameBuilder.generated.h"
@@ -19,8 +20,18 @@ public:
 	
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	
+	UFUNCTION(BlueprintCallable, Category = "GameBuilder Gamemode")
+	FName GetMapName()const;
+
+	UFUNCTION(BlueprintCallable, Category = "GameBuilder Gamemode")
+	FGridCoordinate GetMapSize()const;
+
+	UFUNCTION(BlueprintCallable, Category = "GameBuilder Gamemode")
+	bool IsNewMap()const;
+
 private:
-	FName MapName;
+	FName m_MapName;
+	bool m_bNewMap;
 	TSubclassOf<class AWorldGrid> GridClass;
 	class AWorldGrid* WorldGrid;
 };

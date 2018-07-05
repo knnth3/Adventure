@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <vector>
 #include <string>
 #include <map>
 #include <typeinfo>
@@ -17,21 +18,24 @@ class FMapSettings
 {
 public:
 
-	void Insert(FName key, FName obj) { m_names[key] = obj; }
-	void Insert(FName key, int obj) { m_integers[key] = obj; }
-	void Insert(FName key, float obj) { m_floats[key] = obj; }
+	void Insert(FName key, FName obj);
+	void Insert(FName key, int obj);
+	void Insert(FName key, float obj);
 
 	template<typename T>
 	T* Get(FName key);
 
-	const std::map<FName, FName>& GetNames()const { return m_names; }
-	const std::map<FName, int>& GetIntegers()const { return m_integers; }
-	const std::map<FName, float>& GetFloats()const { return m_floats; }
+	const std::map<FName, std::vector<FName>>& GetNames()const { return m_names; }
+	const std::map<FName, std::vector<int>>& GetIntegers()const { return m_integers; }
+	const std::map<FName, std::vector<float>>& GetFloats()const { return m_floats; }
+
+	void Clear() { m_names.clear(); m_integers.clear(); m_floats.clear(); }
 
 private:
-	std::map<FName, FName> m_names;
-	std::map<FName, int> m_integers;
-	std::map<FName, float> m_floats;
+	std::map<FName, std::vector<FName>> m_names;
+	std::map<FName, std::vector<int>> m_integers;
+	std::map<FName, std::vector<float>> m_floats;
+	std::map<FName, std::vector<FName>> m_positions;
 };
 
 class ADVENTURE_API MapFileReader

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <map>
 #include <utility>
 #include <memory>
 #include <vector>
@@ -26,6 +27,28 @@ typedef std::pair<int, int> CoordinatePair;
 
 template <typename T>
 using vector2D = std::vector<std::vector<T>>;
+
+template<typename TEnum>
+static FORCEINLINE FString GetEnumValueAsString(const FString& Name, TEnum Value)
+{
+	const UEnum* enumPtr = FindObject<UEnum>(ANY_PACKAGE, *Name, true);
+	if (!enumPtr)
+	{
+		return FString("Invalid");
+	}
+	return enumPtr->GetDisplayNameTextByValue((int64)Value).ToString();
+}
+
+static FORCEINLINE FString ParseStringFor(const FString& Text, const FString& Command, const FString& Endline)
+{
+	FString Result = "";
+	if (Text.Split(Command, nullptr, &Result))
+	{
+		Result.Split(Endline, &Result, nullptr);
+	}
+
+	return Result;
+}
 
 enum class UNITS
 {
@@ -156,10 +179,12 @@ struct ADVENTURE_API FGridCoordinate
 	FGridCoordinate();
 	FGridCoordinate(int32 x, int32 y);
 	FGridCoordinate(FVector Location3D);
+	FGridCoordinate(CoordinatePair Location);
 
-	bool operator==(const FGridCoordinate& b);
-	bool operator!=(const FGridCoordinate& b);
+	bool operator==(const FGridCoordinate& b)const;
+	bool operator!=(const FGridCoordinate& b)const;
 	CoordinatePair toPair()const;
+	bool IsZero()const;
 
 	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")
 	int32 X;

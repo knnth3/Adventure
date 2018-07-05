@@ -29,10 +29,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	class UCameraComponent* FollowCamera;
 
-	//Sends request to WorldGrid
-	UFUNCTION(BlueprintCallable)
-	bool RequestSpawnInteractible(int Type, FGridCoordinate Location);
-
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 

@@ -21,58 +21,62 @@ void AGM_GameBuilder::InitGame(const FString & MapName, const FString & Options,
 
 	int GridRows = 10;
 	int GridColumns = 10;
+	m_bNewMap = true;
 
-	if (Options.Contains("Name="))
+	//Parse all command options
+	FString Name    = ParseStringFor(Options, "Name=",    " ");
+	FString Rows    = ParseStringFor(Options, "Rows=",    " ");
+	FString Columns = ParseStringFor(Options, "Columns=", " ");
+	FString NewMap  = ParseStringFor(Options, "NewMap=",  " ");
+
+	m_MapName = FName(*Name);
+	UE_LOG(LogNotice, Warning, TEXT("Map Name: %s"), *Name);
+
+	if (!Columns.IsEmpty() && !Rows.IsEmpty() && Columns.IsNumeric() && Rows.IsNumeric())
 	{
-		int index = Options.Find("Name=");
-		FString remain = Options.RightChop(index);
-		int end = remain.Len() - remain.Find(" ");
-		remain = remain.LeftChop(end);
-		this->MapName = FName(*remain);
-		UE_LOG(LogNotice, Warning, TEXT("Map Name: %s"), *remain);
+		UE_LOG(LogNotice, Warning, TEXT("Map Size: %s x %s"), *Rows, *Columns);
+
+		GridRows = FCString::Atoi(*Rows);
+		GridColumns = FCString::Atoi(*Columns);
 	}
 
-	if (Options.Contains("Size="))
+	if (!NewMap.IsEmpty())
 	{
-		int index = Options.Find("Size=");
-		FString remain = Options.RightChop(index + 5);
-		int end = remain.Find(" ");
-		remain = remain.LeftChop(end);
-		UE_LOG(LogNotice, Warning, TEXT("From: %s"), *remain);
+		UE_LOG(LogNotice, Warning, TEXT("New Map: %s"), *NewMap);
 
-		//First number
-		int first = remain.Len() - remain.Find(":");
-		FString ColumnString = remain.RightChop(first);
-		GridColumns = FCString::Atoi(*ColumnString);
-		UE_LOG(LogNotice, Warning, TEXT("Columns: %s"), *ColumnString);
-
-		int last = remain.Len() - first;
-		FString RowString = remain.LeftChop(last + 1);
-		GridRows = FCString::Atoi(*RowString);
-		UE_LOG(LogNotice, Warning, TEXT("Rows: %s"), *RowString);
+		m_bNewMap = (NewMap == "False") ? false : true;
 	}
 
+	//Initialize the World Grid
 	FVector Location(0.0f);
 	WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
 
 	if (WorldGrid)
 	{
-
 		WorldGrid->Initialize(GridRows, GridColumns);
-
-		//Make spawn points
-		TArray<FGridCoordinate> SpawnLocations =
-		{
-		{ 0, 0 },
-		{ 0, 1 },
-		{ 0, 4 },
-		{ 0 ,6 }
-		};
-
-		WorldGrid->SetSpawnLocations(SpawnLocations);
 	}
 	else
 	{
 		UE_LOG(LogNotice, Error, TEXT("NO WORLD GRID FOUND."));
 	}
+}
+
+FName AGM_GameBuilder::GetMapName() const
+{
+	return m_MapName;
+}
+
+FGridCoordinate AGM_GameBuilder::GetMapSize() const
+{
+	if (WorldGrid)
+	{
+		return WorldGrid->GetSize();
+	}
+
+	return FGridCoordinate(0, 0);
+}
+
+bool AGM_GameBuilder::IsNewMap() const
+{
+	return m_bNewMap;
 }

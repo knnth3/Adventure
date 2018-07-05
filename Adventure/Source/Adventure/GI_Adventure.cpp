@@ -142,7 +142,12 @@ bool UGI_Adventure::HostGame(FHOSTGAME_SETTINGS settings)
 
 bool UGI_Adventure::LoadGameBuilder(FGAMEBUILDER_SETTINGS settings)
 {
-	FString options = "Name=" + settings.MapName + " Size=" + FString::FromInt(settings.Rows) + ":" + FString::FromInt(settings.Colums);
+	FString options = 
+		"Name=" + settings.MapName + " " +
+		"Columns=" + FString::FromInt(settings.Colums) + " " +
+		"Rows=" + FString::FromInt(settings.Rows) + " " +
+		"NewMap="  + (settings.bNewMap ? "True" : "False");
+
 	UGameplayStatics::OpenLevel(GetWorld(), MAP_GAMEBUILDER, true, options);
 	return true;
 }
