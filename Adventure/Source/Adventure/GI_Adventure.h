@@ -11,7 +11,8 @@
  * 
  */
 
-enum class ADVENTURE_STATE
+UENUM(BlueprintType)
+enum class ADVENTURE_STATE : uint8
 {
 	MAIN_MENU,
 	GAMEBUILDER,
@@ -45,9 +46,6 @@ public:
 	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings)override;
 
 	UFUNCTION(BlueprintCallable)
-	void LoadMainMenu();
-
-	UFUNCTION(BlueprintCallable)
 	const TArray<FString> GetServerList()const;
 
 	UFUNCTION(BlueprintCallable)
@@ -62,6 +60,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	virtual void EndLoadingScreen(UWorld* InLoadedWorld);
 
+	UFUNCTION(BlueprintCallable)
+	virtual void LoadMainMenu() override;
+
+	UFUNCTION(BlueprintCallable)
+	ADVENTURE_STATE GetCurrentState()const;
+
 	void LoadNextMap();
 
 protected:
@@ -75,10 +79,6 @@ protected:
 	void OnNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString);
 
 private:
-
-	//Main Menu
-	class UW_MainMenu* m_mainMenu;
-	TSubclassOf<class UW_MainMenu> MenuClass;
 
 	//Online Sessions
 	bool bFindingSessions;

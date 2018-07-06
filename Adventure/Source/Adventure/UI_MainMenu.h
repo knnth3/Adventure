@@ -100,5 +100,6 @@ public:
 	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings) = 0;
 	virtual const TArray<FString> GetServerList()const = 0;
 	virtual bool IsServerQueryActive()const = 0;
+	virtual void LoadMainMenu() = 0;
 	
 };

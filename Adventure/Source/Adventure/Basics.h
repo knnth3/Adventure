@@ -251,5 +251,8 @@ class ADVENTURE_API UBasicFunctions : public UObject
 		return (HitOut.GetActor() != NULL);
 	}
 	
+
+	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
+	static bool GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ext);
 	
 };

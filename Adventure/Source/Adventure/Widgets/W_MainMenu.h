@@ -4,7 +4,7 @@
 
 #include <memory>
 #include "CoreMinimal.h"
-#include "UI_MainMenu.h"
+#include "GI_Adventure.h"
 #include "Blueprint/UserWidget.h"
 #include "W_MainMenu.generated.h"
 
@@ -93,9 +93,9 @@ protected:
 	class UButton* Exit;
 
 public:
-	void AddCallbackInterface(IUI_MainMenu* Interface);
-	bool Activate();
-	void Deactivate();
+
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	void AddCallbackInterface(UGI_Adventure* Interface);
 
 private:
 
@@ -104,7 +104,7 @@ private:
 	void LoadEditor();
 
 	ACTIVE_MENU m_active;
-	IUI_MainMenu* m_interface = nullptr;
+	UGI_Adventure* m_interface = nullptr;
 	class UW_MainMenu_Child* m_homeMenu = nullptr;
 	class UW_MainMenu_Child* m_hostMenu = nullptr;
 	class UW_MainMenu_Child* m_joinMenu = nullptr;

@@ -178,53 +178,9 @@ void UW_MainMenu::SetHomeMenuClass(TSubclassOf<class UW_MainMenu_Child> HomeMenu
 	}
 }
 
-void UW_MainMenu::AddCallbackInterface(IUI_MainMenu* Interface)
+void UW_MainMenu::AddCallbackInterface(UGI_Adventure* Interface)
 {
 	m_interface = Interface;
-}
-
-bool UW_MainMenu::Activate()
-{
-	bool success = false;
-	AddToViewport();
-
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		//Get player controller to set Input Mode
-		APlayerController* Controller = World->GetFirstPlayerController();
-		if (Controller)
-		{
-			//Set Focus
-			FInputModeUIOnly InputMode;
-			InputMode.SetWidgetToFocus(TakeWidget());
-			InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-
-			Controller->SetInputMode(InputMode);
-
-			success = true;
-		}
-	}
-
-	return success;
-}
-
-void UW_MainMenu::Deactivate()
-{
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		//Get player controller to set Input Mode
-		APlayerController* Controller = World->GetFirstPlayerController();
-		if (Controller)
-		{
-			//Set Focus
-			FInputModeGameOnly InputMode;
-			Controller->SetInputMode(InputMode);
-		}
-	}
-
-	RemoveFromViewport();
 }
 
 void UW_MainMenu::SetGameBuilderSettings(FGAMEBUILDER_SETTINGS settings)

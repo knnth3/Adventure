@@ -4,6 +4,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Blueprint/UserWidget.h"
 #include "Widgets/W_MainMenu.h"
+#include "Widgets/W_PauseMenu.h"
 #include "Adventure.h"
 #include "UnrealNames.h"
 #include "MoviePlayer.h"
@@ -19,13 +20,6 @@ const static FName MAP_GAMEBUILDER = "/Game/Maps/GameBuilder/Level_GameBuilder";
 UGI_Adventure::UGI_Adventure(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	static ConstructorHelpers::FClassFinder<UW_MainMenu> MainMenu(TEXT("/Game/Blueprints/UI/MainMenu/MainMenu"));
-	if (MainMenu.Class != nullptr)
-	{
-		MenuClass = MainMenu.Class;
-	}
-
-	m_mainMenu = nullptr;
 	bFindingSessions = false;
 }
 
@@ -55,6 +49,8 @@ void UGI_Adventure::Init()
 
 	FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UGI_Adventure::BeginLoadingScreen);
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UGI_Adventure::EndLoadingScreen);
+
+	bool success = false;
 }
 
 void UGI_Adventure::Disconnect()
@@ -175,21 +171,6 @@ void UGI_Adventure::FindSessions(FSESSION_SEARCH_SETTINGS settings)
 	}
 }
 
-void UGI_Adventure::LoadMainMenu()
-{
-	bool success = false;
-
-	if (MenuClass)
-	{
-		m_mainMenu = CreateWidget<UW_MainMenu>(this, MenuClass);
-		if (m_mainMenu)
-		{
-			m_mainMenu->AddCallbackInterface(this);
-			success = m_mainMenu->Activate();
-		}
-	}
-}
-
 const TArray<FString> UGI_Adventure::GetServerList() const
 {
 	return SessionSearchResults;
@@ -230,6 +211,22 @@ void UGI_Adventure::EndLoadingScreen(UWorld * InLoadedWorld)
 	}
 }
 
+void UGI_Adventure::LoadMainMenu()
+{
+	CurrentState = ADVENTURE_STATE::MAIN_MENU;
+
+	//Fade the screen out
+	const UWorld* World = GetWorld();
+	if (World)
+	{
+		UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
+		if (ViewportClient)
+		{
+			ViewportClient->Fade(0.25f, true, true);
+		}
+	}
+}
+
 void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnCreateSessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful));
@@ -262,10 +259,6 @@ void UGI_Adventure::OnStartOnlineSessionComplete(FName SessionName, bool bWasSuc
 	// If the start was successful, we can open a NewMap if we want. Make sure to use "listen" as a parameter!
 	if (bWasSuccessful)
 	{
-		if (m_mainMenu)
-		{
-			m_mainMenu->Deactivate();
-		}
 
 		UGameplayStatics::OpenLevel(GetWorld(), MAP_MULTIPLAYER, true, "listen");
 	}
@@ -340,10 +333,6 @@ void UGI_Adventure::OnJoinOnlineSessionComplete(FName SessionName, EOnJoinSessio
 
 			if (PlayerController && Sessions->GetResolvedConnectString(SessionName, TravelURL))
 			{
-				if (m_mainMenu)
-				{
-					m_mainMenu->Deactivate();
-				}
 				// Finally call the ClienTravel. If you want, you could print the TravelURL to see
 				// how it really looks like
 				PlayerController->ClientTravel(TravelURL, ETravelType::TRAVEL_Absolute);
@@ -356,23 +345,18 @@ void UGI_Adventure::OnDestroyOnlineSessionComplete(FName SessionName, bool bWasS
 {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnDestroySessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful));
 
-	// Get the OnlineSubsystem we want to work with
-	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
-	if (OnlineSub)
-	{
-		// Get the SessionInterface from the OnlineSubsystem
-		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
-		if (Sessions.IsValid())
-		{
-			UGameplayStatics::OpenLevel(GetWorld(), MAP_MAIN_MENU, true);
-		}
-	}
+	UGameplayStatics::OpenLevel(GetWorld(), MAP_MAIN_MENU, true);
 }
 
 void UGI_Adventure::OnNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Failure occured")));
 	Disconnect();
+}
+
+ADVENTURE_STATE UGI_Adventure::GetCurrentState() const
+{
+	return CurrentState;
 }
 
 void UGI_Adventure::LoadNextMap()

@@ -1,6 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Basics.h"
+#include "FileManager.h"
+#include "Paths.h"
+#include "Adventure.h"
 
 #define CM_TO_M_FACTOR 100
 #define CM_TO_IN_FACTOR 2.54
@@ -181,4 +184,30 @@ float Conversions::Feet::ToMeters(const float & Units)
 	float in = Conversions::Feet::ToInches(Units);
 
 	return Conversions::Inches::ToMeters(in);
+}
+
+bool UBasicFunctions::GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ext)
+{
+	FString RootFolderFullPath = FPaths::ProjectSavedDir() + "/SaveGames/";
+
+	if (RootFolderFullPath.Len() < 1) return false;
+
+	FPaths::NormalizeDirectoryName(RootFolderFullPath);
+
+	UE_LOG(LogNotice, Warning, TEXT("Attempting to locate all filed in folderpath: %s"), *RootFolderFullPath);
+
+	IFileManager& FileManager = IFileManager::Get();
+
+	if (Ext == "")
+	{
+		Ext = "*.*";
+	}
+	else
+	{
+		Ext = (Ext.Left(1) == ".") ? "*" + Ext : "*." + Ext;
+	}
+
+	FString FinalPath = RootFolderFullPath + "/" + Ext;
+	FileManager.FindFiles(Array, *FinalPath, true, false);
+	return true;
 }
