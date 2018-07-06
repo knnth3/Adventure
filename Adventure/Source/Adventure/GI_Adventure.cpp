@@ -6,6 +6,8 @@
 #include "Widgets/W_MainMenu.h"
 #include "Adventure.h"
 #include "UnrealNames.h"
+#include "MoviePlayer.h"
+#include "ViewportClient/VC_Adventure.h"
 
 #define SESSION_NAME EName::NAME_GameSession
 #define SETTING_SESSION FName(TEXT("SESSION_ID"))
@@ -29,6 +31,7 @@ UGI_Adventure::UGI_Adventure(const FObjectInitializer& ObjectInitializer)
 
 void UGI_Adventure::Init()
 {
+	Super::Init();
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
 	{
@@ -49,106 +52,81 @@ void UGI_Adventure::Init()
 	{
 		Engine->OnNetworkFailure().AddUObject(this, &UGI_Adventure::OnNetworkFailure);
 	}
+
+	FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UGI_Adventure::BeginLoadingScreen);
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UGI_Adventure::EndLoadingScreen);
 }
 
 void UGI_Adventure::Disconnect()
 {
-	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
-	if (OnlineSub)
+	CurrentState = ADVENTURE_STATE::MAIN_MENU;
+
+	//Fade the screen out
+	const UWorld* World = GetWorld();
+	if (World)
 	{
-		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
-		if (Sessions.IsValid())
+		UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
+		if (ViewportClient)
 		{
-			Sessions->DestroySession(SESSION_NAME);
+			ViewportClient->Fade(0.25f, true, true);
 		}
 	}
 }
 
 bool UGI_Adventure::JoinGame(FJOINGAME_SETTINGS settings)
 {
-	// Return bool
-	bool bSuccessful = false;
+	JoinGameSettings = settings;
+	CurrentState = ADVENTURE_STATE::CLIENT;
 
-	// Get OnlineSubsystem we want to work with
-	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
-
-	if (OnlineSub)
+	//Fade the screen out
+	const UWorld* World = GetWorld();
+	if (World)
 	{
-		// Get SessionInterface from the OnlineSubsystem
-		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
-
-		if (Sessions.IsValid())
+		UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
+		if (ViewportClient)
 		{
-			if (SessionSearch.IsValid())
-			{
-				if (settings.ID >= 0 && settings.ID < SessionSearch->SearchResults.Num())
-				{
-					auto SearchResult = SessionSearch->SearchResults[settings.ID];
-					bSuccessful = Sessions->JoinSession(0, SESSION_NAME, SearchResult);
-				}
-			}
+			ViewportClient->Fade(0.25f, true, true);
 		}
 	}
 
-	return bSuccessful;
+	return true;
 }
 
 bool UGI_Adventure::HostGame(FHOSTGAME_SETTINGS settings)
 {
-	// Get the Online Subsystem to work with
-	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	CurrentState = ADVENTURE_STATE::SERVER;
+	HostGameSettings = settings;
 
-	if (OnlineSub)
+	//Fade the screen out
+	const UWorld* World = GetWorld();
+	if (World)
 	{
-		// Get the Session Interface, so we can call the "CreateSession" function on it
-		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
-
-		if (Sessions.IsValid())
+		UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
+		if (ViewportClient)
 		{
-			/*
-			Fill in all the Session Settings that we want to use.
-
-			There are more with SessionSettings.Set(...);
-			For example the Map or the GameMode/Type.
-			*/
-			SessionSettings = MakeShareable(new FOnlineSessionSettings());
-
-			SessionSettings->bIsLANMatch = settings.IsLan;
-			SessionSettings->bUsesPresence = settings.IsPresence;
-			SessionSettings->NumPublicConnections = settings.MaxPlayers;
-			SessionSettings->NumPrivateConnections = 0;
-			SessionSettings->bAllowInvites = true;
-			SessionSettings->bAllowJoinInProgress = true;
-			SessionSettings->bShouldAdvertise = true;
-			SessionSettings->bAllowJoinViaPresence = true;
-			SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
-
-			SessionSettings->Set(SETTING_MAPNAME, settings.MapName, EOnlineDataAdvertisementType::ViaOnlineService);
-			SessionSettings->Set(SETTING_SESSION, settings.SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
-
-			HostGameSettings = settings;
-
-			// Our delegate should get called when this is complete (doesn't need to be successful!)
-			return Sessions->CreateSession(0 , SESSION_NAME, *SessionSettings);
+			ViewportClient->Fade(0.25f, true, true);
 		}
 	}
-	else
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("No OnlineSubsytem found!"));
-	}
 
-	return false;
+	return true;
 }
 
 bool UGI_Adventure::LoadGameBuilder(FGAMEBUILDER_SETTINGS settings)
 {
-	FString options = 
-		"Name=" + settings.MapName + " " +
-		"Columns=" + FString::FromInt(settings.Colums) + " " +
-		"Rows=" + FString::FromInt(settings.Rows) + " " +
-		"NewMap="  + (settings.bNewMap ? "True" : "False");
+	GameBuilderSettings = settings;
+	CurrentState = ADVENTURE_STATE::GAMEBUILDER;
 
-	UGameplayStatics::OpenLevel(GetWorld(), MAP_GAMEBUILDER, true, options);
+	//Fade the screen out
+	const UWorld* World = GetWorld();
+	if (World)
+	{
+		UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
+		if (ViewportClient)
+		{
+			ViewportClient->Fade(0.25f, true, true);
+		}
+	}
+
 	return true;
 }
 
@@ -227,6 +205,30 @@ FHOSTGAME_SETTINGS UGI_Adventure::GetHostSettings() const
 	return HostGameSettings;
 }
 
+void UGI_Adventure::BeginLoadingScreen(const FString & MapName)
+{
+	if (!IsRunningDedicatedServer())
+	{
+		FLoadingScreenAttributes LoadingScreen;
+		LoadingScreen.bAutoCompleteWhenLoadingCompletes = false;
+		LoadingScreen.WidgetLoadingScreen = FLoadingScreenAttributes::NewTestLoadingScreenWidget();
+		LoadingScreen.MinimumLoadingScreenDisplayTime = 1.0f;
+		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
+	}
+}
+
+void UGI_Adventure::EndLoadingScreen(UWorld * InLoadedWorld)
+{
+	const UWorld* World = GetWorld();
+	if (World)
+	{
+		UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
+		if (ViewportClient)
+		{
+			ViewportClient->Fade(2.0f, false);
+		}
+	}
+}
 
 void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSuccessful)
 {
@@ -371,4 +373,120 @@ void UGI_Adventure::OnNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetw
 {
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Failure occured")));
 	Disconnect();
+}
+
+void UGI_Adventure::LoadNextMap()
+{
+
+	switch (CurrentState)
+	{
+	case ADVENTURE_STATE::MAIN_MENU:
+	{
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
+		{
+			IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+			if (Sessions.IsValid())
+			{
+				Sessions->DestroySession(SESSION_NAME);
+			}
+		}
+	}
+		break;
+	case ADVENTURE_STATE::GAMEBUILDER:
+	{
+		FString options =
+			"Name=" + GameBuilderSettings.MapName + " " +
+			"Columns=" + FString::FromInt(GameBuilderSettings.Colums) + " " +
+			"Rows=" + FString::FromInt(GameBuilderSettings.Rows) + " " +
+			"NewMap=" + (GameBuilderSettings.bNewMap ? "True" : "False");
+
+		UGameplayStatics::OpenLevel(GetWorld(), MAP_GAMEBUILDER, true, options);
+	}
+		break;
+	case ADVENTURE_STATE::CLIENT:
+	{
+		// Return bool
+		bool bSuccessful = false;
+
+		// Get OnlineSubsystem we want to work with
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+
+		if (OnlineSub)
+		{
+			// Get SessionInterface from the OnlineSubsystem
+			IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+
+			if (Sessions.IsValid())
+			{
+				if (SessionSearch.IsValid())
+				{
+					if (JoinGameSettings.ID >= 0 && JoinGameSettings.ID < SessionSearch->SearchResults.Num())
+					{
+						auto SearchResult = SessionSearch->SearchResults[JoinGameSettings.ID];
+						bSuccessful = Sessions->JoinSession(0, SESSION_NAME, SearchResult);
+					}
+				}
+			}
+		}
+	}
+		break;
+	case ADVENTURE_STATE::SERVER:
+	{
+		// Get the Online Subsystem to work with
+		IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+
+		if (OnlineSub)
+		{
+			// Get the Session Interface, so we can call the "CreateSession" function on it
+			IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+
+			if (Sessions.IsValid())
+			{
+				/*
+				Fill in all the Session Settings that we want to use.
+
+				There are more with SessionSettings.Set(...);
+				For example the Map or the GameMode/Type.
+				*/
+				SessionSettings = MakeShareable(new FOnlineSessionSettings());
+
+				SessionSettings->bIsLANMatch = HostGameSettings.IsLan;
+				SessionSettings->bUsesPresence = HostGameSettings.IsPresence;
+				SessionSettings->NumPublicConnections = HostGameSettings.MaxPlayers;
+				SessionSettings->NumPrivateConnections = 0;
+				SessionSettings->bAllowInvites = true;
+				SessionSettings->bAllowJoinInProgress = true;
+				SessionSettings->bShouldAdvertise = true;
+				SessionSettings->bAllowJoinViaPresence = true;
+				SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
+
+				SessionSettings->Set(SETTING_MAPNAME, HostGameSettings.MapName, EOnlineDataAdvertisementType::ViaOnlineService);
+				SessionSettings->Set(SETTING_SESSION, HostGameSettings.SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
+
+				// Our delegate should get called when this is complete (doesn't need to be successful!)
+				Sessions->CreateSession(0, SESSION_NAME, *SessionSettings);
+			}
+		}
+		else
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("No OnlineSubsytem found!"));
+		}
+	}
+		break;
+	default:
+	{
+		const UWorld* World = GetWorld();
+		if (World)
+		{
+			UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
+			if (ViewportClient)
+			{
+				ViewportClient->ClearFade();
+			}
+		}
+	}
+		break;
+	}
+
 }

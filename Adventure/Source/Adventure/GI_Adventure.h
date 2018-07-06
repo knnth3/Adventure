@@ -10,6 +10,15 @@
 /**
  * 
  */
+
+enum class ADVENTURE_STATE
+{
+	MAIN_MENU,
+	GAMEBUILDER,
+	CLIENT,
+	SERVER,
+};
+
 UCLASS()
 class ADVENTURE_API UGI_Adventure : public UGameInstance, public IUI_MainMenu
 {
@@ -47,6 +56,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FHOSTGAME_SETTINGS GetHostSettings()const;
 
+	UFUNCTION(BlueprintCallable)
+	virtual void BeginLoadingScreen(const FString& MapName);
+
+	UFUNCTION(BlueprintCallable)
+	virtual void EndLoadingScreen(UWorld* InLoadedWorld);
+
+	void LoadNextMap();
+
 protected:
 
 	//Online session callbacks
@@ -65,7 +82,10 @@ private:
 
 	//Online Sessions
 	bool bFindingSessions;
+	ADVENTURE_STATE CurrentState = ADVENTURE_STATE::MAIN_MENU;
 	FHOSTGAME_SETTINGS HostGameSettings;
+	FJOINGAME_SETTINGS JoinGameSettings;
+	FGAMEBUILDER_SETTINGS GameBuilderSettings;
 	TArray<FString> SessionSearchResults;
 	TSharedPtr<class FOnlineSessionSearch> SessionSearch;
 	TSharedPtr<class FOnlineSessionSettings> SessionSettings;
