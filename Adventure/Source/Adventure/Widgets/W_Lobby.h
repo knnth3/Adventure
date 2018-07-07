@@ -16,11 +16,22 @@ class ADVENTURE_API UW_Lobby : public UUserWidget
 	
 public:
 
+	virtual bool Initialize()override;
+
 	bool Activate();
 	void Deactivate();
 	void AddCharacter(FString Username);
+	void AddServerCallback(class AGM_Lobby* Gamemode);
+
 
 	//Blueprint Functions
 	UFUNCTION(BlueprintImplementableEvent, Category = "Lobby Menu")
 	void OnCharacterConnected(const FString& Username);
+
+	UFUNCTION(BlueprintCallable, Category = "Lobby UI")
+	void StartSession();
+
+private:
+
+	class AGM_Lobby* m_Gamemode;
 };

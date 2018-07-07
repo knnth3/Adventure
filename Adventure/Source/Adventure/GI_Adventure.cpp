@@ -242,10 +242,7 @@ void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSu
 		{
 			if (bWasSuccessful)
 			{
-				// Our StartSessionComplete delegate should get called after this
-				//FName mapName = "/Game/Maps/ThirdPersonExampleMap";
-				//UGameplayStatics::OpenLevel(GetWorld(), mapName, true, "listen");
-				Sessions->StartSession(SessionName);
+				UGameplayStatics::OpenLevel(GetWorld(), MAP_MULTIPLAYER, true, "listen");
 			}
 		}
 
@@ -257,11 +254,11 @@ void UGI_Adventure::OnStartOnlineSessionComplete(FName SessionName, bool bWasSuc
 	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnStartSessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful));
 
 	// If the start was successful, we can open a NewMap if we want. Make sure to use "listen" as a parameter!
-	if (bWasSuccessful)
-	{
+	//if (bWasSuccessful)
+	//{
 
-		UGameplayStatics::OpenLevel(GetWorld(), MAP_MULTIPLAYER, true, "listen");
-	}
+	//	UGameplayStatics::OpenLevel(GetWorld(), MAP_MULTIPLAYER, true, "listen");
+	//}
 }
 
 void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
@@ -357,6 +354,28 @@ void UGI_Adventure::OnNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetw
 ADVENTURE_STATE UGI_Adventure::GetCurrentState() const
 {
 	return CurrentState;
+}
+
+void UGI_Adventure::StartSession()
+{
+	// Get the OnlineSubsystem so we can get the Session Interface
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		// Get the Session Interface to call the StartSession function
+		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+
+		if (Sessions.IsValid())
+		{
+			Sessions->StartSession(SESSION_NAME);
+		}
+
+	}
+}
+
+FHOSTGAME_SETTINGS UGI_Adventure::GetHostGameSettings()
+{
+	return HostGameSettings;
 }
 
 void UGI_Adventure::LoadNextMap()

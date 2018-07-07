@@ -4,6 +4,8 @@
 #include "../Widgets/W_Lobby.h"
 #include "GI_Adventure.h"
 
+#define MULTIPLAYER_MAP "/Game/Maps/Multiplayer/Level_Multiplayer"
+
 AGM_Lobby::AGM_Lobby()
 {
 	static ConstructorHelpers::FClassFinder<UW_Lobby> BP_LobbyMenu(TEXT("/Game/Blueprints/UI/Lobby/LobbyMenu"));
@@ -23,12 +25,13 @@ void AGM_Lobby::InitGame(const FString & MapName, const FString & Options, FStri
 	bool success = false;
 	if (MenuClass)
 	{
-		UGameInstance* instance = GetGameInstance();
-		if (instance)
+		UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
+		if (GameInstance)
 		{
-			m_LobbyMenu = CreateWidget<UW_Lobby>(instance, MenuClass);
+			m_LobbyMenu = CreateWidget<UW_Lobby>(GameInstance, MenuClass);
 			if (m_LobbyMenu)
 			{
+				m_LobbyMenu->AddServerCallback(this);
 				success = m_LobbyMenu->Activate();
 			}
 		}
@@ -47,5 +50,18 @@ void AGM_Lobby::PostLogin(APlayerController* NewPlayer)
 	}
 
 	m_playerCount++;
+}
+
+void AGM_Lobby::StartGame()
+{
+	UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
+	UWorld* World = GetWorld();
+	if (World && GameInstance)
+	{
+		bUseSeamlessTravel = true;
+		World->ServerTravel(MULTIPLAYER_MAP + FString("?listen"));
+		GameInstance->StartSession();
+		OnGameStart();
+	}
 }
 

@@ -66,6 +66,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	ADVENTURE_STATE GetCurrentState()const;
 
+	UFUNCTION(BlueprintCallable)
+	void StartSession();
+
+	UFUNCTION(BlueprintCallable)
+	FHOSTGAME_SETTINGS GetHostGameSettings();
+
 	void LoadNextMap();
 
 protected:

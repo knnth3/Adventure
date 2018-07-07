@@ -8,8 +8,8 @@
 
 AGM_Multiplayer::AGM_Multiplayer()
 {
-	GridRows = 5;
-	GridColumns = 5;
+	GridRows = 10;
+	GridColumns = 10;
 
 	static ConstructorHelpers::FClassFinder<APawn> BP_PlayerPawn(TEXT("/Game/Blueprints/Characters/MapPawn/BP_MapPawn"));
 	static ConstructorHelpers::FClassFinder<APlayerController> BP_PlayerController(TEXT("/Game/Blueprints/PlayerControllers/BP_PC_Adventure_Default"));
@@ -51,27 +51,6 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 	{
 		FHOSTGAME_SETTINGS settings = GameInstance->GetHostSettings();
 		FString MapFileName = settings.MapName;
-
-		FMapSettings Settings;
-
-		//ReadFile
-		if (MapFileReader::LoadMapFile(MapFileName, Settings))
-		{
-			//Map Loaded Successfully
-			UE_LOG(LogNotice, Warning, TEXT("Map loaded Successfully"));
-
-			int* rows = Settings.Get<int>("GridRows");
-			if (rows)
-			{
-				GridRows = *rows;
-			}
-
-			int* columns = Settings.Get<int>("GridColumns");
-			if (columns)
-			{
-				GridColumns = *columns;
-			}
-		}
 	}
 
 	//Make sure the object being spawned has collision turned off
