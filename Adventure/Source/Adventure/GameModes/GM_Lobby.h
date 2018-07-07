@@ -21,6 +21,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Lobby Gamemode")
 	void StartGame();
 
+	UFUNCTION(BlueprintCallable, Category = "Lobby Gamemode")
+	void SetMapToLoad(const FString& Name);
+
+	UFUNCTION(BlueprintCallable, Category = "Lobby Gamemode")
+	void GetMapToLoad(FString& Name)const;
+
+	//Menu
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lobby Gamemode")
+	TSubclassOf<class UW_Lobby> DefaultLobbyUIClass;
+
 protected:
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
@@ -32,8 +42,6 @@ protected:
 private:
 
 	uint32_t m_playerCount;
-
-	//Menu
+	FString m_MapSaveName;
 	class UW_Lobby* m_LobbyMenu;
-	TSubclassOf<class UW_Lobby> MenuClass;
 };

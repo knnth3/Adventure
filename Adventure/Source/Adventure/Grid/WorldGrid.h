@@ -124,10 +124,10 @@ public:
 protected:
 
 	UPROPERTY(EditAnywhere, Category = "Spawnables")
-	TArray<TSubclassOf<AActor>> SpawnerClasses;
+	TArray<TSubclassOf<class ASpawner>> SpawnerClasses;
 
 	UPROPERTY(EditAnywhere, Category = "Spawnables")
-	TArray<UStaticMesh*> InteractableMeshes;
+	TArray<TSubclassOf<class AInteractable>> InteractableClasses;
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -157,9 +157,6 @@ private:
 
 	void SetUpGridVisual();
 	void SetUpGridLogical();
-
-	//Class Refrences
-	TSubclassOf<class AInteractable> InteractableClass;
 
 	//C++ standard
 	bool bInitialized;

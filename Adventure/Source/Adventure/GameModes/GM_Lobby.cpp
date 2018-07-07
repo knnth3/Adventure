@@ -8,14 +8,14 @@
 
 AGM_Lobby::AGM_Lobby()
 {
-	static ConstructorHelpers::FClassFinder<UW_Lobby> BP_LobbyMenu(TEXT("/Game/Blueprints/UI/Lobby/LobbyMenu"));
-	if (!BP_LobbyMenu.Class)
-	{
-		UE_LOG(LogNotice, Error, TEXT("NO DEFAULT LOBBY MENU BLUEPRINT FOUND"));
-	}
-
 	m_playerCount = 0;
-	MenuClass = BP_LobbyMenu.Class;
+	//static ConstructorHelpers::FClassFinder<UW_Lobby> BP_LobbyMenu(TEXT("Class'/Game/Blueprints/UI/Lobby/LobbyMenu.LobbyMenu_C'"));
+	//if (!BP_LobbyMenu.Class)
+	//{
+	//	UE_LOG(LogNotice, Error, TEXT("NO DEFAULT LOBBY MENU BLUEPRINT FOUND"));
+	//}
+
+	//MenuClass = BP_LobbyMenu.Class;
 }
 
 void AGM_Lobby::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
@@ -23,12 +23,12 @@ void AGM_Lobby::InitGame(const FString & MapName, const FString & Options, FStri
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	bool success = false;
-	if (MenuClass)
+	if (DefaultLobbyUIClass)
 	{
 		UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
 		if (GameInstance)
 		{
-			m_LobbyMenu = CreateWidget<UW_Lobby>(GameInstance, MenuClass);
+			m_LobbyMenu = CreateWidget<UW_Lobby>(GameInstance, DefaultLobbyUIClass);
 			if (m_LobbyMenu)
 			{
 				m_LobbyMenu->AddServerCallback(this);
@@ -52,14 +52,27 @@ void AGM_Lobby::PostLogin(APlayerController* NewPlayer)
 	m_playerCount++;
 }
 
+void AGM_Lobby::SetMapToLoad(const FString & Name)
+{
+	m_MapSaveName = Name;
+}
+
+void AGM_Lobby::GetMapToLoad(FString & Name)const
+{
+	Name = m_MapSaveName;
+}
+
 void AGM_Lobby::StartGame()
 {
 	UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
 	UWorld* World = GetWorld();
 	if (World && GameInstance)
 	{
+		FString Option1 = TEXT("?listen");
+		FString Option2 = TEXT("?SN=") + m_MapSaveName;
+		FString URL = FString(MULTIPLAYER_MAP) + Option1 + Option2;
 		bUseSeamlessTravel = true;
-		World->ServerTravel(MULTIPLAYER_MAP + FString("?listen"));
+		World->ServerTravel(URL);
 		GameInstance->StartSession();
 		OnGameStart();
 	}

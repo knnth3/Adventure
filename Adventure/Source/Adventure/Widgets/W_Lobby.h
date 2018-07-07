@@ -23,13 +23,20 @@ public:
 	void AddCharacter(FString Username);
 	void AddServerCallback(class AGM_Lobby* Gamemode);
 
+protected:
 
 	//Blueprint Functions
-	UFUNCTION(BlueprintImplementableEvent, Category = "Lobby Menu")
+	UFUNCTION(BlueprintImplementableEvent, Category = "Lobby UI")
 	void OnCharacterConnected(const FString& Username);
 
 	UFUNCTION(BlueprintCallable, Category = "Lobby UI")
 	void StartSession();
+
+	UFUNCTION(BlueprintCallable, Category = "Lobby UI")
+	void SetMapToLoad(const FString& Name);
+
+	UFUNCTION(BlueprintCallable, Category = "Lobby UI")
+	bool IsMapSelected()const;
 
 private:
 

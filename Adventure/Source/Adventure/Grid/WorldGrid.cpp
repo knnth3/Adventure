@@ -4,6 +4,7 @@
 #include "Basics.h"
 #include "Adventure.h"
 #include "Interactable.h"
+#include "Spawner.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/MaterialParameterCollection.h"
@@ -18,14 +19,6 @@
 // Sets default values
 AWorldGrid::AWorldGrid()
 {
-	static ConstructorHelpers::FClassFinder<AInteractable> BP_Interactable(TEXT("/Game/Blueprints/Grid/BP_Interactable"));
-	if (!BP_Interactable.Class)
-	{
-		UE_LOG(LogNotice, Error, TEXT("NO INTERACTABLE CLASS FOUND"));
-	}
-
-	InteractableClass = BP_Interactable.Class;
-
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -92,7 +85,7 @@ bool AWorldGrid::SetSpawnLocation(int type, const FGridCoordinate & Location)
 			UWorld* world = GetWorld();
 			if (world)
 			{
-				AActor* NewPawn = Cast<AActor>(world->SpawnActor(*SpawnerClasses[type], &WorldLocation));
+				ASpawner* NewPawn = Cast<ASpawner>(world->SpawnActor(*SpawnerClasses[type], &WorldLocation));
 
 				if (NewPawn)
 				{
@@ -237,25 +230,67 @@ void AWorldGrid::RemoveActorFromPlay(const FGridCoordinate& Location)
 
 bool AWorldGrid::AddInteractable(int Type, const FGridCoordinate& Location)
 {
-	CellPtr FoundLocation = At(Location);
-	bool isSpawnLocation = CheckIfSpawnLocation(Location);
-	if (FoundLocation && !FoundLocation->Ocupied && !isSpawnLocation)
+	//CellPtr FoundLocation = At(Location);
+	//bool isSpawnLocation = CheckIfSpawnLocation(Location);
+	//if (FoundLocation && !FoundLocation->Ocupied && !isSpawnLocation)
+	//{
+	//	int MeshNum = InteractableClasses.Num();
+	//	if (MeshNum > Type && Type >= 0)
+	//	{
+	//		FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+	//		AInteractable* NewPawn = Cast<AInteractable>(GetWorld()->SpawnActor(*InteractableClass, &WorldLocation));
+	//		AInteractable* NewPawn = Cast<AInteractable>(world->SpawnActor(*SpawnerClasses[type], &WorldLocation));
+	//		if (NewPawn)
+	//		{
+	//			NewPawn->SetStaticMesh(InteractableClasses[Type]);
+
+	//			FoundLocation->Ocupied = true;
+
+	//			VisualGridRefrences[Location.toPair()] = NewPawn;
+	//			return true;
+	//		}
+	//	}
+	//}
+
+	//return false;
+
+	CellPtr FoundCell = At(Location);
+	bool bExists = CheckIfSpawnLocation(Location);
+	if (FoundCell && !FoundCell->Ocupied && !bExists)
 	{
-		int MeshNum = InteractableMeshes.Num();
-		if (MeshNum > Type && Type >= 0)
+		int InteractableClassNum = InteractableClasses.Num();
+		if (Type >= 0 && Type < InteractableClassNum)
 		{
 			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-			AInteractable* NewPawn = Cast<AInteractable>(GetWorld()->SpawnActor(*InteractableClass, &WorldLocation));
-			if (NewPawn)
+			UWorld* World = GetWorld();
+			if (World)
 			{
-				NewPawn->SetStaticMesh(InteractableMeshes[Type]);
+				AInteractable* NewPawn = Cast<AInteractable>(World->SpawnActor(*InteractableClasses[Type], &WorldLocation));
 
-				FoundLocation->Ocupied = true;
-
-				VisualGridRefrences[Location.toPair()] = NewPawn;
-				return true;
+				if (NewPawn)
+				{
+					VisualGridRefrences[Location.toPair()] = NewPawn;
+					FoundCell->Ocupied = true;
+					return true;
+				}
+				else
+				{
+					UE_LOG(LogNotice, Error, TEXT("Failed to create Interactable class"));
+				}
+			}
+			else
+			{
+				UE_LOG(LogNotice, Error, TEXT("Could not pull world pointer while creating Interactable location."));
 			}
 		}
+		else
+		{
+			UE_LOG(LogNotice, Error, TEXT("Ignored Interactable creation, could not find index matching type %s"), *FString::FromInt(Type));
+		}
+	}
+	else
+	{
+		UE_LOG(LogNotice, Error, TEXT("Ignoring Interactable creation, location already exists."));
 	}
 
 	return false;

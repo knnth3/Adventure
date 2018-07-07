@@ -19,6 +19,7 @@ AInteractable::AInteractable()
 	//Create a component for the pawns body
 	Visual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Visual"));
 	Visual->SetupAttachment(Scene);
+	bReplicates = true;
 }
 
 // Called when the game starts or when spawned

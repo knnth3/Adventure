@@ -44,3 +44,23 @@ void UW_Lobby::StartSession()
 		m_Gamemode->StartGame();
 	}
 }
+
+void UW_Lobby::SetMapToLoad(const FString & Name)
+{
+	if (m_Gamemode)
+	{
+		m_Gamemode->SetMapToLoad(Name);
+	}
+}
+
+bool UW_Lobby::IsMapSelected()const
+{
+	if (m_Gamemode)
+	{
+		FString MapName;
+		m_Gamemode->GetMapToLoad(MapName);
+
+		return !MapName.IsEmpty();
+	}
+	return false;
+}

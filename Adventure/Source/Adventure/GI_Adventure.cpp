@@ -229,7 +229,7 @@ void UGI_Adventure::LoadMainMenu()
 
 void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnCreateSessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful));
+	UE_LOG(LogNotice, Warning, TEXT("OnCreateSessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful);
 
 	// Get the OnlineSubsystem so we can get the Session Interface
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
@@ -251,7 +251,7 @@ void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSu
 
 void UGI_Adventure::OnStartOnlineSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnStartSessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful));
+	UE_LOG(LogNotice, Warning, TEXT("OnStartSessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful);
 
 	// If the start was successful, we can open a NewMap if we want. Make sure to use "listen" as a parameter!
 	//if (bWasSuccessful)
@@ -264,7 +264,7 @@ void UGI_Adventure::OnStartOnlineSessionComplete(FName SessionName, bool bWasSuc
 void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 {
 	bFindingSessions = false;
-	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OFindSessionsComplete bSuccess: %d"), bWasSuccessful));
+	UE_LOG(LogNotice, Warning, TEXT("OFindSessionsComplete bSuccess: %d"), bWasSuccessful);
 
 	// Get OnlineSubsystem we want to work with
 	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
@@ -276,7 +276,7 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 		{
 
 			// Just debugging the Number of Search results. Can be displayed in UMG or something later on
-			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Num Search Results: %d"), SessionSearch->SearchResults.Num()));
+			UE_LOG(LogNotice, Warning, TEXT("Num Search Results: %d"), SessionSearch->SearchResults.Num());
 
 			// If we have found at least 1 session, we just going to debug them. You could add them to a list of UMG Widgets, like it is done in the BP version!
 			if (SessionSearch->SearchResults.Num() > 0)
@@ -291,14 +291,14 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 					auto settings = SessionSearch->SearchResults[SearchIdx].Session.SessionSettings;
 					if (settings.Get(SETTING_MAPNAME, MapName) && settings.Get(SETTING_SESSION, SessionID))
 					{
-						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Number: %d | SessionID: %s "), SearchIdx + 1, *SessionID));
+						UE_LOG(LogNotice, Warning, TEXT("Session Number: %d | SessionID: %s "), SearchIdx + 1, *SessionID);
 						//ID of online service session if needed
 						//SessionSearch->SearchResults[SearchIdx].GetSessionIdStr()
 						SessionSearchResults.Push(SessionID + "'s game: " + MapName);
 					}
 					else
 					{
-						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Number: %d | Sessionname: %s "), SearchIdx + 1, *(SessionSearch->SearchResults[SearchIdx].Session.OwningUserName)));
+						UE_LOG(LogNotice, Warning, TEXT("Session Number: %d | Sessionname: %s "), SearchIdx + 1, *(SessionSearch->SearchResults[SearchIdx].Session.OwningUserName));
 					}
 				}
 			}
@@ -308,7 +308,7 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 
 void UGI_Adventure::OnJoinOnlineSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type result)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnJoinSessionComplete %s, %d"), *SessionName.ToString(), static_cast<int32>(result)));
+	UE_LOG(LogNotice, Warning, TEXT("OnJoinSessionComplete %s, %d"), *SessionName.ToString(), static_cast<int32>(result));
 
 	// Get the OnlineSubsystem we want to work with
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
@@ -340,14 +340,14 @@ void UGI_Adventure::OnJoinOnlineSessionComplete(FName SessionName, EOnJoinSessio
 
 void UGI_Adventure::OnDestroyOnlineSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("OnDestroySessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful));
+	UE_LOG(LogNotice, Warning, TEXT("OnDestroySessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful);
 
 	UGameplayStatics::OpenLevel(GetWorld(), MAP_MAIN_MENU, true);
 }
 
 void UGI_Adventure::OnNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, FString::Printf(TEXT("Session Failure occured")));
+	UE_LOG(LogNotice, Warning, TEXT("Session Failure occured"));
 	Disconnect();
 }
 
@@ -473,7 +473,7 @@ void UGI_Adventure::LoadNextMap()
 		}
 		else
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("No OnlineSubsytem found!"));
+			UE_LOG(LogNotice, Warning, TEXT("No OnlineSubsytem found!"));
 		}
 	}
 		break;
