@@ -31,8 +31,8 @@ void AGM_Lobby::InitGame(const FString & MapName, const FString & Options, FStri
 			m_LobbyMenu = CreateWidget<UW_Lobby>(GameInstance, DefaultLobbyUIClass);
 			if (m_LobbyMenu)
 			{
-				m_LobbyMenu->AddServerCallback(this);
-				success = m_LobbyMenu->Activate();
+				m_LobbyMenu->AddToViewport();
+				success = true;
 			}
 		}
 	}

@@ -58,7 +58,7 @@ struct FHOSTGAME_SETTINGS
 	bool IsLan = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host Game Settings")
-	bool IsPresence = false;
+	bool IsPresence = true;
 };
 
 USTRUCT(BlueprintType)
@@ -70,7 +70,7 @@ struct FSESSION_SEARCH_SETTINGS
 	bool IsLan = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host Game Settings")
-	bool IsPresence = false;
+	bool IsPresence = true;
 };
 
 

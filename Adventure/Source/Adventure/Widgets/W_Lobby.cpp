@@ -2,6 +2,7 @@
 
 #include "W_Lobby.h"
 #include "GameModes/GM_Lobby.h"
+#include "Kismet/GameplayStatics.h"
 
 
 bool UW_Lobby::Initialize()
@@ -9,32 +10,19 @@ bool UW_Lobby::Initialize()
 	bool Init = Super::Initialize();
 	if (Init)
 	{
-		m_Gamemode = nullptr;
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			m_Gamemode = Cast<AGM_Lobby>(UGameplayStatics::GetGameMode(World));
+		}
 	}
+
 	return Init;
-}
-
-bool UW_Lobby::Activate()
-{
-	bool success = false;
-	AddToViewport();
-
-	return success;
-}
-
-void UW_Lobby::Deactivate()
-{
-	RemoveFromViewport();
 }
 
 void UW_Lobby::AddCharacter(FString Username)
 {
 	OnCharacterConnected(Username);
-}
-
-void UW_Lobby::AddServerCallback(AGM_Lobby * Gamemode)
-{
-	m_Gamemode = Gamemode;
 }
 
 void UW_Lobby::StartSession()

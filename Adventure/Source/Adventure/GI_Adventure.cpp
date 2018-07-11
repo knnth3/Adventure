@@ -147,14 +147,14 @@ void UGI_Adventure::FindSessions(FSESSION_SEARCH_SETTINGS settings)
 				*/
 				SessionSearch = MakeShareable(new FOnlineSessionSearch());
 
-				SessionSearch->bIsLanQuery = settings.IsLan;
-				SessionSearch->MaxSearchResults = 20;
-				SessionSearch->PingBucketSize = 50;
+				SessionSearch->bIsLanQuery = false;
+				SessionSearch->MaxSearchResults = 1000;
+				//SessionSearch->PingBucketSize = 50;
 
 				// We only want to set this Query Setting if "bIsPresence" is true
-				if (settings.IsPresence)
+				if (true)
 				{
-					SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, settings.IsPresence, EOnlineComparisonOp::Equals);
+					SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 				}
 
 				TSharedRef<FOnlineSessionSearch> SearchSettingsRef = SessionSearch.ToSharedRef();
@@ -291,7 +291,7 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 					auto settings = SessionSearch->SearchResults[SearchIdx].Session.SessionSettings;
 					if (settings.Get(SETTING_MAPNAME, MapName) && settings.Get(SETTING_SESSION, SessionID))
 					{
-						UE_LOG(LogNotice, Warning, TEXT("Session Number: %d | SessionID: %s "), SearchIdx + 1, *SessionID);
+						UE_LOG(LogNotice, Warning, TEXT("Session Number: %d | SessionID: %s | Session Name: %s"), SearchIdx + 1, *SessionID, *MapName);
 						//ID of online service session if needed
 						//SessionSearch->SearchResults[SearchIdx].GetSessionIdStr()
 						SessionSearchResults.Push(SessionID + "'s game: " + MapName);
@@ -454,15 +454,15 @@ void UGI_Adventure::LoadNextMap()
 				*/
 				SessionSettings = MakeShareable(new FOnlineSessionSettings());
 
-				SessionSettings->bIsLANMatch = HostGameSettings.IsLan;
-				SessionSettings->bUsesPresence = HostGameSettings.IsPresence;
-				SessionSettings->NumPublicConnections = HostGameSettings.MaxPlayers;
-				SessionSettings->NumPrivateConnections = 0;
+				SessionSettings->bIsLANMatch = false;
+				SessionSettings->bUsesPresence = true;
+				SessionSettings->NumPublicConnections = 10;
+				SessionSettings->NumPrivateConnections = 10;
 				SessionSettings->bAllowInvites = true;
 				SessionSettings->bAllowJoinInProgress = true;
 				SessionSettings->bShouldAdvertise = true;
 				SessionSettings->bAllowJoinViaPresence = true;
-				SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
+				SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;     
 
 				SessionSettings->Set(SETTING_MAPNAME, HostGameSettings.MapName, EOnlineDataAdvertisementType::ViaOnlineService);
 				SessionSettings->Set(SETTING_SESSION, HostGameSettings.SessionName, EOnlineDataAdvertisementType::ViaOnlineService);

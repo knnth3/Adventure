@@ -18,10 +18,8 @@ public:
 
 	virtual bool Initialize()override;
 
-	bool Activate();
-	void Deactivate();
+	UFUNCTION(BlueprintCallable, Category = "Lobby UI")
 	void AddCharacter(FString Username);
-	void AddServerCallback(class AGM_Lobby* Gamemode);
 
 protected:
 
