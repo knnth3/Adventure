@@ -10,6 +10,10 @@
 #include "Blueprint/UserWidget.h"
 #include "W_GameBuilderUI.generated.h"
 
+#ifdef DELETE
+#undef DELETE
+#endif
+
 /**
  * 
  */

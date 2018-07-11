@@ -13,35 +13,6 @@ AGM_Multiplayer::AGM_Multiplayer()
 	GridDimensions.X = 10;
 	GridDimensions.Y = 10;
 
-	static ConstructorHelpers::FClassFinder<APawn> BP_PlayerPawn(TEXT("/Game/Blueprints/Characters/MapPawn/BP_MapPawn"));
-	static ConstructorHelpers::FClassFinder<APlayerController> BP_PlayerController(TEXT("/Game/Blueprints/PlayerControllers/BP_PC_Adventure_Default"));
-	static ConstructorHelpers::FClassFinder<AGameStateBase> BP_GameState(TEXT("/Game/Blueprints/GameStates/BP_GS_Multiplayer"));
-	static ConstructorHelpers::FClassFinder<AWorldGrid> BP_WorldGrid(TEXT("/Game/Blueprints/Grid/BP_WorldGrid"));
-
-	if (!BP_PlayerPawn.Class)
-	{
-		UE_LOG(LogNotice, Error, TEXT("NO DEFAULT PLAYER PAWN CLASS FOUND"));
-	}
-
-	if (!BP_PlayerController.Class)
-	{
-		UE_LOG(LogNotice, Error, TEXT("NO DEFAULT PLAYER CONTROLLER CLASS FOUND"));
-	}
-
-	if (!BP_GameState.Class)
-	{
-		UE_LOG(LogNotice, Error, TEXT("NO DEFAULT GAMESTATE CLASS FOUND"));
-	}
-
-	if (!BP_WorldGrid.Class)
-	{
-		UE_LOG(LogNotice, Error, TEXT("NO WORLD GRID CLASS FOUND"));
-	}
-
-	DefaultPawnClass = BP_PlayerPawn.Class;
-	PlayerControllerClass = BP_PlayerController.Class;
-	GameStateClass = BP_GameState.Class;
-	GridClass = BP_WorldGrid.Class;
 }
 
 void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)

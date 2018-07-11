@@ -73,7 +73,6 @@ struct FSESSION_SEARCH_SETTINGS
 	bool IsPresence = true;
 };
 
-
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI)
 class UUI_MainMenu : public UInterface
@@ -100,6 +99,5 @@ public:
 	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings) = 0;
 	virtual const TArray<FString> GetServerList()const = 0;
 	virtual bool IsServerQueryActive()const = 0;
-	virtual void LoadMainMenu() = 0;
 	
 };

@@ -7,4 +7,5 @@
 #include "UnrealNetwork.h"
 #include "Online.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogNotice, All, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogNotice, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogAdventureNet, Verbose, All);

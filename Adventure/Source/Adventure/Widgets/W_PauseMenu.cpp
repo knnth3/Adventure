@@ -32,18 +32,18 @@ void UW_PauseMenu::ExitToMainMenu()
 {
 	Deactivate();
 
-	if (InstanceInterface)
+	UWorld* World = GetWorld();
+	if (World)
 	{
-		InstanceInterface->LoadMainMenu();
+		UGI_Adventure* GameInstance = Cast<UGI_Adventure>(World->GetGameInstance());
+		if (GameInstance)
+		{
+			GameInstance->Disconnect();
+		}
 	}
 }
 
 bool UW_PauseMenu::IsActive() const
 {
 	return bIsActive;
-}
-
-void UW_PauseMenu::AddCallbackInterface(UGI_Adventure* Interface)
-{
-	InstanceInterface = Interface;
 }

@@ -7,6 +7,8 @@
 #include <memory>
 #include <vector>
 
+#include "Adventure.h"
+#include "OnlineSubsystemTypes.h"
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "Engine/EngineTypes.h"
@@ -49,6 +51,44 @@ static FORCEINLINE FString ParseStringFor(const FString& Text, const FString& Co
 
 	return Result;
 }
+
+UENUM()
+enum class ESessionState : uint8
+{
+	/** An online session has not been created yet */
+	NoSession,
+	/** An online session is in the process of being created */
+	Creating,
+	/** Session has been created but the session hasn't started (pre match lobby) */
+	Pending,
+	/** Session has been asked to start (may take time due to communication with backend) */
+	Starting,
+	/** The current session has started. Sessions with join in progress disabled are no longer joinable */
+	InProgress,
+	/** The session is still valid, but the session is no longer being played (post match lobby) */
+	Ending,
+	/** The session is closed and any stats committed */
+	Ended,
+	/** The session is being destroyed */
+	Destroying
+};
+
+UENUM()
+enum class EJoinSessionResults : uint8
+{
+	/** The join worked as expected */
+	Success,
+	/** There are no open slots to join */
+	SessionIsFull,
+	/** The session couldn't be found on the service */
+	SessionDoesNotExist,
+	/** There was an error getting the session server's address */
+	CouldNotRetrieveAddress,
+	/** The user attempting to join is already a member of the session */
+	AlreadyInSession,
+	/** An error not covered above occurred */
+	UnknownError
+};
 
 enum class UNITS
 {
@@ -212,47 +252,11 @@ class ADVENTURE_API UBasicFunctions : public UObject
 {
 	GENERATED_BODY()
 	
-	static FORCEINLINE bool LineTraceByChannel(
-			UWorld* World,
-			AActor* ActorToIgnore,
-			const FVector& Start,
-			const FVector& End,
-			FHitResult& HitOut,
-			ECollisionChannel CollisionChannel = ECC_Pawn,
-			bool ReturnPhysMat = false
-		)
-	{
-		if (!World)
-		{
-			return false;
-		}
-
-		FCollisionQueryParams TraceParams(FName(TEXT("VictoreCore Trace")), true, ActorToIgnore);
-		TraceParams.bTraceComplex = true;
-		//TraceParams.bTraceAsyncScene = true;
-		TraceParams.bReturnPhysicalMaterial = ReturnPhysMat;
-
-		//Ignore Actors
-		TraceParams.AddIgnoredActor(ActorToIgnore);
-
-		//Re-initialize hit info
-		HitOut = FHitResult(ForceInit);
-
-		//Trace!
-		World->LineTraceSingleByChannel(
-			HitOut,		//result
-			Start,	//start
-			End, //end
-			CollisionChannel, //collision channel
-			TraceParams
-		);
-
-		//Hit any Actor?
-		return (HitOut.GetActor() != NULL);
-	}
-	
+public:
 
 	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
 	static bool GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ext);
-	
+
+	static ESessionState ToBlueprintType(EOnlineSessionState::Type Type);
+	static EJoinSessionResults ToBlueprintType(EOnJoinSessionCompleteResult::Type Type);
 };

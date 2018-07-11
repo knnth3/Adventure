@@ -33,9 +33,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Pause Menu")
 	bool IsActive()const;
 
-	UFUNCTION(BlueprintCallable, Category = "Pause Menu")
-	void AddCallbackInterface(UGI_Adventure* Interface);
-
 
 private:
 

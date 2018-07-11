@@ -34,13 +34,13 @@ protected:
 	const TArray<FString> GetServerList()const;
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	virtual bool IsServerQueryActive()const;
+	virtual bool IsSessionSearchActive()const;
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	bool GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ext);
 
 private:
 
-	class UW_MainMenu* m_mainMenu = nullptr;
+	class UW_MainMenu* MainMenu = nullptr;
 	
 };

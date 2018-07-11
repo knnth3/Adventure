@@ -3,7 +3,6 @@
 #include "Basics.h"
 #include "FileManager.h"
 #include "Paths.h"
-#include "Adventure.h"
 
 #define CM_TO_M_FACTOR 100
 #define CM_TO_IN_FACTOR 2.54
@@ -210,4 +209,71 @@ bool UBasicFunctions::GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ex
 	FString FinalPath = RootFolderFullPath + "/" + Ext;
 	FileManager.FindFiles(Array, *FinalPath, true, false);
 	return true;
+}
+
+ESessionState UBasicFunctions::ToBlueprintType(EOnlineSessionState::Type Type)
+{
+	ESessionState State = ESessionState::NoSession;
+	switch (Type)
+	{
+	case EOnlineSessionState::NoSession:
+		State = ESessionState::NoSession;
+		break;
+	case EOnlineSessionState::Creating:
+		State = ESessionState::Creating;
+		break;
+	case EOnlineSessionState::Pending:
+		State = ESessionState::Pending;
+		break;
+	case EOnlineSessionState::Starting:
+		State = ESessionState::Starting;
+		break;
+	case EOnlineSessionState::InProgress:
+		State = ESessionState::InProgress;
+		break;
+	case EOnlineSessionState::Ending:
+		State = ESessionState::Ending;
+		break;
+	case EOnlineSessionState::Ended:
+		State = ESessionState::Ended;
+		break;
+	case EOnlineSessionState::Destroying:
+		State = ESessionState::Destroying;
+		break;
+	default:
+		break;
+	}
+
+	return State;
+}
+
+EJoinSessionResults UBasicFunctions::ToBlueprintType(EOnJoinSessionCompleteResult::Type Type)
+{
+	EJoinSessionResults State = EJoinSessionResults::UnknownError;
+
+	switch (Type)
+	{
+	case EOnJoinSessionCompleteResult::Success:
+		State = EJoinSessionResults::Success;
+		break;
+	case EOnJoinSessionCompleteResult::SessionIsFull:
+		State = EJoinSessionResults::SessionIsFull;
+		break;
+	case EOnJoinSessionCompleteResult::SessionDoesNotExist:
+		State = EJoinSessionResults::SessionDoesNotExist;
+		break;
+	case EOnJoinSessionCompleteResult::CouldNotRetrieveAddress:
+		State = EJoinSessionResults::CouldNotRetrieveAddress;
+		break;
+	case EOnJoinSessionCompleteResult::AlreadyInSession:
+		State = EJoinSessionResults::AlreadyInSession;
+		break;
+	case EOnJoinSessionCompleteResult::UnknownError:
+		State = EJoinSessionResults::UnknownError;
+		break;
+	default:
+		break;
+	}
+
+	return State;
 }

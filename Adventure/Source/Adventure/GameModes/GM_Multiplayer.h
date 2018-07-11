@@ -50,10 +50,12 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
 	void SetGridDimensions2(const FGridCoordinate& Dimensions);
 
+	UPROPERTY(EditAnywhere, Category = "Game Map Grid")
+	TSubclassOf<class AWorldGrid> GridClass;
+
 private:
 
 	FGridCoordinate GridDimensions;
-	TSubclassOf<class AWorldGrid> GridClass;
 	class AWorldGrid* WorldGrid;
 	TArray<FGAMEBUILDER_OBJECT> PendingObjects;
 };

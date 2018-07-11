@@ -21,47 +21,47 @@ enum class ADVENTURE_STATE : uint8
 };
 
 UCLASS()
-class ADVENTURE_API UGI_Adventure : public UGameInstance, public IUI_MainMenu
+class ADVENTURE_API UGI_Adventure : public UGameInstance
 {
 	GENERATED_BODY()
 
 public:
 
 	UGI_Adventure(const FObjectInitializer& ObjectInitializer);
-	virtual void Init()override;
+	virtual void Init();
 
 	UFUNCTION(BlueprintCallable)
 	void Disconnect();
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool JoinGame(FJOINGAME_SETTINGS settings)override;
+	virtual bool JoinGame(FJOINGAME_SETTINGS settings);
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool HostGame(FHOSTGAME_SETTINGS settings)override;
+	virtual bool HostGame(FHOSTGAME_SETTINGS settings);
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool LoadGameBuilder(FGAMEBUILDER_SETTINGS settings)override;
+	virtual bool LoadGameBuilder(FGAMEBUILDER_SETTINGS settings);
 
 	UFUNCTION(BlueprintCallable)
-	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings)override;
+	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings);
 
 	UFUNCTION(BlueprintCallable)
-	const TArray<FString> GetServerList()const;
+	const TArray<FString> GetSessionList()const;
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool IsServerQueryActive()const;
+	bool IsSessionListEmpty()const;
+
+	UFUNCTION(BlueprintCallable)
+	bool IsSessionSearchActive()const;
 
 	UFUNCTION(BlueprintCallable)
 	FHOSTGAME_SETTINGS GetHostSettings()const;
 
 	UFUNCTION(BlueprintCallable)
-	virtual void BeginLoadingScreen(const FString& MapName);
+	virtual void OnBeginLoadingScreen(const FString& MapName);
 
 	UFUNCTION(BlueprintCallable)
-	virtual void EndLoadingScreen(UWorld* InLoadedWorld);
-
-	UFUNCTION(BlueprintCallable)
-	virtual void LoadMainMenu() override;
+	virtual void OnEndLoadingScreen(UWorld* InLoadedWorld);
 
 	UFUNCTION(BlueprintCallable)
 	ADVENTURE_STATE GetCurrentState()const;

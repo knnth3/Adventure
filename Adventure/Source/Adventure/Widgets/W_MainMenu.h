@@ -31,85 +31,39 @@ protected:
 
 	virtual bool Initialize()override;
 
-
-	//State request functions
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void SetGameBuilderSettings(FGAMEBUILDER_SETTINGS settings);
+	void HostGame(const FHOSTGAME_SETTINGS& Settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void SetJoinGameSettings(FJOINGAME_SETTINGS settings);
+	void JoinGame(const FJOINGAME_SETTINGS& Settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void SetHostGameSettings(FHOSTGAME_SETTINGS settings);
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void RefreshServerList();
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	const TArray<FString> GetServerList()const;
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	virtual bool IsServerQueryActive()const;
+	void LoadGameBuilder(const FGAMEBUILDER_SETTINGS& Settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void CloseGame();
 
-	//Navigation functions
+	UFUNCTION(BlueprintCallable, Category = "MainMenu")
+	void ActivateSubMenu(int index);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void LoadNextState();
+	void RefreshServerList(const FSESSION_SEARCH_SETTINGS & Settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void ShowHostMenu();
+	const TArray<FString> GetSessionList() const;
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void ShowJoinMenu();
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void ShowGameBuilderMenu();
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void ShowHomeMenu();
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void ShowCustom();
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void SetHostGameMenuClass(TSubclassOf<class UW_MainMenu_Child> HostMenuClass);
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void SetJoinGameMenuClass(TSubclassOf<class UW_MainMenu_Child> JoinMenuClass);
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void SetGameBuilderMenuClass(TSubclassOf<class UW_MainMenu_Child> GameBuilderMenuClass);
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void SetHomeMenuClass(TSubclassOf<class UW_MainMenu_Child> GameBuilderMenuClass);
+	bool IsSessionSearchActive() const;
 
 	UPROPERTY(meta = (BindWidget))
 	class UWidgetSwitcher* SubMenu;
 
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
-	class UButton* Exit;
-
-public:
-
-	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void AddCallbackInterface(UGI_Adventure* Interface);
+	UPROPERTY(EditAnywhere, Category = "Sub-Menus")
+	TArray<TSubclassOf<class UW_MainMenu_Child>> SubMenuClasses;
 
 private:
 
-	void HostGame();
-	void JoinGame();
-	void LoadEditor();
+	void CreateSubMenus();
 
-	ACTIVE_MENU m_active;
-	UGI_Adventure* m_interface = nullptr;
-	class UW_MainMenu_Child* m_homeMenu = nullptr;
-	class UW_MainMenu_Child* m_hostMenu = nullptr;
-	class UW_MainMenu_Child* m_joinMenu = nullptr;
-	class UW_MainMenu_Child* m_gameBuilderMenu = nullptr;
-	std::unique_ptr<FHOSTGAME_SETTINGS> m_hostSettings;
-	std::unique_ptr<FJOINGAME_SETTINGS> m_joinSettings;
-	std::unique_ptr<FGAMEBUILDER_SETTINGS> m_gbSettings;
+	UGI_Adventure* GameInstance;
 };

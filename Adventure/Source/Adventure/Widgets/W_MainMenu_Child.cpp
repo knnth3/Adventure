@@ -8,58 +8,59 @@
 
 void UW_MainMenu_Child::ConnectTo(UW_MainMenu* MainMenu)
 {
-	m_mainMenu = MainMenu;
+	this->MainMenu = MainMenu;
 }
 
 void UW_MainMenu_Child::RequestHostGame(FHOSTGAME_SETTINGS settings)
 {
-	if (m_mainMenu)
+	if (MainMenu && !settings.SessionName.IsEmpty() && !settings.MapName.IsEmpty())
 	{
-		if (!settings.SessionName.IsEmpty() && !settings.MapName.IsEmpty())
-		{
-			m_mainMenu->SetHostGameSettings(settings);
-			m_mainMenu->LoadNextState();
-		}
+		MainMenu->HostGame(settings);
+	}
+	else
+	{
+		FString HasMainMenu = (MainMenu != 0) ? "True" : "False";
+		UE_LOG(LogNotice, Warning, TEXT("Request to host game failed: Main Menu Loaded= '%s', Session Name= '%s', Map Name: '%s'"),
+			*HasMainMenu, *settings.SessionName, *settings.MapName);
 	}
 }
 
 void UW_MainMenu_Child::RequestJoinGame(FJOINGAME_SETTINGS settings)
 {
-	if (m_mainMenu)
+	if (MainMenu)
 	{
-		m_mainMenu->SetJoinGameSettings(settings);
-		m_mainMenu->LoadNextState();
+		MainMenu->JoinGame(settings);
 	}
 }
 
 void UW_MainMenu_Child::RequestLaunchGameBuilder(FGAMEBUILDER_SETTINGS settings)
 {
-	if (m_mainMenu && settings.Colums && settings.Rows && !settings.MapName.IsEmpty())
+	if (MainMenu && settings.Colums && settings.Rows && !settings.MapName.IsEmpty())
 	{
-		m_mainMenu->SetGameBuilderSettings(settings);
-		m_mainMenu->LoadNextState();
+		MainMenu->LoadGameBuilder(settings);
 	}
 	else
 	{
-		UE_LOG(LogNotice, Warning, TEXT("Request to launch GameBuilder Failed. Main Menu: %i, Columns: %i, Rows: %i, MapName: %s"), 
-			(m_mainMenu != 0), settings.Colums, settings.Rows, *settings.MapName);
+		FString HasMainMenu = (MainMenu != 0) ? "True" : "False";
+		UE_LOG(LogNotice, Warning, TEXT("Request to launch GameBuilder Failed: Main Menu Loaded= '%s', MapName= '%s', Columns= '%i', Rows= '%i'"), 
+			*HasMainMenu, *settings.MapName, settings.Colums, settings.Rows);
 	}
 }
 
 const TArray<FString> UW_MainMenu_Child::GetServerList() const
 {
-	if (m_mainMenu)
+	if (MainMenu)
 	{
-		return m_mainMenu->GetServerList();
+		return MainMenu->GetSessionList();
 	}
 	return TArray<FString>();
 }
 
-bool UW_MainMenu_Child::IsServerQueryActive()const
+bool UW_MainMenu_Child::IsSessionSearchActive()const
 {
-	if (m_mainMenu)
+	if (MainMenu)
 	{
-		return m_mainMenu->IsServerQueryActive();
+		return MainMenu->IsSessionSearchActive();
 	}
 	return false;
 }

@@ -5,15 +5,15 @@
 #include "Blueprint/UserWidget.h"
 #include "Widgets/W_MainMenu.h"
 #include "Widgets/W_PauseMenu.h"
-#include "Adventure.h"
 #include "UnrealNames.h"
 #include "MoviePlayer.h"
 #include "ViewportClient/VC_Adventure.h"
+#include "basics.h"
 
 #define SESSION_NAME EName::NAME_GameSession
 #define SETTING_SESSION FName(TEXT("SESSION_ID"))
 
-const static FName MAP_MULTIPLAYER = "/Game/Maps/Multiplayer/Lobby/Level_Lobby";
+const static FName MAP_LOBBY = "/Game/Maps/Multiplayer/Lobby/Level_Lobby";
 const static FName MAP_MAIN_MENU = "/Game/Maps/MainMenu/Level_MainMenu";
 const static FName MAP_GAMEBUILDER = "/Game/Maps/GameBuilder/Level_GameBuilder";
 
@@ -47,8 +47,8 @@ void UGI_Adventure::Init()
 		Engine->OnNetworkFailure().AddUObject(this, &UGI_Adventure::OnNetworkFailure);
 	}
 
-	FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UGI_Adventure::BeginLoadingScreen);
-	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UGI_Adventure::EndLoadingScreen);
+	FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UGI_Adventure::OnBeginLoadingScreen);
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UGI_Adventure::OnEndLoadingScreen);
 
 	bool success = false;
 }
@@ -158,6 +158,8 @@ void UGI_Adventure::FindSessions(FSESSION_SEARCH_SETTINGS settings)
 				}
 
 				TSharedRef<FOnlineSessionSearch> SearchSettingsRef = SessionSearch.ToSharedRef();
+				FString IsLan = SessionSearch->bIsLanQuery ? "True" : "False";
+				UE_LOG(LogAdventureNet, Log, TEXT("Begin find sessions: LAN= %s, MaxResults= %i."), *IsLan, SessionSearch->MaxSearchResults);
 
 				// Finally call the SessionInterface function. The Delegate gets called once this is finished
 				Sessions->FindSessions(0, SearchSettingsRef);
@@ -167,16 +169,23 @@ void UGI_Adventure::FindSessions(FSESSION_SEARCH_SETTINGS settings)
 		{
 			// If something goes wrong, just call the Delegate Function directly with "false".
 			OnFindOnlineSessionsComplete(false);
+
+			UE_LOG(LogAdventureNet, Error, TEXT("Unable to begin find sessions: Online Subsystem is not initialized."));
 		}
 	}
 }
 
-const TArray<FString> UGI_Adventure::GetServerList() const
+const TArray<FString> UGI_Adventure::GetSessionList() const
 {
 	return SessionSearchResults;
 }
 
-bool UGI_Adventure::IsServerQueryActive()const
+bool UGI_Adventure::IsSessionListEmpty() const
+{
+	return SessionSearchResults.Num() != 0;
+}
+
+bool UGI_Adventure::IsSessionSearchActive() const
 {
 	return bFindingSessions;
 }
@@ -186,19 +195,30 @@ FHOSTGAME_SETTINGS UGI_Adventure::GetHostSettings() const
 	return HostGameSettings;
 }
 
-void UGI_Adventure::BeginLoadingScreen(const FString & MapName)
+void UGI_Adventure::OnBeginLoadingScreen(const FString & MapName)
 {
 	if (!IsRunningDedicatedServer())
 	{
-		FLoadingScreenAttributes LoadingScreen;
-		LoadingScreen.bAutoCompleteWhenLoadingCompletes = false;
-		LoadingScreen.WidgetLoadingScreen = FLoadingScreenAttributes::NewTestLoadingScreenWidget();
-		LoadingScreen.MinimumLoadingScreenDisplayTime = 1.0f;
-		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
+		const UWorld* World = GetWorld();
+		if (World)
+		{
+			UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
+			if (ViewportClient)
+			{
+				//Clear fade and show Loading screen
+				ViewportClient->ClearFade();
+
+				FLoadingScreenAttributes LoadingScreen;
+				LoadingScreen.bAutoCompleteWhenLoadingCompletes = false;
+				LoadingScreen.WidgetLoadingScreen = FLoadingScreenAttributes::NewTestLoadingScreenWidget();
+				LoadingScreen.MinimumLoadingScreenDisplayTime = 1.0f;
+				GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
+			}
+		}
 	}
 }
 
-void UGI_Adventure::EndLoadingScreen(UWorld * InLoadedWorld)
+void UGI_Adventure::OnEndLoadingScreen(UWorld * InLoadedWorld)
 {
 	const UWorld* World = GetWorld();
 	if (World)
@@ -211,26 +231,8 @@ void UGI_Adventure::EndLoadingScreen(UWorld * InLoadedWorld)
 	}
 }
 
-void UGI_Adventure::LoadMainMenu()
-{
-	CurrentState = ADVENTURE_STATE::MAIN_MENU;
-
-	//Fade the screen out
-	const UWorld* World = GetWorld();
-	if (World)
-	{
-		UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
-		if (ViewportClient)
-		{
-			ViewportClient->Fade(0.25f, true, true);
-		}
-	}
-}
-
 void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogNotice, Warning, TEXT("OnCreateSessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful);
-
 	// Get the OnlineSubsystem so we can get the Session Interface
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
@@ -242,10 +244,23 @@ void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSu
 		{
 			if (bWasSuccessful)
 			{
-				UGameplayStatics::OpenLevel(GetWorld(), MAP_MULTIPLAYER, true, "listen");
+				UE_LOG(LogAdventureNet, Log, TEXT("Create session success for '%s'. Starting Lobby..."), *SessionName.ToString());
+				UGameplayStatics::OpenLevel(GetWorld(), MAP_LOBBY, true, "listen");
+			}
+			else
+			{
+				UE_LOG(LogAdventureNet, Error, TEXT("Create session failed for '%s'"),*SessionName.ToString());
 			}
 		}
+		else
+		{
+			UE_LOG(LogAdventureNet, Error, TEXT("Create session failed: Session is invalid."));
+		}
 
+	}
+	else
+	{
+		UE_LOG(LogAdventureNet, Error, TEXT("Create session failed: Online Subsystem not detected."));
 	}
 }
 
@@ -263,9 +278,6 @@ void UGI_Adventure::OnStartOnlineSessionComplete(FName SessionName, bool bWasSuc
 
 void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 {
-	bFindingSessions = false;
-	UE_LOG(LogNotice, Warning, TEXT("OFindSessionsComplete bSuccess: %d"), bWasSuccessful);
-
 	// Get OnlineSubsystem we want to work with
 	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
@@ -274,10 +286,6 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 		IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
 		if (Sessions.IsValid())
 		{
-
-			// Just debugging the Number of Search results. Can be displayed in UMG or something later on
-			UE_LOG(LogNotice, Warning, TEXT("Num Search Results: %d"), SessionSearch->SearchResults.Num());
-
 			// If we have found at least 1 session, we just going to debug them. You could add them to a list of UMG Widgets, like it is done in the BP version!
 			if (SessionSearch->SearchResults.Num() > 0)
 			{
@@ -291,27 +299,40 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 					auto settings = SessionSearch->SearchResults[SearchIdx].Session.SessionSettings;
 					if (settings.Get(SETTING_MAPNAME, MapName) && settings.Get(SETTING_SESSION, SessionID))
 					{
-						UE_LOG(LogNotice, Warning, TEXT("Session Number: %d | SessionID: %s | Session Name: %s"), SearchIdx + 1, *SessionID, *MapName);
+						UE_LOG(LogAdventureNet, Log, TEXT("Session Number: %d | SessionID: %s | Session Name: %s"), SearchIdx + 1, *SessionID, *MapName);
+
 						//ID of online service session if needed
 						//SessionSearch->SearchResults[SearchIdx].GetSessionIdStr()
 						SessionSearchResults.Push(SessionID + "'s game: " + MapName);
 					}
 					else
 					{
-						UE_LOG(LogNotice, Warning, TEXT("Session Number: %d | Sessionname: %s "), SearchIdx + 1, *(SessionSearch->SearchResults[SearchIdx].Session.OwningUserName));
+						UE_LOG(LogAdventureNet, Warning, TEXT("Session found but no info is presented."));
 					}
 				}
 			}
+			else
+			{
+				UE_LOG(LogAdventureNet, Warning, TEXT("No sessions were found on search."));
+			}
 		}
+		else
+		{
+			UE_LOG(LogAdventureNet, Error, TEXT("Find sessions failed: Session is invalid."));
+		}
+	}
+	else
+	{
+		UE_LOG(LogAdventureNet, Error, TEXT("Find session failed: Online Subsystem not detected."));
 	}
 }
 
 void UGI_Adventure::OnJoinOnlineSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type result)
 {
-	UE_LOG(LogNotice, Warning, TEXT("OnJoinSessionComplete %s, %d"), *SessionName.ToString(), static_cast<int32>(result));
-
 	// Get the OnlineSubsystem we want to work with
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	EJoinSessionResults JoinSessionResults = UBasicFunctions::ToBlueprintType(result);
+	FString JoinSessionResult = GetEnumValueAsString("EJoinSessionResults", JoinSessionResults);
 	if (OnlineSub)
 	{
 		// Get SessionInterface from the OnlineSubsystem
@@ -333,21 +354,36 @@ void UGI_Adventure::OnJoinOnlineSessionComplete(FName SessionName, EOnJoinSessio
 				// Finally call the ClienTravel. If you want, you could print the TravelURL to see
 				// how it really looks like
 				PlayerController->ClientTravel(TravelURL, ETravelType::TRAVEL_Absolute);
+				UE_LOG(LogAdventureNet, Log, TEXT("Join session success: Result='%s'"), *JoinSessionResult);
+			}
+			else
+			{
+				UE_LOG(LogAdventureNet, Warning, TEXT("Failed to join session '%s': Result='%s'"),*SessionName.ToString(), *JoinSessionResult);
 			}
 		}
+		else
+		{
+			UE_LOG(LogAdventureNet, Error, TEXT("Join session failed: Session is invalid."));
+		}
+	}
+	else
+	{
+		UE_LOG(LogAdventureNet, Error, TEXT("Join session failed: Online Subsystem not detected."));
 	}
 }
 
 void UGI_Adventure::OnDestroyOnlineSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogNotice, Warning, TEXT("OnDestroySessionComplete %s, %d"), *SessionName.ToString(), bWasSuccessful);
-
-	UGameplayStatics::OpenLevel(GetWorld(), MAP_MAIN_MENU, true);
+	FString IsSuccess = bWasSuccessful ? "True" : "False";
+	UE_LOG(LogAdventureNet, Warning, TEXT("Attempt to destroy online session '%s': Result='%s'. Loading Main Menu..."), *SessionName.ToString(), *IsSuccess);
 }
 
 void UGI_Adventure::OnNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
-	UE_LOG(LogNotice, Warning, TEXT("Session Failure occured"));
+	FString FailureResult = GetEnumValueAsString("ENetworkFailure", FailureType);
+	FString DriverName = NetDriver->GetFName().ToString();
+
+	UE_LOG(LogAdventureNet, Warning, TEXT("%s: Network failure detected. Disconnecting from server: Result='%s' ErrorString='%s' "), *DriverName, *FailureResult, *ErrorString);
 	Disconnect();
 }
 
@@ -391,7 +427,17 @@ void UGI_Adventure::LoadNextMap()
 			IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
 			if (Sessions.IsValid())
 			{
-				Sessions->DestroySession(SESSION_NAME);
+				ESessionState SessionState = UBasicFunctions::ToBlueprintType(Sessions->GetSessionState(SESSION_NAME));
+				FString State = GetEnumValueAsString("ESessionState", SessionState);
+
+				UE_LOG(LogAdventureNet, Warning, TEXT("Loaing Main Menu: Session state= '%s' "), *State);
+
+				if (SessionState != ESessionState::NoSession)
+				{
+					Sessions->DestroySession(SESSION_NAME);
+				}
+
+				UGameplayStatics::OpenLevel(GetWorld(), MAP_MAIN_MENU, true);
 			}
 		}
 	}
