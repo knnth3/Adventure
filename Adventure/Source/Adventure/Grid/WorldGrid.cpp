@@ -11,9 +11,7 @@
 #include "Materials/MaterialParameterCollectionInstance.h"
 #include "Runtime/Engine/Classes/Kismet/KismetMaterialLibrary.h"
 #include "UObject/ConstructorHelpers.h"
-
-#define MAKE_CELL(x) CellPtr(new Cell(x))
-#define PRIORITY_QUEUE(T) std::priority_queue<std::shared_ptr<T>, std::vector<std::shared_ptr<T>>, shared_ptr_compare<T>>
+#include "PathFinder.h"
 
 
 // Sets default values
@@ -160,6 +158,11 @@ FGridCoordinate AWorldGrid::GetSize() const
 	return FGridCoordinate(GridDimensions.Rows, GridDimensions.Columns);
 }
 
+bool AWorldGrid::GetPath(const FGridCoordinate & Start, const FGridCoordinate & End, TArray<FGridCoordinate>& OutPath)
+{
+	return UPathFinder::FindPath(this, Start, End, OutPath);
+}
+
 void AWorldGrid::SetSpawnLocations(const TArray<FGridCoordinate>& Locations)
 {
 	for (const auto& item : Locations)
@@ -230,30 +233,6 @@ void AWorldGrid::RemoveActorFromPlay(const FGridCoordinate& Location)
 
 bool AWorldGrid::AddInteractable(int Type, const FGridCoordinate& Location)
 {
-	//CellPtr FoundLocation = At(Location);
-	//bool isSpawnLocation = CheckIfSpawnLocation(Location);
-	//if (FoundLocation && !FoundLocation->Ocupied && !isSpawnLocation)
-	//{
-	//	int MeshNum = InteractableClasses.Num();
-	//	if (MeshNum > Type && Type >= 0)
-	//	{
-	//		FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-	//		AInteractable* NewPawn = Cast<AInteractable>(GetWorld()->SpawnActor(*InteractableClass, &WorldLocation));
-	//		AInteractable* NewPawn = Cast<AInteractable>(world->SpawnActor(*SpawnerClasses[type], &WorldLocation));
-	//		if (NewPawn)
-	//		{
-	//			NewPawn->SetStaticMesh(InteractableClasses[Type]);
-
-	//			FoundLocation->Ocupied = true;
-
-	//			VisualGridRefrences[Location.toPair()] = NewPawn;
-	//			return true;
-	//		}
-	//	}
-	//}
-
-	//return false;
-
 	CellPtr FoundCell = At(Location);
 	bool bExists = CheckIfSpawnLocation(Location);
 	if (FoundCell && !FoundCell->Ocupied && !bExists)
@@ -362,52 +341,46 @@ void AWorldGrid::SetUpGridLogical()
 			//Create new cell
 			auto Current = MAKE_CELL(FGridCoordinate(Row, Column));
 			LogicalGrid[Row].push_back(Current);
+		}
+	}
 
-			//Link the top row if exists
-			if (Row > 1)
-			{
-				//Top & Bottom
-				auto Top = At(FGridCoordinate(Row - 1, Column));
-				if (Top)
-				{
-					Current->GetNeighbor(Cell::CELL_TOP) = Top;
-					Top->GetNeighbor(Cell::CELL_BOTTOM) = Current;
-				}
+	for (const auto& XRow : LogicalGrid)
+	{
+		for (const auto& YRow : XRow)
+		{
+			int Row = YRow->Location.X;
+			int Column = YRow->Location.Y;
 
-				//Top Right & Bottom Left
-				if (Column != GridDimensions.Columns)
-				{
-					auto TopRight = At(FGridCoordinate(Row - 1, Column + 1));
-					if (TopRight)
-					{
-						Current->GetNeighbor(Cell::CELL_TOPRIGHT) = TopRight;
-						TopRight->GetNeighbor(Cell::CELL_BOTTOMLEFT) = Current;
-					}
-				}
-			}
+			//Assign the nessesary neighbors
+			auto Top         = At(FGridCoordinate(Row, Column - 1));
+			auto Bottom      = At(FGridCoordinate(Row, Column + 1));
+			auto Left        = At(FGridCoordinate(Row - 1, Column));
+			auto Right       = At(FGridCoordinate(Row + 1, Column));
 
-			//Link the left column if exists
-			if (Column > 1)
-			{
-				//Left & Right
-				auto Left = At(FGridCoordinate(Row, Column - 1));
-				if (Left)
-				{
-					Current->GetNeighbor(Cell::CELL_LEFT) = Left;
-					Left->GetNeighbor(Cell::CELL_RIGHT) = Current;
-				}
+			auto TopRight    = At(FGridCoordinate(Row + 1, Column - 1));
+			auto TopLeft     = At(FGridCoordinate(Row - 1, Column - 1));
+			auto BottomRight = At(FGridCoordinate(Row + 1, Column + 1));
+			auto BottomLeft  = At(FGridCoordinate(Row - 1, Column + 1));
 
-				//Top Left & Bottom Right
-				if (Row > 1)
-				{
-					auto TopLeft = At(FGridCoordinate(Row - 1, Column - 1));
-					if (TopLeft)
-					{
-						Current->GetNeighbor(Cell::CELL_TOPLEFT) = TopLeft;
-						TopLeft->GetNeighbor(Cell::CELL_BOTTOMRIGHT) = Current;
-					}
-				}
-			}
+			YRow->GetNeighbor(Cell::CELL_TOP)    = Top;
+			YRow->GetNeighbor(Cell::CELL_BOTTOM) = Bottom;
+			YRow->GetNeighbor(Cell::CELL_LEFT)   = Left;
+			YRow->GetNeighbor(Cell::CELL_RIGHT)  = Right;
+
+			YRow->GetNeighbor(Cell::CELL_TOPRIGHT)    = TopRight;
+			YRow->GetNeighbor(Cell::CELL_TOPLEFT)     = TopLeft;
+			YRow->GetNeighbor(Cell::CELL_BOTTOMRIGHT) = BottomRight;
+			YRow->GetNeighbor(Cell::CELL_BOTTOMLEFT)  = BottomLeft;
+		}
+	}
+
+	for (int Row = 0; Row < GridDimensions.Rows; Row++)
+	{
+		//make a new row for this column
+		LogicalGrid.emplace_back();
+		for (int Column = 0; Column < GridDimensions.Columns; Column++)
+		{
+
 		}
 	}
 }
@@ -445,12 +418,12 @@ bool Cell::operator<(const Cell & b)
 	return F_Cost() < b.F_Cost();
 }
 
-CellPtr Cell::operator[](const CELL_NEIGHBOR & Location)
+CellPtr& Cell::operator[](const CELL_NEIGHBOR & Location)
 {
 	return GetNeighbor(Location);
 }
 
-CellPtr Cell::GetNeighbor(const CELL_NEIGHBOR & Location)
+CellPtr& Cell::GetNeighbor(const CELL_NEIGHBOR & Location)
 {
 	switch (Location)
 	{
@@ -470,9 +443,9 @@ CellPtr Cell::GetNeighbor(const CELL_NEIGHBOR & Location)
 		return Neighbors[6];
 	case Cell::CELL_BOTTOMRIGHT:
 		return Neighbors[7];
-	default:
-		return nullptr;
 	}
+
+	return Neighbors[0];
 }
 
 std::list<CellPtr> Cell::GetEmptyNeighbors()
@@ -480,11 +453,11 @@ std::list<CellPtr> Cell::GetEmptyNeighbors()
 	std::list<CellPtr> list;
 
 	// 8 total possible neighbors
-	for (auto& n : Neighbors)
+	for (int x = 0; x < 8; x++)
 	{
-		if (n && !n->Ocupied)
+		if (Neighbors[x] && !Neighbors[x]->Ocupied)
 		{
-			list.push_back(n);
+			list.push_back(Neighbors[x]);
 		}
 	}
 

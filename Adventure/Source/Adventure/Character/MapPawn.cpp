@@ -249,6 +249,20 @@ void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation
 
 	if (GridItr)
 	{
+		TArray<FGridCoordinate> Array;
+		bool Success = GridItr->GetPath(GetActorGridLocation(), GridLocation, Array);
+		if (Success)
+		{
+			for (const auto& entry : Array)
+			{
+				UE_LOG(LogNotice, Warning, TEXT("Path->(%i, %i)"), entry.X, entry.Y);
+			}
+		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("Couldn't find a Path"));
+		}
+
 		if (!GridItr->IsOccupied(GridLocation) || GridLocation == GetActorGridLocation())
 		{
 			FinalDestination.X = CurrentDestination.X;

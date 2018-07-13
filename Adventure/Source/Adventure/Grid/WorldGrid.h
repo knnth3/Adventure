@@ -4,12 +4,16 @@
 
 #include <vector>
 #include <list>
+#include <queue>
 #include <map>
 
 #include "Basics.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "WorldGrid.generated.h"
+
+#define MAKE_CELL(x) CellPtr(new Cell(x))
+#define PRIORITY_QUEUE(T) std::priority_queue<std::shared_ptr<T>, std::vector<std::shared_ptr<T>>, shared_ptr_compare<T>>
 
 typedef std::shared_ptr<class Cell> CellPtr;
 
@@ -50,9 +54,9 @@ public:
 
 	bool operator<(const Cell& b);
 
-	CellPtr operator[](const CELL_NEIGHBOR& Location);
+	CellPtr& operator[](const CELL_NEIGHBOR& Location);
 
-	CellPtr GetNeighbor(const CELL_NEIGHBOR& Location);
+	CellPtr& GetNeighbor(const CELL_NEIGHBOR& Location);
 
 	std::list<CellPtr> GetEmptyNeighbors();
 
@@ -120,6 +124,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	FGridCoordinate GetSize()const;
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool GetPath(const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
 
 protected:
 
