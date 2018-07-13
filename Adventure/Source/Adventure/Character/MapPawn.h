@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <queue>
 #include "Basics.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
@@ -130,6 +131,8 @@ private:
 	//Checks against the WorldGrid to see if a move is valid
 	bool IsMoveValid(FVector DeltaLocation)const;
 
+	void MoveToNextLocation();
+
 	//Server Functions
 
 	UFUNCTION()
@@ -152,4 +155,6 @@ private:
 
 	bool bMoveCharacter;
 	bool bRotateCharacter;
+
+	std::queue<FGridCoordinate> MoveQueue;
 };

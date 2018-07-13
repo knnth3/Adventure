@@ -82,6 +82,7 @@ void AMapPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	MoveToNextLocation();
 	MovePawn(DeltaTime);
 	RotatePawn(DeltaTime);
 
@@ -101,7 +102,33 @@ void AMapPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 //Set the pawns destination location
 void AMapPawn::SetDestination(FGridCoordinate GridLocation)
 {
-	Server_SetDestination(GridLocation);
+	TActorIterator<AWorldGrid> GridItr(GetWorld());
+	if (GridItr)
+	{
+		//Attempt to find a new path to where we want to go
+		TArray<FGridCoordinate> Array;
+		bool Success = GridItr->GetPath(UGridFunctions::WorldToGridLocation(FinalDestination), GridLocation, Array);
+		if (!Success)
+		{
+			UE_LOG(LogNotice, Warning, TEXT("Couldn't find a Path"));
+		}
+
+		//If path was found, replace our current path with the new one.
+		if (Array.Num())
+		{
+			//Clear the previous queue;
+			std::queue<FGridCoordinate> PrevMoves;
+			std::swap(MoveQueue, PrevMoves);
+
+			//Add the new path
+			for (const auto& entry : Array)
+			{
+				MoveQueue.push(entry);
+			}
+
+			MoveToNextLocation();
+		}
+	}
 }
 
 //Returns the pawns stats
@@ -130,16 +157,15 @@ void AMapPawn::MovePawn(float DeltaTime)
 			}
 
 			//On the server, check if the delta location is valid
-			//Sometimes a character might have moved to the desired location beore we have reached it
 			//If so, move the pawn one space back
 			if (IsMoveValid(DeltaLocation))
 			{
 				AddActorWorldOffset(DeltaLocation);
 			}
-			else
-			{
-				SetDestination(UGridFunctions::GridToWorldLocation(GetActorGridLocation()));
-			}
+			//else
+			//{
+			//	SetDestination(UGridFunctions::GridToWorldLocation(GetActorGridLocation()));
+			//}
 		}
 		else
 		{
@@ -217,6 +243,21 @@ bool AMapPawn::IsMoveValid(FVector DeltaLocation) const
 
 }
 
+void AMapPawn::MoveToNextLocation()
+{
+	if (!bMoveCharacter)
+	{
+		if (!MoveQueue.empty())
+		{
+			UE_LOG(LogNotice, Warning, TEXT("Path[GridLocation]->(%i, %i)"), MoveQueue.front().X, MoveQueue.front().Y);
+
+			//Set the destination to the closest move
+			Server_SetDestination(MoveQueue.front());
+			MoveQueue.pop();
+		}
+	}
+}
+
 //Called on CurrentDestination replication (client)
 void AMapPawn::OnDestination_Rep()
 {
@@ -249,20 +290,7 @@ void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation
 
 	if (GridItr)
 	{
-		TArray<FGridCoordinate> Array;
-		bool Success = GridItr->GetPath(GetActorGridLocation(), GridLocation, Array);
-		if (Success)
-		{
-			for (const auto& entry : Array)
-			{
-				UE_LOG(LogNotice, Warning, TEXT("Path->(%i, %i)"), entry.X, entry.Y);
-			}
-		}
-		else
-		{
-			UE_LOG(LogNotice, Warning, TEXT("Couldn't find a Path"));
-		}
-
+		//Move the character
 		if (!GridItr->IsOccupied(GridLocation) || GridLocation == GetActorGridLocation())
 		{
 			FinalDestination.X = CurrentDestination.X;
@@ -272,23 +300,22 @@ void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation
 			bMoveCharacter = true;
 			BeginMove();
 		}
-	}
 
-	//Rotate the character;
-
-	FVector TravelVector = CurrentDestination - Location;
-	if (TravelVector.Size2D() > 0.1f)
-	{
-		TravelVector = TravelVector.GetSafeNormal2D();
-		float AngleBetween = FMath::Atan2(TravelVector.Y, TravelVector.X);
-
-		AngleBetween = FMath::RadiansToDegrees(AngleBetween);
-		FRotator DeltaRotation(0.0f, AngleBetween - 90.0f, 0.0f);
-
-		if (PawnBody)
+		//Rotate the character;
+		FVector TravelVector = CurrentDestination - Location;
+		if (TravelVector.Size2D() > 0.1f)
 		{
-			Rotation = DeltaRotation;
-			bRotateCharacter = true;
+			TravelVector = TravelVector.GetSafeNormal2D();
+			float AngleBetween = FMath::Atan2(TravelVector.Y, TravelVector.X);
+
+			AngleBetween = FMath::RadiansToDegrees(AngleBetween);
+			FRotator DeltaRotation(0.0f, AngleBetween - 90.0f, 0.0f);
+
+			if (PawnBody)
+			{
+				Rotation = DeltaRotation;
+				bRotateCharacter = true;
+			}
 		}
 	}
 }
