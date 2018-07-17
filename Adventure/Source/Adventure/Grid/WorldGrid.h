@@ -102,7 +102,7 @@ public:
 
 	//False implies all spawn points are occupied
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool GetOpenSpawnLocation(FGridCoordinate& GridLocation);
+	int SpawnMapPawn();
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool IsOccupied(const FGridCoordinate& Location)const;
@@ -128,10 +128,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool GetPath(const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
 
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	class AMapPawn* GetMapPawn(const int ID);
+
 protected:
 
 	UPROPERTY(EditAnywhere, Category = "Spawnables")
 	TArray<TSubclassOf<class ASpawner>> SpawnerClasses;
+
+	UPROPERTY(EditAnywhere, Category = "Spawnables")
+	TArray<TSubclassOf<class AMapPawn>> MapPawnClasses;
 
 	UPROPERTY(EditAnywhere, Category = "Spawnables")
 	TArray<TSubclassOf<class AInteractable>> InteractableClasses;
@@ -171,4 +177,5 @@ private:
 	std::map<CoordinatePair, FGridCoordinate> SpawnLocations;
 
 	std::map<CoordinatePair, class AActor*> VisualGridRefrences;
+	TArray<class AMapPawn*> MapPawns;
 };

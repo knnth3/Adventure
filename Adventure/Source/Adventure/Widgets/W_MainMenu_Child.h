@@ -31,7 +31,7 @@ protected:
 	void RequestLaunchGameBuilder(FGAMEBUILDER_SETTINGS settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	const TArray<FString> GetServerList()const;
+	void GetServerList(TArray<FString>& Array)const;
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	virtual bool IsSessionSearchActive()const;

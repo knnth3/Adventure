@@ -175,9 +175,9 @@ void UGI_Adventure::FindSessions(FSESSION_SEARCH_SETTINGS settings)
 	}
 }
 
-const TArray<FString> UGI_Adventure::GetSessionList() const
+void UGI_Adventure::GetSessionList(TArray<FString>& Array) const
 {
-	return SessionSearchResults;
+	Array = SessionSearchResults;
 }
 
 bool UGI_Adventure::IsSessionListEmpty() const
@@ -278,6 +278,7 @@ void UGI_Adventure::OnStartOnlineSessionComplete(FName SessionName, bool bWasSuc
 
 void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 {
+	bFindingSessions = false;
 	// Get OnlineSubsystem we want to work with
 	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)

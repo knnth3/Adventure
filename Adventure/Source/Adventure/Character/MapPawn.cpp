@@ -50,6 +50,18 @@ AMapPawn::AMapPawn()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 }
 
+void AMapPawn::RotateUpDown_Implementation(const float & AxisValue, const float & DeltaTime)
+{
+}
+
+void AMapPawn::RotateLeftRight_Implementation(const float & AxisValue, const float & DeltaTime)
+{
+}
+
+void AMapPawn::ZoomInOut_Implementation(const float & AxisValue, const float & DeltaTime)
+{
+}
+
 // Called when the game starts or when spawned
 void AMapPawn::BeginPlay()
 {

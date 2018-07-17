@@ -29,7 +29,10 @@ void UW_MainMenu_Child::RequestJoinGame(FJOINGAME_SETTINGS settings)
 {
 	if (MainMenu)
 	{
-		MainMenu->JoinGame(settings);
+		if (!MainMenu->JoinGame(settings))
+		{
+			UE_LOG(LogNotice, Warning, TEXT("Request to join game failed: Session ID is invalid."));
+		}
 	}
 }
 
@@ -47,13 +50,12 @@ void UW_MainMenu_Child::RequestLaunchGameBuilder(FGAMEBUILDER_SETTINGS settings)
 	}
 }
 
-const TArray<FString> UW_MainMenu_Child::GetServerList() const
+void UW_MainMenu_Child::GetServerList(TArray<FString>& Array) const
 {
 	if (MainMenu)
 	{
-		return MainMenu->GetSessionList();
+		return MainMenu->GetSessionList(Array);
 	}
-	return TArray<FString>();
 }
 
 bool UW_MainMenu_Child::IsSessionSearchActive()const

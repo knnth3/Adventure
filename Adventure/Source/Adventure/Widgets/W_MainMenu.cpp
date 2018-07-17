@@ -31,28 +31,34 @@ bool UW_MainMenu::Initialize()
 	return preInit;
 }
 
-void UW_MainMenu::HostGame(const FHOSTGAME_SETTINGS & Settings)
+bool UW_MainMenu::HostGame(const FHOSTGAME_SETTINGS & Settings)
 {
 	if (GameInstance)
 	{
-		GameInstance->HostGame(Settings);
+		return GameInstance->HostGame(Settings);
 	}
+
+	return false;
 }
 
-void UW_MainMenu::JoinGame(const FJOINGAME_SETTINGS & Settings)
+bool UW_MainMenu::JoinGame(const FJOINGAME_SETTINGS & Settings)
 {
 	if (GameInstance)
 	{
-		GameInstance->JoinGame(Settings);
+		return GameInstance->JoinGame(Settings);
 	}
+
+	return false;
 }
 
-void UW_MainMenu::LoadGameBuilder(const FGAMEBUILDER_SETTINGS & Settings)
+bool UW_MainMenu::LoadGameBuilder(const FGAMEBUILDER_SETTINGS & Settings)
 {
 	if (GameInstance)
 	{
-		GameInstance->LoadGameBuilder(Settings);
+		return GameInstance->LoadGameBuilder(Settings);
 	}
+
+	return false;
 }
 
 void UW_MainMenu::CloseGame()
@@ -85,13 +91,12 @@ void UW_MainMenu::RefreshServerList(const FSESSION_SEARCH_SETTINGS& Settings)
 	}
 }
 
-const TArray<FString> UW_MainMenu::GetSessionList() const
+void UW_MainMenu::GetSessionList(TArray<FString>& Array) const
 {
 	if (GameInstance)
 	{
-		return GameInstance->GetSessionList();
+		GameInstance->GetSessionList(Array);
 	}
-	return TArray<FString>();
 }
 
 bool UW_MainMenu::IsSessionSearchActive()const

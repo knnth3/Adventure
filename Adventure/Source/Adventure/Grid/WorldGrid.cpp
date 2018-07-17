@@ -1,7 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "WorldGrid.h"
 
-#include "Basics.h"
 #include "Adventure.h"
 #include "Interactable.h"
 #include "Spawner.h"
@@ -12,6 +11,7 @@
 #include "Runtime/Engine/Classes/Kismet/KismetMaterialLibrary.h"
 #include "UObject/ConstructorHelpers.h"
 #include "PathFinder.h"
+#include "Character/MapPawn.h"
 
 
 // Sets default values
@@ -163,6 +163,16 @@ bool AWorldGrid::GetPath(const FGridCoordinate & Start, const FGridCoordinate & 
 	return UPathFinder::FindPath(this, Start, End, OutPath);
 }
 
+AMapPawn * AWorldGrid::GetMapPawn(const int ID)
+{
+	if (MapPawns.Num() && MapPawns.Num() > ID && ID >= 0)
+	{
+		return MapPawns[ID];
+	}
+
+	return nullptr;
+}
+
 void AWorldGrid::SetSpawnLocations(const TArray<FGridCoordinate>& Locations)
 {
 	for (const auto& item : Locations)
@@ -171,20 +181,31 @@ void AWorldGrid::SetSpawnLocations(const TArray<FGridCoordinate>& Locations)
 	}
 }
 
-bool AWorldGrid::GetOpenSpawnLocation(FGridCoordinate & GridLocation)
+int AWorldGrid::SpawnMapPawn()
 {
 	for (const auto& location : SpawnLocations)
 	{
 		CellPtr FoundCell = At(location.second);
 		if (FoundCell && !FoundCell->Ocupied)
 		{
-			GridLocation.X = location.second.X;
-			GridLocation.Y = location.second.Y;
-			FoundCell->Ocupied = true;
-			return true;
+			if (MapPawnClasses.Num() && MapPawnClasses[0])
+			{
+				FVector WorldLocation = UGridFunctions::GridToWorldLocation(location.second);
+				UWorld* World = GetWorld();
+				if (World)
+				{
+					AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[0], &WorldLocation));
+					if (NewPawn)
+					{
+						MapPawns.Push(NewPawn);
+						FoundCell->Ocupied = true;
+						return MapPawns.Num() - 1;
+					}
+				}
+			}
 		}
 	}
-	return false;
+	return -1;
 }
 
 bool AWorldGrid::IsOccupied(const FGridCoordinate& Location) const

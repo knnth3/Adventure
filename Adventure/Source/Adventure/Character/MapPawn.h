@@ -62,7 +62,17 @@ public:
 	// Sets default values for this pawn's properties
 	AMapPawn();
 
+	UFUNCTION(BlueprintNativeEvent, Category = "MapPawn Camera")
+	void RotateUpDown(const float& AxisValue, const float& DeltaTime);
+
+	UFUNCTION(BlueprintNativeEvent, Category = "MapPawn Camera")
+	void RotateLeftRight(const float& AxisValue, const float& DeltaTime);
+
+	UFUNCTION(BlueprintNativeEvent, Category = "MapPawn Camera")
+	void ZoomInOut(const float& AxisValue, const float& DeltaTime);
+
 protected:
+
 	/** Units in meters/seconds/degrees */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	FCameraSettings CameraSettings;

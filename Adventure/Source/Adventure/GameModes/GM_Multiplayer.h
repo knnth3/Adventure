@@ -26,7 +26,7 @@ public:
 	
 protected:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Multiplayer Gamemode")
 	bool OnLoadMapRequest(const FString& SaveSlot);
@@ -55,7 +55,8 @@ protected:
 
 private:
 
-	FGridCoordinate GridDimensions;
+	int PlayersConnected;
+	FGridCoordinate GridDimensions; 
 	class AWorldGrid* WorldGrid;
 	TArray<FGAMEBUILDER_OBJECT> PendingObjects;
 };

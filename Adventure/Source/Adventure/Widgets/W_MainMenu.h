@@ -32,13 +32,13 @@ protected:
 	virtual bool Initialize()override;
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void HostGame(const FHOSTGAME_SETTINGS& Settings);
+	bool HostGame(const FHOSTGAME_SETTINGS& Settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void JoinGame(const FJOINGAME_SETTINGS& Settings);
+	bool JoinGame(const FJOINGAME_SETTINGS& Settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	void LoadGameBuilder(const FGAMEBUILDER_SETTINGS& Settings);
+	bool LoadGameBuilder(const FGAMEBUILDER_SETTINGS& Settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	void CloseGame();
@@ -50,7 +50,7 @@ protected:
 	void RefreshServerList(const FSESSION_SEARCH_SETTINGS & Settings);
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
-	const TArray<FString> GetSessionList() const;
+	void GetSessionList(TArray<FString>& Array) const;
 
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
 	bool IsSessionSearchActive() const;

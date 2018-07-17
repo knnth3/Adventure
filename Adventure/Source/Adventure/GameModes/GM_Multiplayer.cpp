@@ -4,7 +4,9 @@
 #include "GI_Adventure.h"
 #include "Adventure.h"
 #include "Grid/WorldGrid.h"
+#include "Character/SpectatorMapPawn.h"
 #include "GameStates/GS_Multiplayer.h"
+#include "Character/ConnectedPlayer.h"
 
 
 AGM_Multiplayer::AGM_Multiplayer()
@@ -12,7 +14,7 @@ AGM_Multiplayer::AGM_Multiplayer()
 
 	GridDimensions.X = 10;
 	GridDimensions.Y = 10;
-
+	PlayersConnected = 0;
 }
 
 void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
@@ -66,6 +68,11 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 			}
 
 			PendingObjects.Empty();
+
+			//Temp spawn actors to test interactability
+			WorldGrid->SpawnMapPawn();
+			WorldGrid->SpawnMapPawn();
+			WorldGrid->SpawnMapPawn();
 		}
 		else
 		{
@@ -86,40 +93,38 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 	{
 		UE_LOG(LogNotice, Error, TEXT("NO WORLD GRID FOUND."));
 	}
+
 }
 
-AActor * AGM_Multiplayer::ChoosePlayerStart_Implementation(AController * Player)
+void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 {
+	Super::PostLogin(NewPlayer);
+
 	if (WorldGrid)
 	{
-		FGridCoordinate SpawnLocation;
-		if (WorldGrid->GetOpenSpawnLocation(SpawnLocation))
+		AConnectedPlayer* Player = Cast<AConnectedPlayer>(NewPlayer->GetPawn());
+		if (Player)
 		{
-			UE_LOG(LogNotice, Warning, TEXT("Spawn point checked out: (%d, %d)"), SpawnLocation.X, SpawnLocation.Y);
-
-			/** This also works */
-			//TArray<AActor*> PlayerStarts;
-			//UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
-
-			TActorIterator<APlayerStart> SpawnerItr(GetWorld());
-			if (SpawnerItr)
+			int ID = WorldGrid->SpawnMapPawn();
+			if (ID != -1)
 			{
-				SpawnerItr->SetActorLocation(UGridFunctions::GridToWorldLocation(SpawnLocation));
-
-				return *SpawnerItr;
+				Player->SetMapPawnID(ID);
+				UE_LOG(LogNotice, Error, TEXT("New Map Pawn Spawn Success!"));
 			}
 			else
 			{
-				UE_LOG(LogNotice, Error, TEXT("NO SPAWNER FOUND!"));
+				UE_LOG(LogNotice, Error, TEXT("Failed to spawn new Map Pawn."));
 			}
+		}
+		else
+		{
+			UE_LOG(LogNotice, Error, TEXT("Pawn failed to cast to AConnectedPlayer while Login"));
 		}
 	}
 	else
 	{
-		UE_LOG(LogNotice, Error, TEXT("COULD NOT SPAWN CHARACTER CORRECTLY"));
+		UE_LOG(LogNotice, Error, TEXT("No World Grid found while Login"));
 	}
-
-	return Super::ChoosePlayerStart_Implementation(Player);
 }
 
 bool AGM_Multiplayer::RequestSpawnInteractible(int Type, const FGridCoordinate & Location)

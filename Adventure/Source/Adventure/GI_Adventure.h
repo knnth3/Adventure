@@ -46,7 +46,7 @@ public:
 	virtual void FindSessions(FSESSION_SEARCH_SETTINGS settings);
 
 	UFUNCTION(BlueprintCallable)
-	const TArray<FString> GetSessionList()const;
+	void GetSessionList(TArray<FString>& Array)const;
 
 	UFUNCTION(BlueprintCallable)
 	bool IsSessionListEmpty()const;
