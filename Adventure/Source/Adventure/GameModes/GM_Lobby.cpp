@@ -9,13 +9,6 @@
 AGM_Lobby::AGM_Lobby()
 {
 	m_playerCount = 0;
-	//static ConstructorHelpers::FClassFinder<UW_Lobby> BP_LobbyMenu(TEXT("Class'/Game/Blueprints/UI/Lobby/LobbyMenu.LobbyMenu_C'"));
-	//if (!BP_LobbyMenu.Class)
-	//{
-	//	UE_LOG(LogNotice, Error, TEXT("NO DEFAULT LOBBY MENU BLUEPRINT FOUND"));
-	//}
-
-	//MenuClass = BP_LobbyMenu.Class;
 }
 
 void AGM_Lobby::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
@@ -46,7 +39,7 @@ void AGM_Lobby::PostLogin(APlayerController* NewPlayer)
 	UWorld* world = GetWorld();
 	if (world && m_LobbyMenu && m_playerCount)
 	{
-		m_LobbyMenu->AddCharacter("Player " + FString::FromInt((int)m_playerCount));
+		m_LobbyMenu->AddCharacter(NewPlayer->PlayerState->PlayerName);
 	}
 
 	m_playerCount++;
