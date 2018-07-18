@@ -4,6 +4,7 @@
 #include "Grid/WorldGrid.h"
 #include "MapPawn.h"
 #include "Adventure.h"
+#include "GameModes/GM_Multiplayer.h"
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -13,8 +14,9 @@ AConnectedPlayer::AConnectedPlayer()
 	PrimaryActorTick.bCanEverTick = true;
 	PlayerType = CONNECTED_PLAYER_TYPE::NONE;
 	CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
-	CurrentMapPawn = nullptr;
-	MapPawnID = -1;
+	SelectedMapPawn = nullptr;
+	SpectateMapPawnID = 0;
+	bSpectateNewPawn = true;
 
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -42,62 +44,73 @@ AConnectedPlayer::AConnectedPlayer()
 void AConnectedPlayer::BeginPlay()
 {
 	Super::BeginPlay();
-	
+	bSpectateNewPawn = true;
 }
 
-void AConnectedPlayer::MovePlayer(const FVector & Location)
+void AConnectedPlayer::MovePlayer(const FVector & Location, const int PawnID)
 {
-	UE_LOG(LogNotice, Warning, TEXT("Moving player %i"), MapPawnID);
-	Server_MovePlayer(MapPawnID, Location);
+	Server_MovePlayer(PlayerState->PlayerId, Location, PawnID);
 }
 
 void AConnectedPlayer::SwapCameraView(const float& time)
 {
-	if (CurrentMapPawn)
+	AMapPawn* MapPawn = GetMapPawn();
+	if (MapPawn)
 	{
-		APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
-		if (OurPlayerController)
+		APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+		if (PlayerController)
 		{
 			switch (CameraType)
 			{
-			case CONNECTED_PLAYER_CAMERA::NONE:
-				break;
 			case CONNECTED_PLAYER_CAMERA::CHARACTER:
-				OurPlayerController->SetViewTargetWithBlend(this, time);
+				PlayerController->SetViewTargetWithBlend(this, time);
 				CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
 				break;
 			case CONNECTED_PLAYER_CAMERA::OVERVIEW:
-				OurPlayerController->SetViewTargetWithBlend(CurrentMapPawn, time);
+				PlayerController->SetViewTargetWithBlend(MapPawn, time);
 				CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
 				break;
+			case CONNECTED_PLAYER_CAMERA::NONE:
 			default:
+				UE_LOG(LogNotice, Warning, TEXT("Connected player camera type was invalid"));
 				break;
 			}
 		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("No controller found while swapping cameras"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("No Map pawn found while swapping cameras"));
 	}
 }
 
 void AConnectedPlayer::RotatePawnCameraUpDown(const float & AxisValue, const float & DeltaTime)
 {
-	if (CurrentMapPawn)
+	AMapPawn* MapPawn = GetMapPawn();
+	if (MapPawn)
 	{
-		CurrentMapPawn->RotateUpDown(AxisValue, DeltaTime);
+		MapPawn->RotateUpDown(AxisValue, DeltaTime);
 	}
 }
 
 void AConnectedPlayer::RotatePawnCameraLeftRight(const float & AxisValue, const float & DeltaTime)
 {
-	if (CurrentMapPawn)
+	AMapPawn* MapPawn = GetMapPawn();
+	if (MapPawn)
 	{
-		CurrentMapPawn->RotateLeftRight(AxisValue, DeltaTime);
+		MapPawn->RotateLeftRight(AxisValue, DeltaTime);
 	}
 }
 
 void AConnectedPlayer::ZoomPawnCameraInOut(const float & AxisValue, const float & DeltaTime)
 {
-	if (CurrentMapPawn)
+	AMapPawn* MapPawn = GetMapPawn();
+	if (MapPawn)
 	{
-		CurrentMapPawn->ZoomInOut(AxisValue, DeltaTime);
+		MapPawn->ZoomInOut(AxisValue, DeltaTime);
 	}
 }
 
@@ -106,16 +119,38 @@ CONNECTED_PLAYER_CAMERA AConnectedPlayer::GetCameraType() const
 	return CameraType;
 }
 
-void AConnectedPlayer::Server_MovePlayer_Implementation(int ID, const FVector & Location)
+void AConnectedPlayer::Server_EndTurn_Implementation()
 {
-	if (CurrentMapPawn)
+	UWorld* World = GetWorld();
+	if (World)
 	{
-		FGridCoordinate GridLocation = UGridFunctions::WorldToGridLocation(Location);
-		CurrentMapPawn->SetDestination(GridLocation);
+		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(World->GetAuthGameMode());
+		if (Gamemode)
+		{
+			Gamemode->EndTurn(PlayerState->PlayerId);
+		}
 	}
 }
 
-bool AConnectedPlayer::Server_MovePlayer_Validate(int ID, const FVector & Location)
+bool AConnectedPlayer::Server_EndTurn_Validate()
+{
+	return true;
+}
+
+void AConnectedPlayer::Server_MovePlayer_Implementation(const int PlayerID, const FVector & Location, const int PawnID)
+{
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		WorldGrid->MovePawn(PlayerID, Location, PawnID);
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("No Grid found while moving player"));
+	}
+}
+
+bool AConnectedPlayer::Server_MovePlayer_Validate(const int PlayerID, const FVector & Location, const int PawnID)
 {
 	return true;
 }
@@ -124,7 +159,6 @@ bool AConnectedPlayer::Server_MovePlayer_Validate(int ID, const FVector & Locati
 void AConnectedPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
 // Called to bind functionality to input
@@ -134,30 +168,54 @@ void AConnectedPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 }
 
-int AConnectedPlayer::GetMapPawnID() const
+void AConnectedPlayer::SpectateMapPawn(const int ID)
 {
-	return MapPawnID;
+	SpectateMapPawnID = ID;
 }
 
-void AConnectedPlayer::SetMapPawnID(const int ID)
+void AConnectedPlayer::OnNewSpectateFocus()
 {
-	if (ID == -1)
-	{
-		MapPawnID = ID;
-		CurrentMapPawn = nullptr;
-		return;
-	}
+	bSpectateNewPawn = true;
+}
 
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	if (GridItr)
+AMapPawn * AConnectedPlayer::GetMapPawn()
+{
+	if (bSpectateNewPawn)
 	{
-		AMapPawn* Pawn = GridItr->GetMapPawn(ID);
-		if (Pawn)
+		if (SpectateMapPawnID == -1)
 		{
-			MapPawnID = ID;
-			CurrentMapPawn = Pawn;
+			for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+			{
+				UE_LOG(LogNotice, Warning, TEXT("Client: Map Pawn found: ID = '%i'. Looking for %i"), ActorItr->GetOwnerID(), SpectateMapPawnID);
+				if (ActorItr->GetOwnerID() == PlayerState->PlayerId)
+				{
+					bSpectateNewPawn = false;
+					SelectedMapPawn = *ActorItr;
+					return SelectedMapPawn;
+				}
+			}
+		}
+		else if (HasAuthority())
+		{
+			for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+			{
+				UE_LOG(LogNotice, Warning, TEXT("Server: Map Pawn found: ID = '%i'. Looking for %i"), ActorItr->GetOwnerID(), SpectateMapPawnID);
+				if (ActorItr->GetPawnID() == SpectateMapPawnID)
+				{
+					bSpectateNewPawn = false;
+					SelectedMapPawn = *ActorItr;
+					return SelectedMapPawn;
+				}
+			}
 		}
 	}
+	else
+	{
+		return SelectedMapPawn;
+	}
+
+	UE_LOG(LogNotice, Warning, TEXT("Failed to get Map Pawn."));
+	return nullptr;
 }
 
 //sets variables for replicaton over a network
@@ -166,6 +224,6 @@ void AConnectedPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AConnectedPlayer, PlayerType);
-	DOREPLIFETIME(AConnectedPlayer, MapPawnID);
+	DOREPLIFETIME(AConnectedPlayer, SpectateMapPawnID);
 }
 

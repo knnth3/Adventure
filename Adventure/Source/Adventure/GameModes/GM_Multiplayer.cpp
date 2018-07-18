@@ -15,6 +15,31 @@ AGM_Multiplayer::AGM_Multiplayer()
 	GridDimensions.X = 10;
 	GridDimensions.Y = 10;
 	PlayersConnected = 0;
+	CurrentPlayersTurn = 0;
+	CurrentState = GM_MULTIPLAYER_STATE::ROAMING;
+}
+
+void AGM_Multiplayer::SetGameState(GM_MULTIPLAYER_STATE State)
+{
+	CurrentState = State;
+}
+
+bool AGM_Multiplayer::IsPlayersTurn(const int PlayerID)
+{
+	return (CurrentPlayersTurn == PlayerID);
+}
+
+void AGM_Multiplayer::EndTurn(const int PlayerID)
+{
+	if (IsPlayersTurn(PlayerID))
+	{
+		//Get A new player ID
+		UE_LOG(LogNotice, Warning, TEXT("Turn Ended for Player: %i"), PlayerID);
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("It's not your turn dummy :)"), PlayerID);
+	}
 }
 
 void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
@@ -100,30 +125,39 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
-	if (WorldGrid)
+	if (NewPlayer->PlayerState)
 	{
 		AConnectedPlayer* Player = Cast<AConnectedPlayer>(NewPlayer->GetPawn());
 		if (Player)
 		{
-			int ID = WorldGrid->SpawnMapPawn();
-			if (ID != -1)
+			int32 PlayerID = NewPlayer->PlayerState->PlayerId;
+			if (ConnectedPlayers.find(PlayerID) != ConnectedPlayers.end())
 			{
-				Player->SetMapPawnID(ID);
-				UE_LOG(LogNotice, Error, TEXT("New Map Pawn Spawn Success!"));
+				ConnectedPlayers[PlayerID] = Player;
+				Player->SpectateMapPawn();
+			}
+			else if (WorldGrid)
+			{ 
+				if (WorldGrid->SpawnMapPawn(PlayerID))
+				{
+					ConnectedPlayers[NewPlayer->PlayerState->PlayerId] = Player;
+					Player->SpectateMapPawn();
+					UE_LOG(LogNotice, Error, TEXT("New Map Pawn Spawn Success!"));
+				}
+				else
+				{
+					UE_LOG(LogNotice, Error, TEXT("Failed to spawn new Map Pawn."));
+				}
 			}
 			else
 			{
-				UE_LOG(LogNotice, Error, TEXT("Failed to spawn new Map Pawn."));
+				UE_LOG(LogNotice, Error, TEXT("No World Grid found while Login"));
 			}
 		}
 		else
 		{
 			UE_LOG(LogNotice, Error, TEXT("Pawn failed to cast to AConnectedPlayer while Login"));
 		}
-	}
-	else
-	{
-		UE_LOG(LogNotice, Error, TEXT("No World Grid found while Login"));
 	}
 }
 
@@ -186,13 +220,14 @@ void AGM_Multiplayer::AddObjectForPreInit(const FGAMEBUILDER_OBJECT & object)
 	PendingObjects.Push(object);
 }
 
-void AGM_Multiplayer::SetGridDimensions2(const FGridCoordinate & Dimensions)
-{
-}
-
 FGridCoordinate AGM_Multiplayer::GetGridDimensions() const
 {
 	return GridDimensions;
+}
+
+GM_MULTIPLAYER_STATE AGM_Multiplayer::GetGameState() const
+{
+	return CurrentState;
 }
 
 bool AGM_Multiplayer::OnLoadMapRequest_Implementation(const FString& SaveSlot)

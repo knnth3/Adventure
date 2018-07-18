@@ -76,6 +76,8 @@ class ADVENTURE_API AWorldGrid : public AActor
 {
 	GENERATED_BODY()
 	
+	friend class AMapPawn;
+	
 public:	
 	// Sets default values for this actor's properties
 	AWorldGrid();
@@ -102,13 +104,13 @@ public:
 
 	//False implies all spawn points are occupied
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	int SpawnMapPawn();
+	bool SpawnMapPawn(const int PlayerID = -1);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool IsOccupied(const FGridCoordinate& Location)const;
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool MovePawn(const FGridCoordinate& Location, const FGridCoordinate& Destination);
+	void MovePawn(const int PlayerID, const FGridCoordinate& Destination, const int PawnID = -1);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	void RemoveActorFromPlay(const FGridCoordinate& Location);
@@ -129,9 +131,12 @@ public:
 	bool GetPath(const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	class AMapPawn* GetMapPawn(const int ID);
+	bool IsPlayersTurn(const int PlayerID);
 
 protected:
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool SetPosition(const FGridCoordinate& Location, const FGridCoordinate& Destination);
 
 	UPROPERTY(EditAnywhere, Category = "Spawnables")
 	TArray<TSubclassOf<class ASpawner>> SpawnerClasses;
@@ -173,9 +178,9 @@ private:
 
 	//C++ standard
 	bool bInitialized;
+	int HostPlayerID;
 	vector2D<CellPtr> LogicalGrid;
 	std::map<CoordinatePair, FGridCoordinate> SpawnLocations;
-
 	std::map<CoordinatePair, class AActor*> VisualGridRefrences;
-	TArray<class AMapPawn*> MapPawns;
+	std::map<int, class AMapPawn*> MapPawns;
 };

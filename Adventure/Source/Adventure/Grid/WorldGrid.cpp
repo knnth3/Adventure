@@ -12,6 +12,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "PathFinder.h"
 #include "Character/MapPawn.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameModes/GM_Multiplayer.h"
 
 
 // Sets default values
@@ -21,6 +23,7 @@ AWorldGrid::AWorldGrid()
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 	bInitialized = false;
+	HostPlayerID = 0;
 
 	//Create a component to hold the visual
 	PlaneVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualRepresentation"));
@@ -62,10 +65,20 @@ void AWorldGrid::Initialize(int Rows, int Columns)
 	{
 		if (HasAuthority())
 		{
-			bInitialized = true;
-			GridDimensions = { Rows, Columns };
-			SetUpGridVisual();
-			SetUpGridLogical();
+			APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+			if (PlayerController)
+			{
+				HostPlayerID = PlayerController->PlayerState->PlayerId;
+				bInitialized = true;
+				GridDimensions = { Rows, Columns };
+				SetUpGridVisual();
+				SetUpGridLogical();
+
+			}
+			else
+			{
+				UE_LOG(LogNotice, Error, TEXT("Unable to grab the servers playerID. World Grid Init failed!"));
+			}
 		}
 	}
 }
@@ -163,67 +176,20 @@ bool AWorldGrid::GetPath(const FGridCoordinate & Start, const FGridCoordinate & 
 	return UPathFinder::FindPath(this, Start, End, OutPath);
 }
 
-AMapPawn * AWorldGrid::GetMapPawn(const int ID)
+bool AWorldGrid::IsPlayersTurn(const int PlayerID)
 {
-	if (MapPawns.Num() && MapPawns.Num() > ID && ID >= 0)
+	AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(GetWorld()->GetAuthGameMode());
+	if (Gamemode)
 	{
-		return MapPawns[ID];
+		return (HostPlayerID == PlayerID) || Gamemode->IsPlayersTurn(PlayerID) || (PlayerID == -1);
 	}
-
-	return nullptr;
-}
-
-void AWorldGrid::SetSpawnLocations(const TArray<FGridCoordinate>& Locations)
-{
-	for (const auto& item : Locations)
+	else
 	{
-		SetSpawnLocation(0, item);
+		return true;
 	}
 }
 
-int AWorldGrid::SpawnMapPawn()
-{
-	for (const auto& location : SpawnLocations)
-	{
-		CellPtr FoundCell = At(location.second);
-		if (FoundCell && !FoundCell->Ocupied)
-		{
-			if (MapPawnClasses.Num() && MapPawnClasses[0])
-			{
-				FVector WorldLocation = UGridFunctions::GridToWorldLocation(location.second);
-				UWorld* World = GetWorld();
-				if (World)
-				{
-					AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[0], &WorldLocation));
-					if (NewPawn)
-					{
-						MapPawns.Push(NewPawn);
-						FoundCell->Ocupied = true;
-						return MapPawns.Num() - 1;
-					}
-				}
-			}
-		}
-	}
-	return -1;
-}
-
-bool AWorldGrid::IsOccupied(const FGridCoordinate& Location) const
-{
-	CellPtr FoundCell = At(Location);
-
-	if (FoundCell)
-	{
-		FString occupied = FoundCell->Ocupied ? "True" : "False";
-		UE_LOG(LogNotice, Display, TEXT("Is Occupied at (%d, %d): %s"), Location.X, Location.Y, *occupied);
-		return FoundCell->Ocupied;
-	}
-
-	UE_LOG(LogNotice, Warning, TEXT("Not a valid move spot at (%d, %d)"), Location.X, Location.Y);
-	return true;
-}
-
-bool AWorldGrid::MovePawn(const FGridCoordinate& Location, const FGridCoordinate& Destination)
+bool AWorldGrid::SetPosition(const FGridCoordinate & Location, const FGridCoordinate & Destination)
 {
 	bool moved = false;
 
@@ -241,6 +207,90 @@ bool AWorldGrid::MovePawn(const FGridCoordinate& Location, const FGridCoordinate
 	}
 
 	return moved;
+}
+
+void AWorldGrid::SetSpawnLocations(const TArray<FGridCoordinate>& Locations)
+{
+	for (const auto& item : Locations)
+	{
+		SetSpawnLocation(0, item);
+	}
+}
+
+bool AWorldGrid::SpawnMapPawn(const int PlayerID)
+{
+	//For right now, only allow one Map pawn per ID
+	if (MapPawns.find(PlayerID) == MapPawns.end())
+	{
+		for (const auto& location : SpawnLocations)
+		{
+			CellPtr FoundCell = At(location.second);
+			if (FoundCell && !FoundCell->Ocupied)
+			{
+				if (MapPawnClasses.Num() && MapPawnClasses[0])
+				{
+					FVector WorldLocation = UGridFunctions::GridToWorldLocation(location.second);
+					UWorld* World = GetWorld();
+					if (World)
+					{
+						AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[0], &WorldLocation));
+						if (NewPawn)
+						{
+							NewPawn->SetOwnerID(PlayerID);
+							NewPawn->SetPawnID(MapPawns.size());
+							MapPawns[PlayerID] = NewPawn;
+
+							FoundCell->Ocupied = true;
+							UE_LOG(LogNotice, Display, TEXT("Added new MapPawn with ID= %i : Owner= %i"), NewPawn->GetPawnID(), NewPawn->GetOwnerID());
+							return true;
+						}
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
+bool AWorldGrid::IsOccupied(const FGridCoordinate& Location) const
+{
+	CellPtr FoundCell = At(Location);
+
+	if (FoundCell)
+	{
+		FString occupied = FoundCell->Ocupied ? "True" : "False";
+		UE_LOG(LogNotice, Display, TEXT("Is Occupied at (%d, %d): %s"), Location.X, Location.Y, *occupied);
+		return FoundCell->Ocupied;
+	}
+
+	UE_LOG(LogNotice, Warning, TEXT("Not a valid move spot at (%d, %d)"), Location.X, Location.Y);
+	return true;
+}
+
+void AWorldGrid::MovePawn(const int PlayerID, const FGridCoordinate& Destination, const int PawnID)
+{
+	if (PlayerID == HostPlayerID && PawnID != -1)
+	{
+		int count = 0;
+		for (auto& Pawn : MapPawns)
+		{
+			if (count == PawnID)
+			{
+				Pawn.second->SetDestination(Destination);
+			}
+
+			count++;
+		}
+	}
+	else
+	{
+		auto found = MapPawns.find(PlayerID);
+
+		if (found != MapPawns.end())
+		{
+			found->second->SetDestination(Destination);
+		}
+	}
 }
 
 void AWorldGrid::RemoveActorFromPlay(const FGridCoordinate& Location)

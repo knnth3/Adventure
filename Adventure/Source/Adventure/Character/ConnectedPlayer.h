@@ -37,7 +37,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void MovePlayer(const FVector& Location);
+	void MovePlayer(const FVector& Location, const int PawnID = -1);
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	void SwapCameraView(const float& time);
@@ -53,6 +53,9 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "MapPawn Camera")
 	CONNECTED_PLAYER_CAMERA GetCameraType()const;
+
+	UFUNCTION(BlueprintCallable, Server, Reliable, WithValidation)
+	void Server_EndTurn();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
 	class USceneComponent* Scene;
@@ -73,23 +76,27 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	int GetMapPawnID()const;
-
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void SetMapPawnID(const int ID);
+	void SpectateMapPawn(const int ID = -1);
 
 private:
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_MovePlayer(int ID, const FVector& Location);
+	class AMapPawn* GetMapPawn();
 
-	UPROPERTY(Replicated)
-	int MapPawnID;
+	UFUNCTION()
+	void OnNewSpectateFocus();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_MovePlayer(const int PlayerID, const FVector& Location, const int PawnID);
 
 	UPROPERTY(Replicated)
 	CONNECTED_PLAYER_TYPE PlayerType;
 
+	UPROPERTY(ReplicatedUsing = OnNewSpectateFocus)
+	int SpectateMapPawnID;
+
 	CONNECTED_PLAYER_CAMERA CameraType;
 
-	class AMapPawn* CurrentMapPawn;
+	bool bSpectateNewPawn;
+	class AWorldGrid* WorldGrid;
+	class AMapPawn* SelectedMapPawn;
 };

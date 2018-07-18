@@ -115,6 +115,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	bool IsMoving()const;
 
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	int GetOwnerID()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void SetOwnerID(const int ID);
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	int GetPawnID()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void SetPawnID(const int ID);
+
 protected:
 	//BP Overridable functions
 
@@ -152,7 +164,13 @@ private:
 	void OnRotation_Rep();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetDestination(FGridCoordinate GridLocation);
+	void Server_SetDestination(FGridCoordinate GridLocation, bool bRotateOnly = false);
+
+	UPROPERTY(Replicated)
+	int OwnerID;
+
+	UPROPERTY(Replicated)
+	int PawnID;
 
 	UPROPERTY(Replicated)
 	FStatSheet CharacterStats;

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <map>
 #include "CoreMinimal.h"
 #include "basics.h"
 #include "Widgets/W_GameBuilderUI.h"
@@ -9,6 +10,12 @@
 #include "GM_Multiplayer.generated.h"
 
 
+UENUM()
+enum class GM_MULTIPLAYER_STATE : uint8
+{
+	ROAMING,
+	BATTLE
+};
 
 /**
  * 
@@ -23,7 +30,18 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
 	FGridCoordinate GetGridDimensions()const;
-	
+
+	UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
+	GM_MULTIPLAYER_STATE GetGameState()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
+	void SetGameState(GM_MULTIPLAYER_STATE State);
+
+	UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
+	bool IsPlayersTurn(const int PlayerID);
+
+	void EndTurn(const int PlayerID);
+
 protected:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
@@ -47,16 +65,16 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
 	void AddObjectForPreInit(const FGAMEBUILDER_OBJECT& object);
 
-	UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
-	void SetGridDimensions2(const FGridCoordinate& Dimensions);
-
 	UPROPERTY(EditAnywhere, Category = "Game Map Grid")
 	TSubclassOf<class AWorldGrid> GridClass;
 
 private:
 
+	int CurrentPlayersTurn;
+	GM_MULTIPLAYER_STATE CurrentState;
 	int PlayersConnected;
 	FGridCoordinate GridDimensions; 
 	class AWorldGrid* WorldGrid;
 	TArray<FGAMEBUILDER_OBJECT> PendingObjects;
+	std::map<int32, class AConnectedPlayer*> ConnectedPlayers;
 };

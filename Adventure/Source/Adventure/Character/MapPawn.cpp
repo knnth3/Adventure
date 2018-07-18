@@ -12,6 +12,7 @@ AMapPawn::AMapPawn()
 	bMoveCharacter = false;
 	bReplicates = true;
 	bRotateCharacter = false;
+	OwnerID = -1;
 
 	CameraSettings.AngularVelocity = 240.0f;
 	CameraSettings.ZoomSpeed = Conversions::Meters::ToCentimeters(50.0f);
@@ -102,7 +103,6 @@ void AMapPawn::Tick(float DeltaTime)
 	FString IsMoving = "Moving: " + FString::FromInt(bMoveCharacter);
 
 	GetStringOf(Role);
-	//DrawDebugString(GetWorld(), FVector(0,0,100), IsMoving, this, FColor::White, DeltaTime);
 }
 
 // Called to bind functionality to input
@@ -123,10 +123,9 @@ void AMapPawn::SetDestination(FGridCoordinate GridLocation)
 		if (!Success)
 		{
 			UE_LOG(LogNotice, Warning, TEXT("Couldn't find a Path"));
+			Server_SetDestination(GridLocation, true);
 		}
-
-		//If path was found, replace our current path with the new one.
-		if (Array.Num())
+		else
 		{
 			//Clear the previous queue;
 			std::queue<FGridCoordinate> PrevMoves;
@@ -153,6 +152,34 @@ FStatSheet AMapPawn::GetStatSheet() const
 bool AMapPawn::IsMoving() const
 {
 	return bMoveCharacter;
+}
+
+int AMapPawn::GetOwnerID() const
+{
+	return OwnerID;
+}
+
+void AMapPawn::SetOwnerID(const int ID)
+{
+	if (HasAuthority())
+	{
+		OwnerID = ID;
+	}
+}
+
+int AMapPawn::GetPawnID() const
+{
+	return PawnID;
+}
+
+void AMapPawn::SetPawnID(const int ID)
+{
+	if (HasAuthority())
+	{
+		PawnID = ID;
+	}
+
+	UE_LOG(LogNotice, Warning, TEXT("Setting Pawn ID: %i, Success: %i"), ID, HasAuthority());
 }
 
 //Moves a pawn if its destination is not the same as its position
@@ -245,7 +272,7 @@ bool AMapPawn::IsMoveValid(FVector DeltaLocation) const
 	{
 		FGridCoordinate CurrentPosition = GetActorGridLocation();
 		FGridCoordinate CurrentDestination = UGridFunctions::WorldToGridLocation(GetActorLocation() + DeltaLocation);
-		if (CurrentPosition == CurrentDestination || GridItr->MovePawn(CurrentPosition, CurrentDestination))
+		if (CurrentPosition == CurrentDestination || GridItr->SetPosition(CurrentPosition, CurrentDestination))
 		{
 			return true;
 		}
@@ -261,8 +288,6 @@ void AMapPawn::MoveToNextLocation()
 	{
 		if (!MoveQueue.empty())
 		{
-			UE_LOG(LogNotice, Warning, TEXT("Path[GridLocation]->(%i, %i)"), MoveQueue.front().X, MoveQueue.front().Y);
-
 			//Set the destination to the closest move
 			Server_SetDestination(MoveQueue.front());
 			MoveQueue.pop();
@@ -291,16 +316,19 @@ void AMapPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetime
 	DOREPLIFETIME(AMapPawn, CharacterStats);
 	DOREPLIFETIME(AMapPawn, FinalDestination);
 	DOREPLIFETIME(AMapPawn, Rotation);
+	DOREPLIFETIME(AMapPawn, OwnerID);
+	DOREPLIFETIME(AMapPawn, PawnID);
+	
 }
 
 //Sets a destination if valid (server)
-void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation)
+void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation, bool bRotateOnly)
 {
 	TActorIterator<AWorldGrid> GridItr(GetWorld());
 	FVector Location = GetActorLocation();
 	FVector CurrentDestination = UGridFunctions::GridToWorldLocation(GridLocation);
 
-	if (GridItr)
+	if (GridItr && !bRotateOnly)
 	{
 		//Move the character
 		if (!GridItr->IsOccupied(GridLocation) || GridLocation == GetActorGridLocation())
@@ -312,28 +340,28 @@ void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation
 			bMoveCharacter = true;
 			BeginMove();
 		}
+	}
 
-		//Rotate the character;
-		FVector TravelVector = CurrentDestination - Location;
-		if (TravelVector.Size2D() > 0.1f)
+	//Rotate the character;
+	FVector TravelVector = CurrentDestination - Location;
+	if (TravelVector.Size2D() > 0.1f)
+	{
+		TravelVector = TravelVector.GetSafeNormal2D();
+		float AngleBetween = FMath::Atan2(TravelVector.Y, TravelVector.X);
+
+		AngleBetween = FMath::RadiansToDegrees(AngleBetween);
+		FRotator DeltaRotation(0.0f, AngleBetween - 90.0f, 0.0f);
+
+		if (PawnBody)
 		{
-			TravelVector = TravelVector.GetSafeNormal2D();
-			float AngleBetween = FMath::Atan2(TravelVector.Y, TravelVector.X);
-
-			AngleBetween = FMath::RadiansToDegrees(AngleBetween);
-			FRotator DeltaRotation(0.0f, AngleBetween - 90.0f, 0.0f);
-
-			if (PawnBody)
-			{
-				Rotation = DeltaRotation;
-				bRotateCharacter = true;
-			}
+			Rotation = DeltaRotation;
+			bRotateCharacter = true;
 		}
 	}
 }
 
 //Vaidates non-cheat move (server)
-bool AMapPawn::Server_SetDestination_Validate(FGridCoordinate WorldLocation)
+bool AMapPawn::Server_SetDestination_Validate(FGridCoordinate WorldLocation, bool bRotateOnly)
 {
 	return true;
 }
