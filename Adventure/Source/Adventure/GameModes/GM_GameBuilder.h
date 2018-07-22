@@ -16,22 +16,24 @@ class ADVENTURE_API AGM_GameBuilder : public AGameModeBase
 	GENERATED_BODY()
 	
 public:
-	AGM_GameBuilder(); 
 	
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	
-	UFUNCTION(BlueprintCallable, Category = "GameBuilder Gamemode")
-	FName GetMapName()const;
+	virtual void InitGameState()override;
+	virtual void StartPlay()override;
 
-	UFUNCTION(BlueprintCallable, Category = "GameBuilder Gamemode")
-	FGridCoordinate GetMapSize()const;
-
-	UFUNCTION(BlueprintCallable, Category = "GameBuilder Gamemode")
+	UFUNCTION(BlueprintCallable, Category = "GameBuilder")
 	bool IsNewMap()const;
 
+	UFUNCTION(BlueprintCallable, Category = "GameBuilder")
+	FGridCoordinate GetMapSize()const;
+
+	UFUNCTION(BlueprintCallable, Category = "GameBuilder")
+	FString GetMapName()const;
+
 private:
-	FName m_MapName;
+
 	bool m_bNewMap;
-	TSubclassOf<class AWorldGrid> GridClass;
-	class AWorldGrid* WorldGrid;
+	FString MapName;
+	int Rows, Columns;
+	TArray<struct FGAMEBUILDER_OBJECT> PendingObjects;
 };

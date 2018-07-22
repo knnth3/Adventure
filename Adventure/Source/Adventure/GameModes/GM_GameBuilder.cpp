@@ -3,24 +3,17 @@
 
 #include "GI_Adventure.h"
 #include "Grid/WorldGrid.h"
+#include "GameStates/GS_GameBuilder.h"
+#include "Saves/MapSaveFile.h"
+#include "Widgets/W_GameBuilderUI.h"
 
-AGM_GameBuilder::AGM_GameBuilder()
-{
-	static ConstructorHelpers::FClassFinder<AWorldGrid> BP_WorldGrid(TEXT("/Game/Blueprints/Grid/BP_WorldGrid"));
-	if (!BP_WorldGrid.Class)
-	{
-		UE_LOG(LogNotice, Error, TEXT("NO WORLD GRID CLASS FOUND"));
-	}
-
-	GridClass = BP_WorldGrid.Class;
-}
 
 void AGM_GameBuilder::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	int GridRows = 10;
-	int GridColumns = 10;
+	this->Rows = 10;
+	this->Columns = 10;
 	m_bNewMap = true;
 
 	//Parse all command options
@@ -29,16 +22,8 @@ void AGM_GameBuilder::InitGame(const FString & MapName, const FString & Options,
 	FString Columns = ParseStringFor(Options, "Columns=", " ");
 	FString NewMap  = ParseStringFor(Options, "NewMap=",  " ");
 
-	m_MapName = FName(*Name);
 	UE_LOG(LogNotice, Warning, TEXT("Map Name: %s"), *Name);
-
-	if (!Columns.IsEmpty() && !Rows.IsEmpty() && Columns.IsNumeric() && Rows.IsNumeric())
-	{
-		UE_LOG(LogNotice, Warning, TEXT("Map Size: %s x %s"), *Rows, *Columns);
-
-		GridRows = FCString::Atoi(*Rows);
-		GridColumns = FCString::Atoi(*Columns);
-	}
+	this->MapName = Name;
 
 	if (!NewMap.IsEmpty())
 	{
@@ -47,36 +32,85 @@ void AGM_GameBuilder::InitGame(const FString & MapName, const FString & Options,
 		m_bNewMap = (NewMap == "False") ? false : true;
 	}
 
-	//Initialize the World Grid
-	FVector Location(0.0f);
-	WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
-
-	if (WorldGrid)
+	if (m_bNewMap)
 	{
-		WorldGrid->Initialize(GridRows, GridColumns);
+		if (!Columns.IsEmpty() && !Rows.IsEmpty() && Columns.IsNumeric() && Rows.IsNumeric())
+		{
+			UE_LOG(LogNotice, Warning, TEXT("Map Size: %s x %s"), *Rows, *Columns);
+
+			this->Rows = FCString::Atoi(*Rows);
+			this->Columns = FCString::Atoi(*Columns);
+		}
 	}
 	else
 	{
-		UE_LOG(LogNotice, Error, TEXT("NO WORLD GRID FOUND."));
+		UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UGameplayStatics::LoadGameFromSlot(Name, 0));
+		if (MapSaveFile)
+		{
+			UE_LOG(LogNotice, Warning, TEXT("Map Loaded!"));
+			UE_LOG(LogNotice, Warning, TEXT("Name: %s"), *MapSaveFile->MapName);
+			UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
+			UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->Objects.Num());
+
+			this->Rows = MapSaveFile->MapSize.X;
+			this->Columns = MapSaveFile->MapSize.Y;
+			PendingObjects = MapSaveFile->Objects;
+		}
 	}
 }
 
-FName AGM_GameBuilder::GetMapName() const
+void AGM_GameBuilder::InitGameState()
 {
-	return m_MapName;
-}
+	Super::InitGameState();
 
-FGridCoordinate AGM_GameBuilder::GetMapSize() const
-{
-	if (WorldGrid)
+	AGS_GameBuilder* GameState = GetGameState<AGS_GameBuilder>();
+	if (GameState)
 	{
-		return WorldGrid->GetSize();
+		GameState->Initialize(MapName, Rows, Columns);
+	}
+}
+
+void AGM_GameBuilder::StartPlay()
+{
+	Super::StartPlay();
+
+	TActorIterator<AWorldGrid> GridItr(GetWorld());
+	if (GridItr)
+	{
+		for (const auto& object : PendingObjects)
+		{
+			switch (object.Type)
+			{
+			case GAMEBUILDER_OBJECT_TYPE::ANY:
+				break;
+			case GAMEBUILDER_OBJECT_TYPE::INTERACTABLE:
+				GridItr->AddVisual(object.ModelIndex, object.Location);
+				break;
+			case GAMEBUILDER_OBJECT_TYPE::SPAWN:
+				GridItr->AddSpawnLocation(object.ModelIndex, object.Location);
+				break;
+			case GAMEBUILDER_OBJECT_TYPE::NPC:
+				break;
+			default:
+				break;
+			}
+		}
 	}
 
-	return FGridCoordinate(0, 0);
+	PendingObjects.Empty();
 }
 
 bool AGM_GameBuilder::IsNewMap() const
 {
 	return m_bNewMap;
+}
+
+FGridCoordinate AGM_GameBuilder::GetMapSize() const
+{
+	return FGridCoordinate(Rows, Columns);
+}
+
+FString AGM_GameBuilder::GetMapName() const
+{
+	return MapName;
 }

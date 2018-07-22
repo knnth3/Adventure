@@ -38,7 +38,11 @@ void UW_MainMenu_Child::RequestJoinGame(FJOINGAME_SETTINGS settings)
 
 void UW_MainMenu_Child::RequestLaunchGameBuilder(FGAMEBUILDER_SETTINGS settings)
 {
-	if (MainMenu && settings.Colums && settings.Rows && !settings.MapName.IsEmpty())
+	if (MainMenu && !settings.bNewMap && !settings.MapName.IsEmpty())
+	{
+		MainMenu->LoadGameBuilder(settings);
+	}
+	else if (MainMenu && settings.Colums && settings.Rows && !settings.MapName.IsEmpty())
 	{
 		MainMenu->LoadGameBuilder(settings);
 	}

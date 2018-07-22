@@ -8,25 +8,40 @@
 #include "Adventure.h"
 
 
-AGS_Multiplayer::AGS_Multiplayer()
+void AGS_Multiplayer::Initialize(FString MapName, int Rows, int Columns)
 {
-	static ConstructorHelpers::FClassFinder<AWorldGrid> WorldGridBPClass(TEXT("/Game/Blueprints/Grid/BP_WorldGrid"));
-	GridClass = WorldGridBPClass.Class;
+	this->MapName = MapName;
+	this->Rows = Rows;
+	this->Columns = Columns;
+}
+
+void AGS_Multiplayer::HandleBeginPlay()
+{
+	Super::HandleBeginPlay();
+
+	FVector Location(0.0f);
+	WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
+
+	UE_LOG(LogNotice, Warning, TEXT("GameState has begun play!"));
+
+	for (const auto& player : PlayerArray)
+	{
+		bool Auth = player->HasAuthority();
+		FString Name = player->GetPlayerName();
+		int ID = player->PlayerId;
+
+		UE_LOG(LogNotice, Warning, TEXT("Found Playerstate: %s with id= %i. IsAuth= %i"), *Name, ID, Auth);
+
+		if (Auth && WorldGrid)
+		{
+			UE_LOG(LogNotice, Warning, TEXT("Begin World Grid Init"));
+			WorldGrid->Initialize(Rows, Columns, player->PlayerId);
+			return;
+		}
+	}
 }
 
 void AGS_Multiplayer::BeginPlay()
 {
 	Super::BeginPlay();
-
-}
-
-void AGS_Multiplayer::OnRep_ReplicatedHasBegunPlay()
-{
-	Super::OnRep_ReplicatedHasBegunPlay();
-
-}
-
-AWorldGrid * AGS_Multiplayer::GetWorldGrid()
-{
-	return WorldGrid;
 }

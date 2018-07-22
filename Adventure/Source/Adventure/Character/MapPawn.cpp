@@ -83,11 +83,11 @@ void AMapPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	if (GridItr)
-	{
-		GridItr->RemoveActorFromPlay(GetActorGridLocation());
-	}
+	//TActorIterator<AWorldGrid> GridItr(GetWorld());
+	//if (GridItr)
+	//{
+	//	GridItr->RemoveActorFromPlay(GetActorGridLocation());
+	//}
 }
 
 // Called every frame
@@ -119,7 +119,7 @@ void AMapPawn::SetDestination(FGridCoordinate GridLocation)
 	{
 		//Attempt to find a new path to where we want to go
 		TArray<FGridCoordinate> Array;
-		bool Success = GridItr->GetPath(UGridFunctions::WorldToGridLocation(FinalDestination), GridLocation, Array);
+		bool Success = GridItr->FindPath(UGridFunctions::WorldToGridLocation(FinalDestination), GridLocation, Array);
 		if (!Success)
 		{
 			UE_LOG(LogNotice, Warning, TEXT("Couldn't find a Path"));
@@ -331,7 +331,7 @@ void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation
 	if (GridItr && !bRotateOnly)
 	{
 		//Move the character
-		if (!GridItr->IsOccupied(GridLocation) || GridLocation == GetActorGridLocation())
+		if (!GridItr->IsSpaceTraversable(GridLocation) || GridLocation == GetActorGridLocation())
 		{
 			FinalDestination.X = CurrentDestination.X;
 			FinalDestination.Y = CurrentDestination.Y;

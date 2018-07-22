@@ -3,7 +3,6 @@
 #include "PathFinder.h"
 #include "Algo/Reverse.h"
 
-
 bool UPathFinder::FindPath(AWorldGrid * Grid, const FGridCoordinate & Start, const FGridCoordinate & End, TArray<FGridCoordinate>& OutPath)
 {
 	if (!Grid)

@@ -6,6 +6,7 @@
 #include <utility>
 #include <memory>
 #include <vector>
+#include <list>
 
 #include "Adventure.h"
 #include "OnlineSubsystemTypes.h"

@@ -17,13 +17,39 @@ class ADVENTURE_API AGS_Multiplayer : public AGameStateBase
 	GENERATED_BODY()
 	
 public:
-	AGS_Multiplayer();
-	
+
+	void Initialize(FString MapName, int Rows, int Columns);
+	virtual void HandleBeginPlay()override;
 	virtual void BeginPlay()override;
-	virtual void OnRep_ReplicatedHasBegunPlay() override;
-	AWorldGrid* GetWorldGrid();
+
+	//UFUNCTION(BlueprintNativeEvent, Category = "Multiplayer Gamemode")
+	//bool OnLoadMapRequest(const FString& SaveSlot);
+
+	////Sends request to WorldGrid
+	//UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
+	//bool RequestAddBlockingSpace(int Type, const FGridCoordinate& Location);
+
+	//UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
+	//bool RequestDeleteObject(GAMEBUILDER_OBJECT_TYPE Type, const FGridCoordinate& Location);
+
+	//UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
+	//bool RequestSetSpawnLocation(int Type, const FGridCoordinate& Location);
+
+	//UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
+	//void SetGridDimensions(const FGridCoordinate& Dimensions);
+
+	//UFUNCTION(BlueprintCallable, Category = "Multiplayer Gamemode")
+	//void AddObjectForPreInit(const FGAMEBUILDER_OBJECT& object);
+
+protected:
+
+	UPROPERTY(EditAnywhere, Category = "Spawnables")
+	TSubclassOf<class AWorldGrid> GridClass;
+
 
 private:
-	TSubclassOf<class AWorldGrid> GridClass;
+
+	FString MapName;
+	int Rows, Columns;
 	class AWorldGrid* WorldGrid;
 };

@@ -11,7 +11,7 @@ bool APC_Adventure_Editor::RequestSpawnInteractible(int Type, const FGridCoordin
 	TActorIterator<AWorldGrid> GridItr(GetWorld());
 	if (GridItr)
 	{
-		if (!GridItr->AddInteractable(Type, Location))
+		if (!GridItr->AddVisual(Type, Location))
 		{
 			Success = false;
 		}
@@ -28,7 +28,7 @@ bool APC_Adventure_Editor::RequestDeleteObject(GAMEBUILDER_OBJECT_TYPE Type, con
 		switch (Type)
 		{
 		case GAMEBUILDER_OBJECT_TYPE::INTERACTABLE:
-			Success = GridItr->RemoveInteractable(Location);
+			Success = GridItr->RemoveVisual(Location);
 			break;
 		case GAMEBUILDER_OBJECT_TYPE::SPAWN:
 			Success = GridItr->RemoveSpawnLocation(Location);
@@ -40,13 +40,13 @@ bool APC_Adventure_Editor::RequestDeleteObject(GAMEBUILDER_OBJECT_TYPE Type, con
 	return Success;
 }
 
-bool APC_Adventure_Editor::RequestSetSpawnLocation(int Type, const FGridCoordinate& Location)
+bool APC_Adventure_Editor::RequestAddSpawnLocation(int Type, const FGridCoordinate& Location)
 {
 	bool Success = true;
 	TActorIterator<AWorldGrid> GridItr(GetWorld());
 	if (GridItr)
 	{
-		if (!GridItr->SetSpawnLocation(Type, Location))
+		if (!GridItr->AddSpawnLocation(Type, Location))
 		{
 			Success = false;
 		}

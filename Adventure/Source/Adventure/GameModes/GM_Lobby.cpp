@@ -39,7 +39,7 @@ void AGM_Lobby::PostLogin(APlayerController* NewPlayer)
 	UWorld* world = GetWorld();
 	if (world && m_LobbyMenu && m_playerCount)
 	{
-		m_LobbyMenu->AddCharacter(NewPlayer->PlayerState->PlayerName);
+		m_LobbyMenu->AddCharacter(NewPlayer->PlayerState->GetPlayerName());
 	}
 
 	m_playerCount++;

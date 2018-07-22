@@ -25,6 +25,6 @@ protected:
 	bool RequestDeleteObject(GAMEBUILDER_OBJECT_TYPE Type, const FGridCoordinate& Location);
 
 	UFUNCTION(BlueprintCallable)
-	bool RequestSetSpawnLocation(int Type, const FGridCoordinate& Location);
+	bool RequestAddSpawnLocation(int Type, const FGridCoordinate& Location);
 	
 };

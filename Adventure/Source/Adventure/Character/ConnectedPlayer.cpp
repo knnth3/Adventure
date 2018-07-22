@@ -127,7 +127,7 @@ void AConnectedPlayer::Server_EndTurn_Implementation()
 		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(World->GetAuthGameMode());
 		if (Gamemode)
 		{
-			Gamemode->EndTurn(PlayerState->PlayerId);
+			//Gamemode->EndTurn(PlayerState->PlayerId);
 		}
 	}
 }
@@ -142,7 +142,7 @@ void AConnectedPlayer::Server_MovePlayer_Implementation(const int PlayerID, cons
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{
-		WorldGrid->MovePawn(PlayerID, Location, PawnID);
+		WorldGrid->MoveCharacter(this, Location, PawnID);
 	}
 	else
 	{
@@ -158,7 +158,29 @@ bool AConnectedPlayer::Server_MovePlayer_Validate(const int PlayerID, const FVec
 // Called every frame
 void AConnectedPlayer::Tick(float DeltaTime)
 {
+	static bool bRegistered = false;
 	Super::Tick(DeltaTime);
+
+	if (!bRegistered)
+	{
+		if (HasAuthority())
+		{
+			bRegistered = true;
+			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+			if (WorldGrid)
+			{
+				int CharacterID = 0;
+				if (WorldGrid->RegisterPlayerController(this, CharacterID))
+				{
+					UE_LOG(LogNotice, Warning, TEXT("Player has been registered to the WorldGrid! PawnID = %i"), CharacterID);
+				}
+				else
+				{
+					UE_LOG(LogNotice, Error, TEXT("Failed to register player to the World Grid."));
+				}
+			}
+		}
+	}
 }
 
 // Called to bind functionality to input

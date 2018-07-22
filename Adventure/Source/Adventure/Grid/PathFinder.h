@@ -2,10 +2,12 @@
 
 #pragma once
 
+#define PRIORITY_QUEUE(T) std::priority_queue<std::shared_ptr<T>, std::vector<std::shared_ptr<T>>, shared_ptr_compare<T>>
+
+#include <queue>
 #include "CoreMinimal.h"
 #include "Basics.h"
 #include "WorldGrid.h"
-
 #include "PathFinder.generated.h"
 
 /**
@@ -20,7 +22,7 @@ class ADVENTURE_API UPathFinder : public UBlueprintFunctionLibrary
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Path Finder")
-	static bool FindPath(AWorldGrid* Grid, const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
+	static bool FindPath(class AWorldGrid* Grid, const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
 
 private:
 
