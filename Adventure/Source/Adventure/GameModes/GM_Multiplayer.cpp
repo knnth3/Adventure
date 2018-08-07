@@ -20,6 +20,16 @@ FString AGM_Multiplayer::GetMapName() const
 	return MapName;
 }
 
+void AGM_Multiplayer::GetMapObjects(TArray<struct FGAMEBUILDER_OBJECT>& Objects) const
+{
+	Objects = MapDecorations;
+}
+
+int AGM_Multiplayer::GetHostID() const
+{
+	return HostID;
+}
+
 void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
@@ -39,71 +49,25 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 
 		this->Rows = MapSaveFile->MapSize.X;
 		this->Columns = MapSaveFile->MapSize.Y;
-		PendingObjects = MapSaveFile->Objects;
+		MapDecorations = MapSaveFile->Objects;
+	}
+
+	APlayerController* Owner = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (Owner)
+	{
+		FString Name = Owner->PlayerState->GetPlayerName();
+		HostID = Owner->PlayerState->PlayerId;
+		UE_LOG(LogNotice, Warning, TEXT("Found Owner: %s with id= %i."), *Name, HostID);
 	}
 
 }
 
-void AGM_Multiplayer::InitGameState()
+void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController*& NewPlayer)
 {
-	Super::InitGameState();
-
-	AGS_Multiplayer* GameState = GetGameState<AGS_Multiplayer>();
-	if (GameState)
+	Super::HandleSeamlessTravelPlayer(NewPlayer);
+	auto state = NewPlayer->PlayerState;
+	if (state)
 	{
-		GameState->Initialize(MapName, Rows, Columns);
+		UE_LOG(LogNotice, Error, TEXT("<HandleSeamlessTravel>: %s: %i"), *state->GetPlayerName(), state->PlayerId);
 	}
-}
-
-void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
-{
-	Super::PostLogin(NewPlayer);
-
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	if (GridItr)
-	{
-		int PlayerID = NewPlayer->PlayerState->PlayerId;
-		UE_LOG(LogNotice, Log, TEXT("%s connected! ID= %i"), *NewPlayer->PlayerState->GetPlayerName(), PlayerID);
-
-		if (!GridItr->AddCharacter(PlayerID))
-		{
-			UE_LOG(LogNotice, Warning, TEXT("No Spawns available to create character."));
-		}
-	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("Player connected but character could not be spawned"));
-	}
-}
-
-void AGM_Multiplayer::StartPlay()
-{
-	Super::StartPlay();
-
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	if (GridItr)
-	{
-		for (const auto& object : PendingObjects)
-		{
-			switch (object.Type)
-			{
-			case GAMEBUILDER_OBJECT_TYPE::ANY:
-				break;
-			case GAMEBUILDER_OBJECT_TYPE::INTERACTABLE:
-				GridItr->AddVisual(object.ModelIndex, object.Location);
-				break;
-			case GAMEBUILDER_OBJECT_TYPE::SPAWN:
-				GridItr->AddSpawnLocation(object.ModelIndex, object.Location);
-				break;
-			case GAMEBUILDER_OBJECT_TYPE::NPC:
-				break;
-			default:
-				break;
-			}
-		}
-
-		GridItr->AddCharacter();
-	}
-
-	PendingObjects.Empty();
 }

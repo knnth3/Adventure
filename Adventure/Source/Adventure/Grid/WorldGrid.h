@@ -62,7 +62,7 @@ public:
 	AWorldGrid();
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void Initialize(int Rows, int Columns, int HostID);
+	void Initialize(const int HostID, FGridCoordinate GridDimensions);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	FGridCoordinate GetDimensions()const;

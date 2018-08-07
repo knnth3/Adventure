@@ -24,14 +24,15 @@ void AGS_GameBuilder::HandleBeginPlay()
 	{
 		bool Auth = player->HasAuthority();
 		FString Name = player->GetPlayerName();
-		int ID = player->PlayerId;
+		int PlayerID = player->PlayerId;
 
-		UE_LOG(LogNotice, Warning, TEXT("Found Playerstate: %s with id= %i. IsAuth= %i"), *Name, ID, Auth);
+		UE_LOG(LogNotice, Warning, TEXT("Found Playerstate: %s with id= %i. IsAuth= %i"), *Name, PlayerID, Auth);
 
 		if (Auth && WorldGrid)
 		{
+			FGridCoordinate MapDimensions = FGridCoordinate(Rows, Columns);
 			UE_LOG(LogNotice, Warning, TEXT("Begin World Grid Init"));
-			WorldGrid->Initialize(Rows, Columns, player->PlayerId);
+			WorldGrid->Initialize(PlayerID, MapDimensions);
 			return;
 		}
 	}

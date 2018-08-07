@@ -178,8 +178,6 @@ void AMapPawn::SetPawnID(const int ID)
 	{
 		PawnID = ID;
 	}
-
-	UE_LOG(LogNotice, Warning, TEXT("Setting Pawn ID: %i, Success: %i"), ID, HasAuthority());
 }
 
 //Moves a pawn if its destination is not the same as its position

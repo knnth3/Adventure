@@ -170,14 +170,7 @@ void AConnectedPlayer::Tick(float DeltaTime)
 			if (WorldGrid)
 			{
 				int CharacterID = 0;
-				if (WorldGrid->RegisterPlayerController(this, CharacterID))
-				{
-					UE_LOG(LogNotice, Warning, TEXT("Player has been registered to the WorldGrid! PawnID = %i"), CharacterID);
-				}
-				else
-				{
-					UE_LOG(LogNotice, Error, TEXT("Failed to register player to the World Grid."));
-				}
+				WorldGrid->RegisterPlayerController(this, CharacterID);
 			}
 		}
 	}

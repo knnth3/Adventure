@@ -25,15 +25,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer")
 	FString GetMapName()const;
 
+	UFUNCTION(BlueprintCallable, Category = "Multiplayer")
+	void GetMapObjects(TArray<struct FGAMEBUILDER_OBJECT>& Objects)const;
+
+	int GetHostID()const;
+
 protected:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	virtual void InitGameState()override;
-	virtual void PostLogin(APlayerController* NewPlayer) override;
-	virtual void StartPlay()override;
+	virtual void HandleSeamlessTravelPlayer(AController*& NewPlayer)override;
 
 private:
 
 	FString MapName;
-	int Rows, Columns;
-	TArray<struct FGAMEBUILDER_OBJECT> PendingObjects;
+	int Rows, Columns, HostID;
+	TArray<struct FGAMEBUILDER_OBJECT> MapDecorations;
 };

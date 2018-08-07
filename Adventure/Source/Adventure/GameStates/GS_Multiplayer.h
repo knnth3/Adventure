@@ -18,9 +18,7 @@ class ADVENTURE_API AGS_Multiplayer : public AGameStateBase
 	
 public:
 
-	void Initialize(FString MapName, int Rows, int Columns);
 	virtual void HandleBeginPlay()override;
-	virtual void BeginPlay()override;
 
 	//UFUNCTION(BlueprintNativeEvent, Category = "Multiplayer Gamemode")
 	//bool OnLoadMapRequest(const FString& SaveSlot);

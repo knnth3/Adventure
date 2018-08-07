@@ -8,40 +8,74 @@
 #include "Adventure.h"
 
 
-void AGS_Multiplayer::Initialize(FString MapName, int Rows, int Columns)
-{
-	this->MapName = MapName;
-	this->Rows = Rows;
-	this->Columns = Columns;
-}
 
 void AGS_Multiplayer::HandleBeginPlay()
 {
 	Super::HandleBeginPlay();
 
-	FVector Location(0.0f);
-	WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
-
-	UE_LOG(LogNotice, Warning, TEXT("GameState has begun play!"));
-
-	for (const auto& player : PlayerArray)
+	if (HasAuthority())
 	{
-		bool Auth = player->HasAuthority();
-		FString Name = player->GetPlayerName();
-		int ID = player->PlayerId;
+		FVector Location(0.0f);
+		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
+		FGridCoordinate MapDimensions = Gamemode->GetMapSize();
+		int HostID = Gamemode->GetHostID();
 
-		UE_LOG(LogNotice, Warning, TEXT("Found Playerstate: %s with id= %i. IsAuth= %i"), *Name, ID, Auth);
-
-		if (Auth && WorldGrid)
+		WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
+		if (WorldGrid)
 		{
-			UE_LOG(LogNotice, Warning, TEXT("Begin World Grid Init"));
-			WorldGrid->Initialize(Rows, Columns, player->PlayerId);
+			//Add Map Decorations
+			WorldGrid->Initialize(HostID, MapDimensions);
+			TArray<struct FGAMEBUILDER_OBJECT> MapDecorations;
+			if (Gamemode)
+			{
+				Gamemode->GetMapObjects(MapDecorations);
+			}
+			for (const auto& object : MapDecorations)
+			{
+				switch (object.Type)
+				{
+				case GAMEBUILDER_OBJECT_TYPE::ANY:
+					break;
+				case GAMEBUILDER_OBJECT_TYPE::INTERACTABLE:
+					WorldGrid->AddVisual(object.ModelIndex, object.Location);
+					break;
+				case GAMEBUILDER_OBJECT_TYPE::SPAWN:
+					WorldGrid->AddSpawnLocation(object.ModelIndex, object.Location);
+					break;
+				case GAMEBUILDER_OBJECT_TYPE::NPC:
+					break;
+				default:
+					break;
+				}
+			}
+
+			//Add map characters
+			for (const auto& player : PlayerArray)
+			{
+				bool success = false;
+				int PlayerID = player->PlayerId;
+				TActorIterator<AWorldGrid> GridItr(GetWorld());
+				if (GridItr)
+				{
+					if (/*HostID != PlayerID && */ !GridItr->AddCharacter(PlayerID))
+					{
+						UE_LOG(LogNotice, Error, TEXT("No Spawns available to create character."));
+					}
+					else
+					{
+						success = true;
+					}
+				}
+				else
+				{
+					UE_LOG(LogNotice, Error, TEXT("Player connected but character could not be spawned"));
+				}
+				if (success)
+				{
+					UE_LOG(LogNotice, Log, TEXT("<HandleBeginPlay>: Created Pawn for: %s, id = %i"), *player->GetPlayerName(), PlayerID);
+				}
+			}
 			return;
 		}
 	}
-}
-
-void AGS_Multiplayer::BeginPlay()
-{
-	Super::BeginPlay();
 }

@@ -40,13 +40,13 @@ void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AWorldGrid, Dimensions);
 }
 
-void AWorldGrid::Initialize(int Rows, int Columns, int HostID)
+void AWorldGrid::Initialize(const int HostID, FGridCoordinate GridDimensions)
 {
 	if (HasAuthority() && !bInitialized)
 	{
 		OwnerID = HostID;
 		bInitialized = true;
-		Dimensions = FGridCoordinate(Rows, Columns);
+		Dimensions = GridDimensions;
 		GenerateGrid();
 		SetupVisuals(Dimensions);
 	}
@@ -89,8 +89,10 @@ void AWorldGrid::EndTurnBasedMechanics()
 
 bool AWorldGrid::MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FGridCoordinate& Destination, int PawnID)
 {
+	bool Success = false;
 	if (ConnectedPlayer && ConnectedPlayer->PlayerState)
 	{
+
 		//Host requests a move
 		if (ConnectedPlayer->PlayerState->PlayerId == OwnerID)
 		{
@@ -99,7 +101,7 @@ bool AWorldGrid::MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FG
 				if (Pawn.second.Pawn->GetPawnID() == PawnID)
 				{
 					Pawn.second.Pawn->SetDestination(Destination);
-					return true;
+					Success = true;
 				}
 			}
 		}
@@ -112,21 +114,28 @@ bool AWorldGrid::MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FG
 				if (IsFreeRoamActive())
 				{
 					found->second.Pawn->SetDestination(Destination);
-					return true;
+					Success = true;
 				}
 				else if (found->second.Pawn->GetPawnID() == ActivePlayer)
 				{
 					found->second.Pawn->SetDestination(Destination);
-					return true;
+					Success = true;
 				}
 			}
 		}
 	}
-	return false;
+
+	if (Success)
+	{
+		UE_LOG(LogNotice, Warning, TEXT("Player move requested from %s: ID = %i"), *ConnectedPlayer->PlayerState->GetPlayerName(), ConnectedPlayer->PlayerState->PlayerId);
+	}
+
+	return Success;
 }
 
 bool AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer, int & CharacterID)
 {
+	bool success = false;
 	if (ConnectedPlayer && ConnectedPlayer->PlayerState)
 	{
 		int PlayerID = ConnectedPlayer->PlayerState->PlayerId;
@@ -139,7 +148,7 @@ bool AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer, int
 			}
 
 			CharacterID = -1;
-			return true;
+			success = true;
 		}
 		else
 		{
@@ -148,12 +157,15 @@ bool AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer, int
 			{
 				found->second.Player = ConnectedPlayer;
 				CharacterID = found->second.Pawn->GetPawnID();
-				return true;
+				success = true;
 			}
 
 		}
+		UE_LOG(LogNotice, Warning, TEXT("Registering %s: ID = %i, Success = %i, Registered to PawnID = %i"), 
+			*ConnectedPlayer->PlayerState->GetPlayerName(), ConnectedPlayer->PlayerState->PlayerId, success, CharacterID);
 	}
-	return false;
+
+	return success;
 }
 
 bool AWorldGrid::FindPath(const FGridCoordinate & Start, const FGridCoordinate & End, TArray<FGridCoordinate>& OutPath)
