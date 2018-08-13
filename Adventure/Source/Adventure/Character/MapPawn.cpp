@@ -13,6 +13,7 @@ AMapPawn::AMapPawn()
 	bReplicates = true;
 	bRotateCharacter = false;
 	OwnerID = -1;
+	SkeletalMeshIndex = -1;
 
 	CameraSettings.AngularVelocity = 240.0f;
 	CameraSettings.ZoomSpeed = Conversions::Meters::ToCentimeters(50.0f);
@@ -180,6 +181,14 @@ void AMapPawn::SetPawnID(const int ID)
 	}
 }
 
+void AMapPawn::SetBodyArmor_Implementation(const int Index)
+{
+}
+
+void AMapPawn::SetHead_Implementation(const int Index, const bool bBoy)
+{
+}
+
 //Moves a pawn if its destination is not the same as its position
 void AMapPawn::MovePawn(float DeltaTime)
 {
@@ -244,7 +253,7 @@ FVector AMapPawn::GetNextMove(float DeltaTime, bool& bHasNextMove)
 {
 	FVector CurrentLocation = GetActorLocation();
 	FVector TravelVector = FinalDestination - CurrentLocation;
-	FVector DeltaLocation = TravelVector.GetSafeNormal() * (CharacterStats.MoveSpeed * 100) * DeltaTime;
+	FVector DeltaLocation = TravelVector.GetSafeNormal() * (CharacterStats.MoveSpeed * (100.0f/6.0f)) * DeltaTime;
 
 	//Travel only the distance needed to reach the destination
 	if (TravelVector.Size2D() <= DeltaLocation.Size2D())

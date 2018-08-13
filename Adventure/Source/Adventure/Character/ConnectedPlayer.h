@@ -32,12 +32,48 @@ public:
 	// Sets default values for this pawn's properties
 	AConnectedPlayer();
 
+	UFUNCTION(Client, reliable)
+	void UpdateStatus(const FString& Status);
+
+	UFUNCTION(Client, reliable)
+	void BeginCombat();
+
+	UFUNCTION(Client, reliable)
+	void EndCombat();
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	int PlayerID()const;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable, Category = "Connected Player")
+	void Server_BeginTurnBasedMechanics();
+
+	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable, Category = "Connected Player")
+	void Server_EndTurnBasedMechanics();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Connected Player")
+	void OnPlayerStatusChanged(const FString& Status);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Connected Player")
+	void OnBeginCombat();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Connected Player")
+	void OnEndCombat();
+
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void MovePlayer(const FVector& Location, const int PawnID = -1);
+	bool IsPlayersTurn()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	void MovePlayer(const FVector& Location, const int PawnID = 0);
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	void SetPawnBodyArmor(const int BodyIndex, const int PawnID = 0);
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	void SetPawnHead(const int HeadIndex, const bool bBoy, const int PawnID = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	void SwapCameraView(const float& time);
@@ -88,11 +124,20 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_MovePlayer(const int PlayerID, const FVector& Location, const int PawnID);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetPawnBodyArmor(const int PlayerID, const int PawnID, const int BodyIndex);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetPawnHead(const int PlayerID, const int PawnID, const int HeadIndex, const bool bBoy);
+
 	UPROPERTY(Replicated)
 	CONNECTED_PLAYER_TYPE PlayerType;
 
 	UPROPERTY(ReplicatedUsing = OnNewSpectateFocus)
 	int SpectateMapPawnID;
+
+	UPROPERTY(Replicated)
+	bool bIsActive;
 
 	CONNECTED_PLAYER_CAMERA CameraType;
 

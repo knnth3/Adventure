@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <queue>
 #include "Basics.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -77,13 +78,22 @@ public:
 	bool IsFreeRoamActive()const;
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void BeginTurnBasedMechanics();
+	void BeginTurnBasedMechanics(AConnectedPlayer * ConnectedPlayer);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void EndTurnBasedMechanics();
+	void EndTurnBasedMechanics(AConnectedPlayer * ConnectedPlayer);
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	void EndTurn(AConnectedPlayer* ConnectedPlayer);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FGridCoordinate& Destination, int PawnID = 0);
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool SetPawnBodyArmor(const AConnectedPlayer* ConnectedPlayer, const int BodyIndex, int PawnID = 0);
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool SetPawnHead(const AConnectedPlayer* ConnectedPlayer, const int HeadIndex, const int bBoy, int PawnID = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool RegisterPlayerController(class AConnectedPlayer* ConnectedPlayer, int& CharacterID);
@@ -150,6 +160,7 @@ private:
 	int ActivePlayer;
 	bool bInitialized;
 	vector2D<CellPtr> LogicalGrid;
+	std::queue<int> CharacterTurnSequence;
 	std::map<int, CharacterInfo> Characters;
 	std::map<CoordinatePair, class ASpawner*> SpawnLocations;
 	std::map<CoordinatePair, class AActor*> VisualGridRefrences;

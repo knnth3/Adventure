@@ -39,17 +39,20 @@ USTRUCT(BlueprintType)
 struct ADVENTURE_API FStatSheet
 {
 	GENERATED_BODY()
+	
+	//Rotate Speed
+	UPROPERTY()
+	float TurnSpeed = 15.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
+	FString Name = "Alfie";
+
+	//Units in feet (walking)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
+	float MoveSpeed = 30.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
 	int Health = 10;
-
-	//Meters per second
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	float MoveSpeed = 5.0f;
-
-	//Rotate Speed
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	float TurnSpeed = 15.0f;
 
 };
 
@@ -127,6 +130,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void SetPawnID(const int ID);
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Map Pawn")
+	void SetBodyArmor(const int Index);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Map Pawn")
+	void SetHead(const int Index, const bool bBoy);
+
 protected:
 	//BP Overridable functions
 
@@ -181,6 +190,7 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRotation_Rep)
 	FRotator Rotation;
 
+	int SkeletalMeshIndex;
 	bool bMoveCharacter;
 	bool bRotateCharacter;
 

@@ -77,14 +77,46 @@ bool AWorldGrid::IsFreeRoamActive() const
 	return (ActivePlayer == -1);
 }
 
-void AWorldGrid::BeginTurnBasedMechanics()
+void AWorldGrid::BeginTurnBasedMechanics(AConnectedPlayer * ConnectedPlayer)
 {
-	ActivePlayer = 0;
+	if (ConnectedPlayer->PlayerID() == OwnerID)
+	{
+		for (const auto& character : Characters)
+		{
+			character.second.Player->BeginCombat();
+		}
+		ActivePlayer = 0;
+	}
 }
 
-void AWorldGrid::EndTurnBasedMechanics()
+void AWorldGrid::EndTurnBasedMechanics(AConnectedPlayer * ConnectedPlayer)
 {
-	ActivePlayer = -1;
+	if (ConnectedPlayer->PlayerID() == OwnerID)
+	{
+		for (const auto& character : Characters)
+		{
+			character.second.Player->EndCombat();
+		}
+		ActivePlayer = -1;
+	}
+}
+
+void AWorldGrid::EndTurn(AConnectedPlayer * ConnectedPlayer)
+{
+	if (ConnectedPlayer && !CharacterTurnSequence.empty() && ConnectedPlayer->PlayerID() == ActivePlayer)
+	{
+		int NextPlayerID = CharacterTurnSequence.front();
+		CharacterTurnSequence.pop();
+		CharacterTurnSequence.push(NextPlayerID);
+		ConnectedPlayer->UpdateStatus("Standby...");
+
+		auto found = Characters.find(NextPlayerID);
+		if (found != Characters.end())
+		{
+			ActivePlayer = NextPlayerID;
+			found->second.Player->UpdateStatus("Your Turn");
+		}
+	}
 }
 
 bool AWorldGrid::MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FGridCoordinate& Destination, int PawnID)
@@ -96,11 +128,11 @@ bool AWorldGrid::MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FG
 		//Host requests a move
 		if (ConnectedPlayer->PlayerState->PlayerId == OwnerID)
 		{
-			for (auto& Pawn : Characters)
+			for (auto& character : Characters)
 			{
-				if (Pawn.second.Pawn->GetPawnID() == PawnID)
+				if (character.second.Pawn->GetPawnID() == PawnID)
 				{
-					Pawn.second.Pawn->SetDestination(Destination);
+					character.second.Pawn->SetDestination(Destination);
 					Success = true;
 				}
 			}
@@ -127,7 +159,83 @@ bool AWorldGrid::MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FG
 
 	if (Success)
 	{
-		UE_LOG(LogNotice, Warning, TEXT("Player move requested from %s: ID = %i"), *ConnectedPlayer->PlayerState->GetPlayerName(), ConnectedPlayer->PlayerState->PlayerId);
+		UE_LOG(LogNotice, Log, TEXT("%s moved pawn #%i to (%i, %i)"), *ConnectedPlayer->PlayerState->GetPlayerName(), PawnID, Destination.X, Destination.Y);
+	}
+
+	return Success;
+}
+
+bool AWorldGrid::SetPawnBodyArmor(const AConnectedPlayer * ConnectedPlayer, const int BodyIndex, int PawnID)
+{
+	bool Success = false;
+	if (ConnectedPlayer && ConnectedPlayer->PlayerState)
+	{
+
+		//Host requests a move
+		if (ConnectedPlayer->PlayerState->PlayerId == OwnerID)
+		{
+			for (auto& Pawn : Characters)
+			{
+				if (Pawn.second.Pawn->GetPawnID() == PawnID)
+				{
+					Pawn.second.Pawn->SetBodyArmor(BodyIndex);
+					Success = true;
+				}
+			}
+		}
+		else
+		{
+			//Client wants to make a move
+			auto found = Characters.find(ConnectedPlayer->PlayerState->PlayerId);
+			if (found != Characters.end())
+			{
+				found->second.Pawn->SetBodyArmor(BodyIndex);
+				Success = true;
+			}
+		}
+	}
+
+	if (Success)
+	{
+		UE_LOG(LogNotice, Warning, TEXT("Body armor change requested from %s: ID = %i"), *ConnectedPlayer->PlayerState->GetPlayerName(), ConnectedPlayer->PlayerState->PlayerId);
+	}
+
+	return Success;
+}
+
+bool AWorldGrid::SetPawnHead(const AConnectedPlayer * ConnectedPlayer, const int HeadIndex, const int bBoy, int PawnID)
+{
+	bool Success = false;
+	if (ConnectedPlayer && ConnectedPlayer->PlayerState)
+	{
+
+		//Host requests a move
+		if (ConnectedPlayer->PlayerState->PlayerId == OwnerID)
+		{
+			for (auto& Pawn : Characters)
+			{
+				if (Pawn.second.Pawn->GetPawnID() == PawnID)
+				{
+					Pawn.second.Pawn->SetHead(HeadIndex, bBoy);
+					Success = true;
+				}
+			}
+		}
+		else
+		{
+			//Client wants to make a move
+			auto found = Characters.find(ConnectedPlayer->PlayerState->PlayerId);
+			if (found != Characters.end())
+			{
+				found->second.Pawn->SetHead(HeadIndex, bBoy);
+				Success = true;
+			}
+		}
+	}
+
+	if (Success)
+	{
+		UE_LOG(LogNotice, Warning, TEXT("Head change requested from %s: ID = %i"), *ConnectedPlayer->PlayerState->GetPlayerName(), ConnectedPlayer->PlayerState->PlayerId);
 	}
 
 	return Success;
@@ -145,6 +253,7 @@ bool AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer, int
 			if (found != Characters.end())
 			{
 				found->second.Player = ConnectedPlayer;
+				ConnectedPlayer->UpdateStatus("Free Roam Active");
 			}
 
 			CharacterID = -1;
@@ -157,6 +266,7 @@ bool AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer, int
 			{
 				found->second.Player = ConnectedPlayer;
 				CharacterID = found->second.Pawn->GetPawnID();
+				ConnectedPlayer->UpdateStatus("Free Roam Active");
 				success = true;
 			}
 
