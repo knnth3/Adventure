@@ -14,6 +14,11 @@ class ADVENTURE_API AInteractable : public AActor
 public:	
 	// Sets default values for this actor's properties
 	AInteractable();
+	virtual void Tick(float DeltaTime) override;
+	void SetStaticMesh(class UStaticMesh* StaticMesh);
+
+	UFUNCTION(BlueprintCallable)
+	void MakeTransparent();
 
 protected:
 
@@ -23,15 +28,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
 	class UStaticMeshComponent* Visual;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
+	bool bCanBeTransparent;
+
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
-	void SetStaticMesh(class UStaticMesh* StaticMesh);
-
+	UFUNCTION(BlueprintImplementableEvent, Category = "Interactable")
+	void OnVisibilityValueChanged(const float Value);
 	
-	
+private:
+
+	float VisibilityValue;
+	float TargetVisibility;
+	float OpacityTransitionValue;
 };

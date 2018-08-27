@@ -23,6 +23,10 @@
 		{
 			"Name": "WebBrowserWidget",
 			"Enabled": true
+		},
+		{
+			"Name": "SmoothZoom",
+			"Enabled": false
 		}
 	]
 }

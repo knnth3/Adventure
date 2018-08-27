@@ -57,6 +57,7 @@ void AGS_Multiplayer::HandleBeginPlay()
 				TActorIterator<AWorldGrid> GridItr(GetWorld());
 				if (GridItr)
 				{
+					GridItr->AddCharacter();
 					if (/*HostID != PlayerID && */ !GridItr->AddCharacter(PlayerID))
 					{
 						UE_LOG(LogNotice, Error, TEXT("No Spawns available to create character."));

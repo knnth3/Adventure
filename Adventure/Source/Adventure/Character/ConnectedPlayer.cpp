@@ -15,8 +15,6 @@ AConnectedPlayer::AConnectedPlayer()
 	PlayerType = CONNECTED_PLAYER_TYPE::NONE;
 	CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
 	SelectedMapPawn = nullptr;
-	SpectateMapPawnID = 0;
-	bSpectateNewPawn = true;
 
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -40,7 +38,62 @@ AConnectedPlayer::AConnectedPlayer()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 }
 
-int AConnectedPlayer::PlayerID() const
+// Called every frame
+void AConnectedPlayer::Tick(float DeltaTime)
+{
+	static bool bRegistered = false;
+	Super::Tick(DeltaTime);
+
+	if (!bRegistered)
+	{
+		if (HasAuthority())
+		{
+			bRegistered = true;
+			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+			if (WorldGrid)
+			{
+				int CharacterID = 0;
+				WorldGrid->RegisterPlayerController(this, CharacterID, 0);
+			}
+		}
+	}
+}
+
+// Called to bind functionality to input
+void AConnectedPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+}
+
+//sets variables for replicaton over a network
+void AConnectedPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AConnectedPlayer, PlayerType);
+}
+
+void AConnectedPlayer::ClientChangeState_Implementation(const TURN_BASED_STATE CurrentState)
+{
+	OnPlayerStatusChanged(CurrentState);
+	switch (CurrentState)
+	{
+	case TURN_BASED_STATE::FREE_ROAM:
+		OnEndCombat();
+		break;
+	case TURN_BASED_STATE::STANDBY:
+		OnEndCombat();
+		break;
+	case TURN_BASED_STATE::ACTIVE:
+		OnBeginCombat();
+		break;
+	default:
+		break;
+	}
+}
+
+int AConnectedPlayer::GetPlayerID() const
 {
 	if (PlayerState)
 	{
@@ -50,85 +103,61 @@ int AConnectedPlayer::PlayerID() const
 	return -1;
 }
 
+bool AConnectedPlayer::GetPawnLocation(FVector & Location) const
+{
+	if (SelectedMapPawn)
+	{
+		Location = SelectedMapPawn->GetActorLocation();
+		return true;
+	}
+	return false;
+}
+
+void AConnectedPlayer::ServerRegisterPawn_Implementation(AMapPawn * MapPawn)
+{
+	SelectedMapPawn = MapPawn;
+}
+
+bool AConnectedPlayer::ServerRegisterPawn_Validate(AMapPawn * MapPawn)
+{
+	return true;
+}
+
+void AConnectedPlayer::ServerScaleHead_Implementation(const FVector & Size)
+{
+	if (SelectedMapPawn)
+	{
+		SelectedMapPawn->ScaleHead(Size);
+	}
+}
+
+bool AConnectedPlayer::ServerScaleHead_Validate(const FVector & Size)
+{
+	return true;
+}
+
 // Called when the game starts or when spawned
 void AConnectedPlayer::BeginPlay()
 {
 	Super::BeginPlay();
-	bSpectateNewPawn = true;
-}
-
-void AConnectedPlayer::Server_BeginTurnBasedMechanics_Implementation()
-{
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
-	{
-		WorldGrid->BeginTurnBasedMechanics(this);
-	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("No Grid found while starting turn based mechanics"));
-	}
-}
-
-bool AConnectedPlayer::Server_BeginTurnBasedMechanics_Validate()
-{
-	return true;
-}
-
-void AConnectedPlayer::Server_EndTurnBasedMechanics_Implementation()
-{
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
-	{
-		WorldGrid->EndTurnBasedMechanics(this);
-	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("No Grid found while ending turn based mechanics"));
-	}
-}
-
-bool AConnectedPlayer::Server_EndTurnBasedMechanics_Validate()
-{
-	return true;
-}
-
-void AConnectedPlayer::OnPlayerStatusChanged_Implementation(const FString& Status)
-{
-}
-
-void AConnectedPlayer::OnBeginCombat_Implementation()
-{
-}
-
-void AConnectedPlayer::OnEndCombat_Implementation()
-{
-}
-
-bool AConnectedPlayer::IsPlayersTurn() const
-{
-	return bIsActive;
 }
 
 void AConnectedPlayer::MovePlayer(const FVector & Location, const int PawnID)
 {
-	Server_MovePlayer(PlayerState->PlayerId, Location, PawnID);
+	ServerMovePlayer(GetPlayerID(), Location, PawnID);
 }
 
-void AConnectedPlayer::SetPawnBodyArmor(const int BodyIndex, const int PawnID)
+void AConnectedPlayer::Attack(AMapPawnAttack* Attack, const FVector & EndLocation)
 {
-	Server_SetPawnBodyArmor(PlayerState->PlayerId, PawnID, BodyIndex);
-}
-
-void AConnectedPlayer::SetPawnHead(const int HeadIndex, const bool bBoy, const int PawnID)
-{
-	Server_SetPawnHead(PlayerState->PlayerId, PawnID, HeadIndex, bBoy);
+	if (SelectedMapPawn)
+	{
+		SelectedMapPawn->Attack(Attack, EndLocation);
+	}
 }
 
 void AConnectedPlayer::SwapCameraView(const float& time)
 {
-	AMapPawn* MapPawn = GetMapPawn();
-	if (MapPawn)
+	if (SelectedMapPawn)
 	{
 		APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
 		if (PlayerController)
@@ -140,7 +169,7 @@ void AConnectedPlayer::SwapCameraView(const float& time)
 				CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
 				break;
 			case CONNECTED_PLAYER_CAMERA::OVERVIEW:
-				PlayerController->SetViewTargetWithBlend(MapPawn, time, VTBlend_Linear, 0.0f, true);
+				PlayerController->SetViewTargetWithBlend(SelectedMapPawn, time, VTBlend_Linear, 0.0f, true);
 				CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
 				break;
 			case CONNECTED_PLAYER_CAMERA::NONE:
@@ -162,28 +191,25 @@ void AConnectedPlayer::SwapCameraView(const float& time)
 
 void AConnectedPlayer::RotatePawnCameraUpDown(const float & AxisValue, const float & DeltaTime)
 {
-	AMapPawn* MapPawn = GetMapPawn();
-	if (MapPawn)
+	if (SelectedMapPawn)
 	{
-		MapPawn->RotateUpDown(AxisValue, DeltaTime);
+		SelectedMapPawn->RotateCameraPitch(AxisValue, DeltaTime);
 	}
 }
 
 void AConnectedPlayer::RotatePawnCameraLeftRight(const float & AxisValue, const float & DeltaTime)
 {
-	AMapPawn* MapPawn = GetMapPawn();
-	if (MapPawn)
+	if (SelectedMapPawn)
 	{
-		MapPawn->RotateLeftRight(AxisValue, DeltaTime);
+		SelectedMapPawn->RotateCameraYaw(AxisValue, DeltaTime);
 	}
 }
 
 void AConnectedPlayer::ZoomPawnCameraInOut(const float & AxisValue, const float & DeltaTime)
 {
-	AMapPawn* MapPawn = GetMapPawn();
-	if (MapPawn)
+	if (SelectedMapPawn)
 	{
-		MapPawn->ZoomInOut(AxisValue, DeltaTime);
+		SelectedMapPawn->ZoomCamera(AxisValue, DeltaTime);
 	}
 }
 
@@ -192,25 +218,43 @@ CONNECTED_PLAYER_CAMERA AConnectedPlayer::GetCameraType() const
 	return CameraType;
 }
 
-void AConnectedPlayer::Server_EndTurn_Implementation()
+void AConnectedPlayer::ServerBeginTurnBasedMechanics_Implementation()
 {
-	UWorld* World = GetWorld();
-	if (World)
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
 	{
-		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(World->GetAuthGameMode());
-		if (Gamemode)
-		{
-			//Gamemode->EndTurn(PlayerState->PlayerId);
-		}
+		WorldGrid->BeginTurnBasedMechanics(this);
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("No Grid found while starting turn based mechanics"));
 	}
 }
 
-bool AConnectedPlayer::Server_EndTurn_Validate()
+bool AConnectedPlayer::ServerBeginTurnBasedMechanics_Validate()
 {
 	return true;
 }
 
-void AConnectedPlayer::Server_MovePlayer_Implementation(const int PlayerID, const FVector & Location, const int PawnID)
+void AConnectedPlayer::ServerEndTurnBasedMechanics_Implementation()
+{
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		WorldGrid->EndTurnBasedMechanics(this);
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("No Grid found while ending turn based mechanics"));
+	}
+}
+
+bool AConnectedPlayer::ServerEndTurnBasedMechanics_Validate()
+{
+	return true;
+}
+
+void AConnectedPlayer::ServerMovePlayer_Implementation(const int PlayerID, const FVector & Location, const int PawnID)
 {
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
@@ -223,148 +267,7 @@ void AConnectedPlayer::Server_MovePlayer_Implementation(const int PlayerID, cons
 	}
 }
 
-bool AConnectedPlayer::Server_MovePlayer_Validate(const int PlayerID, const FVector & Location, const int PawnID)
+bool AConnectedPlayer::ServerMovePlayer_Validate(const int PlayerID, const FVector & Location, const int PawnID)
 {
 	return true;
 }
-
-void AConnectedPlayer::Server_SetPawnBodyArmor_Implementation(const int PlayerID, const int PawnID, const int BodyIndex)
-{
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
-	{
-		WorldGrid->SetPawnBodyArmor(this, BodyIndex, PawnID);
-	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("No Grid found while setting body armor"));
-	}
-}
-
-bool AConnectedPlayer::Server_SetPawnBodyArmor_Validate(const int PlayerID, const int PawnID, const int BodyIndex)
-{
-	return true;
-}
-
-void AConnectedPlayer::Server_SetPawnHead_Implementation(const int PlayerID, const int PawnID, const int HeadIndex, const bool bBoy)
-{
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
-	{
-		WorldGrid->SetPawnHead(this, HeadIndex, bBoy, PawnID);
-	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("No Grid found while setting body armor"));
-	}
-}
-
-bool AConnectedPlayer::Server_SetPawnHead_Validate(const int PlayerID, const int PawnID, const int HeadIndex, const bool bBoy)
-{
-	return true;
-}
-
-
-// Called every frame
-void AConnectedPlayer::Tick(float DeltaTime)
-{
-	static bool bRegistered = false;
-	Super::Tick(DeltaTime);
-
-	if (!bRegistered)
-	{
-		if (HasAuthority())
-		{
-			bRegistered = true;
-			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-			if (WorldGrid)
-			{
-				int CharacterID = 0;
-				WorldGrid->RegisterPlayerController(this, CharacterID);
-			}
-		}
-	}
-}
-
-// Called to bind functionality to input
-void AConnectedPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-}
-
-void AConnectedPlayer::SpectateMapPawn(const int ID)
-{
-	SpectateMapPawnID = ID;
-}
-
-void AConnectedPlayer::OnNewSpectateFocus()
-{
-	bSpectateNewPawn = true;
-}
-
-AMapPawn * AConnectedPlayer::GetMapPawn()
-{
-	if (bSpectateNewPawn)
-	{
-		if (SpectateMapPawnID == -1)
-		{
-			for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
-			{
-				UE_LOG(LogNotice, Warning, TEXT("Client: Map Pawn found: ID = '%i'. Looking for %i"), ActorItr->GetOwnerID(), SpectateMapPawnID);
-				if (ActorItr->GetOwnerID() == PlayerState->PlayerId)
-				{
-					bSpectateNewPawn = false;
-					SelectedMapPawn = *ActorItr;
-					return SelectedMapPawn;
-				}
-			}
-		}
-		else if (HasAuthority())
-		{
-			for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
-			{
-				UE_LOG(LogNotice, Warning, TEXT("Server: Map Pawn found: ID = '%i'. Looking for %i"), ActorItr->GetOwnerID(), SpectateMapPawnID);
-				if (ActorItr->GetPawnID() == SpectateMapPawnID)
-				{
-					bSpectateNewPawn = false;
-					SelectedMapPawn = *ActorItr;
-					return SelectedMapPawn;
-				}
-			}
-		}
-	}
-	else
-	{
-		return SelectedMapPawn;
-	}
-
-	UE_LOG(LogNotice, Warning, TEXT("Failed to get Map Pawn."));
-	return nullptr;
-}
-
-void AConnectedPlayer::UpdateStatus_Implementation(const FString & Status)
-{
-	OnPlayerStatusChanged(Status);
-}
-
-void AConnectedPlayer::BeginCombat_Implementation()
-{
-	OnBeginCombat();
-}
-
-void AConnectedPlayer::EndCombat_Implementation()
-{
-	OnEndCombat();
-}
-
-//sets variables for replicaton over a network
-void AConnectedPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AConnectedPlayer, bIsActive);
-	DOREPLIFETIME(AConnectedPlayer, PlayerType);
-	DOREPLIFETIME(AConnectedPlayer, SpectateMapPawnID);
-}
-

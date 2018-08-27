@@ -3,11 +3,12 @@
 
 #include "Grid/WorldGrid.h"
 #include "Adventure.h"
+#include "MapPawnComponent_Head.h"
 
 // Sets default values
 AMapPawn::AMapPawn()
 {
- 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bMoveCharacter = false;
 	bReplicates = true;
@@ -37,31 +38,26 @@ AMapPawn::AMapPawn()
 	//Create a component for the pawns body
 	PawnBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Pawn_Body"));
 	PawnBody->SetupAttachment(Scene);
+	PawnBody->ComponentTags.Add(FName("Outline"));
+
+	PawnHeadC = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Pawn_Head"));
+	PawnHeadC->SetupAttachment(PawnBody);
+	PawnHeadC->ComponentTags.Add(FName("Outline"));
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	CameraBoom->SetRelativeTransform(FTransform(FVector(0,0,200)));
 	CameraBoom->SetupAttachment(Scene);
-	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character	
+	CameraBoom->TargetArmLength = DesiredCameraZoom = 300.0f; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = false; // Rotate the arm based on the controller
 	CameraBoom->bEnableCameraRotationLag = true;
 	CameraBoom->CameraRotationLagSpeed = 10.0f;
+	CameraBoom->bDoCollisionTest = false;
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
-}
-
-void AMapPawn::RotateUpDown_Implementation(const float & AxisValue, const float & DeltaTime)
-{
-}
-
-void AMapPawn::RotateLeftRight_Implementation(const float & AxisValue, const float & DeltaTime)
-{
-}
-
-void AMapPawn::ZoomInOut_Implementation(const float & AxisValue, const float & DeltaTime)
-{
 }
 
 // Called when the game starts or when spawned
@@ -71,12 +67,33 @@ void AMapPawn::BeginPlay()
 	
 	FinalDestination = GetActorLocation();
 
-	if(PawnBody)
+	if (PawnBody)
+	{
+		// Location, Rotation, Scale, bWeld
+		FAttachmentTransformRules rules(
+			EAttachmentRule::SnapToTarget,
+			EAttachmentRule::KeepWorld,
+			EAttachmentRule::KeepRelative,
+			true
+		);
+
+		// Body Set-up
 		PawnBody->SetWorldScale3D(FVector(0.5f));
+		PawnBody->SetSkeletalMesh(BaseSkeletalMesh);
+		PawnBody->SetAnimInstanceClass(BaseAnimationBlueprint->GetAnimBlueprintGeneratedClass());
+
+		// Head Set-up
+		FTransform Transform;
+		Transform.SetScale3D(FVector(0.0031f));
+		PawnHeadC->SetWorldTransform(Transform);
+		PawnHeadC->SetStaticMesh(BaseHeadMesh);
+		PawnHeadC->AttachToComponent(PawnBody, rules, "biped_mr_Neck_jnt");
+	}
 
 	if (HasAuthority())
 	{
-		CharacterStats.Health = (FMath::Rand() % 100) + 1;
+		StatSheet.MaxHealth = (FMath::Rand() % 100) + 1;
+		StatSheet.CurrentHealth = StatSheet.MaxHealth;
 	}
 }
 
@@ -84,11 +101,10 @@ void AMapPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 
-	//TActorIterator<AWorldGrid> GridItr(GetWorld());
-	//if (GridItr)
-	//{
-	//	GridItr->RemoveActorFromPlay(GetActorGridLocation());
-	//}
+	if (PawnHead)
+	{
+		PawnHead->Destroy();
+	}
 }
 
 // Called every frame
@@ -100,16 +116,53 @@ void AMapPawn::Tick(float DeltaTime)
 	MovePawn(DeltaTime);
 	RotatePawn(DeltaTime);
 
-	FString HealthValue = "Health: " + FString::FromInt(CharacterStats.Health);
-	FString IsMoving = "Moving: " + FString::FromInt(bMoveCharacter);
-
-	GetStringOf(Role);
+	// Zoom camera using lerp
+	if (CameraBoom->TargetArmLength != DesiredCameraZoom)
+	{
+		CameraBoom->TargetArmLength = FMath::Lerp(CameraBoom->TargetArmLength, DesiredCameraZoom, 0.075f);
+	}
 }
 
 // Called to bind functionality to input
 void AMapPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+}
+
+void AMapPawn::RotateCameraPitch(const float & AxisValue, const float & DeltaTime)
+{
+	if (AxisValue)
+	{
+		FTransform transform = CameraBoom->GetRelativeTransform();
+		FRotator rotation = transform.GetRotation().Rotator();
+		float pitch = rotation.Pitch - AxisValue * DeltaTime * CameraSettings.AngularVelocity;
+		pitch = FMath::ClampAngle(pitch, CameraSettings.MaxUpRotation, CameraSettings.MaxDownRotation);
+
+		CameraBoom->SetRelativeRotation(FRotator(pitch, rotation.Yaw, rotation.Roll));
+	}
+}
+
+void AMapPawn::RotateCameraYaw(const float & AxisValue, const float & DeltaTime)
+{
+	if (AxisValue)
+	{
+		FTransform transform = CameraBoom->GetRelativeTransform();
+		FRotator rotation = transform.GetRotation().Rotator();
+		float yaw = rotation.Yaw - AxisValue * DeltaTime * CameraSettings.AngularVelocity;
+
+		CameraBoom->SetRelativeRotation(FRotator(rotation.Pitch, yaw, rotation.Roll));
+	}
+}
+
+void AMapPawn::ZoomCamera(const float & AxisValue, const float & DeltaTime)
+{
+	if (AxisValue)
+	{
+		DesiredCameraZoom = FMath::Clamp(
+			DesiredCameraZoom - (AxisValue * DeltaTime * CameraSettings.ZoomSpeed),
+			CameraSettings.MaxInZoom, CameraSettings.MaxOutZoom
+		);
+	}
 }
 
 //Set the pawns destination location
@@ -144,15 +197,35 @@ void AMapPawn::SetDestination(FGridCoordinate GridLocation)
 }
 
 //Returns the pawns stats
-FStatSheet AMapPawn::GetStatSheet() const
+FMapPawnStatSheet AMapPawn::GetStatSheet() const
 {
-	return CharacterStats;
+	return StatSheet;
 }
 
 //Return true if the pawn is moving
 bool AMapPawn::IsMoving() const
 {
 	return bMoveCharacter;
+}
+
+void AMapPawn::Attack(const AMapPawnAttack * AttackMove, const FVector Location)
+{
+	if (AttackMove)
+	{
+		AttackMove->Attack(StatSheet, GetActorLocation(), Location);
+	}
+}
+
+void AMapPawn::SetAsActivePawn(bool Active)
+{
+	if(Active != bIsTurnActive)
+	{
+		bIsTurnActive = Active;
+		if (Active)
+			OnBeginTurn();
+		else
+			OnEndTurn();
+	}
 }
 
 int AMapPawn::GetOwnerID() const
@@ -181,12 +254,9 @@ void AMapPawn::SetPawnID(const int ID)
 	}
 }
 
-void AMapPawn::SetBodyArmor_Implementation(const int Index)
+void AMapPawn::ScaleHead(const FVector & Scale)
 {
-}
-
-void AMapPawn::SetHead_Implementation(const int Index, const bool bBoy)
-{
+	PawnHeadC->SetWorldScale3D(Scale);
 }
 
 //Moves a pawn if its destination is not the same as its position
@@ -197,10 +267,6 @@ void AMapPawn::MovePawn(float DeltaTime)
 		if (HasAuthority())
 		{
 			FVector DeltaLocation = GetNextMove(DeltaTime, bMoveCharacter);
-			if (!bMoveCharacter)
-			{
-				EndMove();
-			}
 
 			//On the server, check if the delta location is valid
 			//If so, move the pawn one space back
@@ -217,11 +283,6 @@ void AMapPawn::MovePawn(float DeltaTime)
 		{
 			//Clients can do the normal work based off the info recieved from the server
 			FVector DeltaLocation = GetNextMove(DeltaTime, bMoveCharacter);
-			if (!bMoveCharacter)
-			{
-				EndMove();
-			}
-
 			AddActorWorldOffset(DeltaLocation);
 		}
 	}
@@ -232,7 +293,7 @@ void AMapPawn::RotatePawn(float DeltaTime)
 {
 	if (PawnBody && bRotateCharacter)
 	{
-		float Multiplier = CharacterStats.TurnSpeed;
+		float Multiplier = StatSheet.TurnSpeed;
 		FQuat CurrentRotation(PawnBody->RelativeRotation);
 		FQuat FinalRotation(Rotation);
 
@@ -253,7 +314,7 @@ FVector AMapPawn::GetNextMove(float DeltaTime, bool& bHasNextMove)
 {
 	FVector CurrentLocation = GetActorLocation();
 	FVector TravelVector = FinalDestination - CurrentLocation;
-	FVector DeltaLocation = TravelVector.GetSafeNormal() * (CharacterStats.MoveSpeed * (100.0f/6.0f)) * DeltaTime;
+	FVector DeltaLocation = TravelVector.GetSafeNormal() * (StatSheet.MoveSpeed * (100.0f/6.0f)) * DeltaTime;
 
 	//Travel only the distance needed to reach the destination
 	if (TravelVector.Size2D() <= DeltaLocation.Size2D())
@@ -306,7 +367,6 @@ void AMapPawn::MoveToNextLocation()
 void AMapPawn::OnDestination_Rep()
 {
 	bMoveCharacter = true;
-	BeginMove();
 }
 
 //Called on Rotation replication (client)
@@ -320,7 +380,7 @@ void AMapPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetime
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AMapPawn, CharacterStats);
+	DOREPLIFETIME(AMapPawn, StatSheet);
 	DOREPLIFETIME(AMapPawn, FinalDestination);
 	DOREPLIFETIME(AMapPawn, Rotation);
 	DOREPLIFETIME(AMapPawn, OwnerID);
@@ -345,7 +405,6 @@ void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation
 			FinalDestination.Z = Location.Z;
 
 			bMoveCharacter = true;
-			BeginMove();
 		}
 	}
 
@@ -369,6 +428,16 @@ void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation
 
 //Vaidates non-cheat move (server)
 bool AMapPawn::Server_SetDestination_Validate(FGridCoordinate WorldLocation, bool bRotateOnly)
+{
+	return true;
+}
+
+void AMapPawn::Server_Attack_Implementation(FVector Location)
+{
+
+}
+
+bool AMapPawn::Server_Attack_Validate(FVector Location)
 {
 	return true;
 }

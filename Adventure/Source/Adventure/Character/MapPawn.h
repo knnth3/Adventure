@@ -4,6 +4,7 @@
 
 #include <queue>
 #include "Basics.h"
+#include "MapPawnStatSheet.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "MapPawn.generated.h"
@@ -35,27 +36,6 @@ struct FCameraSettings
 
 };
 
-USTRUCT(BlueprintType)
-struct ADVENTURE_API FStatSheet
-{
-	GENERATED_BODY()
-	
-	//Rotate Speed
-	UPROPERTY()
-	float TurnSpeed = 15.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	FString Name = "Alfie";
-
-	//Units in feet (walking)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	float MoveSpeed = 30.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	int Health = 10;
-
-};
-
 UCLASS()
 class ADVENTURE_API AMapPawn : public APawn
 {
@@ -64,116 +44,91 @@ class ADVENTURE_API AMapPawn : public APawn
 public:
 	// Sets default values for this pawn's properties
 	AMapPawn();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "MapPawn Camera")
-	void RotateUpDown(const float& AxisValue, const float& DeltaTime);
-
-	UFUNCTION(BlueprintNativeEvent, Category = "MapPawn Camera")
-	void RotateLeftRight(const float& AxisValue, const float& DeltaTime);
-
-	UFUNCTION(BlueprintNativeEvent, Category = "MapPawn Camera")
-	void ZoomInOut(const float& AxisValue, const float& DeltaTime);
-
-protected:
-
-	/** Units in meters/seconds/degrees */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	FCameraSettings CameraSettings;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
-	class USceneComponent* Scene;
-
-	/** Camera boom positioning the camera behind the character */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
-	class USpringArmComponent* CameraBoom;
-
-	/** Follow camera */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	class UCameraComponent* FollowCamera;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
-	class USkeletalMeshComponent* PawnBody;
-
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-	// Called when the pawn is about to be destroyed
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-public:	
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
-	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	//Set the pawns destination location
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void SetDestination(FGridCoordinate GridLocation);
+	// Owner Properties
+	int GetOwnerID()const;
+	void SetOwnerID(const int ID);
+	int GetPawnID()const;
+	void SetPawnID(const int ID);
 
-	//Returns the pawns stats
+	// Camera Controlls
+	void RotateCameraPitch(const float& AxisValue, const float& DeltaTime);
+	void RotateCameraYaw(const float& AxisValue, const float& DeltaTime);
+	void ZoomCamera(const float& AxisValue, const float& DeltaTime);
+
+	// Pawn Stats
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	FStatSheet GetStatSheet()const;
+	FMapPawnStatSheet GetStatSheet()const;
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	bool IsMoving()const;
 
+	// Pawn Actions
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	int GetOwnerID()const;
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void SetOwnerID(const int ID);
+	void SetDestination(FGridCoordinate GridLocation);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	int GetPawnID()const;
+	void Attack(const AMapPawnAttack* AttackMove, const FVector Location);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void SetPawnID(const int ID);
+	void SetAsActivePawn(bool Active);
 
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Map Pawn")
-	void SetBodyArmor(const int Index);
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void ScaleHead(const FVector& Scale);
 
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Map Pawn")
-	void SetHead(const int Index, const bool bBoy);
 
 protected:
-	//BP Overridable functions
+
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	USkeletalMesh* BaseSkeletalMesh;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	UStaticMesh* BaseHeadMesh;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	UAnimBlueprint* BaseAnimationBlueprint;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	TSubclassOf<class AMapPawnComponent_Head> PawnHeadClass;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	class USpringArmComponent* CameraBoom;
+
+	// BP Overridable functions
+	UFUNCTION(BlueprintImplementableEvent, Category = "Map Pawn")
+	void OnBeginTurn();
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Map Pawn")
-	void BeginMove();
+	void OnEndTurn();
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Map Pawn")
-	void EndMove();
 
 private:
+	int SkeletalMeshIndex;
+	bool bMoveCharacter;
+	bool bRotateCharacter;
+	bool bIsTurnActive;
+	float DesiredCameraZoom;
+	FCameraSettings CameraSettings;
+	class USceneComponent* Scene;
+	class UCameraComponent* FollowCamera;
+	class USkeletalMeshComponent* PawnBody;
+	class UStaticMeshComponent* PawnHeadC;
+	class AMapPawnComponent_Head* PawnHead;
+	std::queue<FGridCoordinate> MoveQueue;
 
-	//Moves a pawn if its destination is not the same as its position
 	void MovePawn(float DeltaTime);
-
-	//Rotates a pawn
 	void RotatePawn(float DeltaTime);
-
-	//Get a delta position given the time and speed from pawn stats
 	FVector GetNextMove(float DeltaTime, bool& bHasNextMove);
-
-	//Gets the current position in grid space
 	FGridCoordinate GetActorGridLocation()const;
-
-	//Checks against the WorldGrid to see if a move is valid
 	bool IsMoveValid(FVector DeltaLocation)const;
-
 	void MoveToNextLocation();
 
-	//Server Functions
-
-	UFUNCTION()
-	void OnDestination_Rep();
-
-	UFUNCTION()
-	void OnRotation_Rep();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetDestination(FGridCoordinate GridLocation, bool bRotateOnly = false);
+	// Server Property/Functions
 
 	UPROPERTY(Replicated)
 	int OwnerID;
@@ -182,7 +137,7 @@ private:
 	int PawnID;
 
 	UPROPERTY(Replicated)
-	FStatSheet CharacterStats;
+	FMapPawnStatSheet StatSheet;
 
 	UPROPERTY(ReplicatedUsing = OnDestination_Rep)
 	FVector FinalDestination;
@@ -190,9 +145,15 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRotation_Rep)
 	FRotator Rotation;
 
-	int SkeletalMeshIndex;
-	bool bMoveCharacter;
-	bool bRotateCharacter;
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetDestination(FGridCoordinate GridLocation, bool bRotateOnly = false);
 
-	std::queue<FGridCoordinate> MoveQueue;
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_Attack(FVector Location);
+
+	UFUNCTION()
+	void OnDestination_Rep();
+
+	UFUNCTION()
+	void OnRotation_Rep();
 };

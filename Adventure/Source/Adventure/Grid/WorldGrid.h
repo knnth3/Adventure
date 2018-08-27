@@ -96,7 +96,7 @@ public:
 	bool SetPawnHead(const AConnectedPlayer* ConnectedPlayer, const int HeadIndex, const int bBoy, int PawnID = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool RegisterPlayerController(class AConnectedPlayer* ConnectedPlayer, int& CharacterID);
+	bool RegisterPlayerController(class AConnectedPlayer* ConnectedPlayer, int& CharacterID, const int DesiredPawn = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool FindPath(const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
@@ -139,10 +139,10 @@ protected:
 
 private:
 
-	struct CharacterInfo
+	struct PawnIndex
 	{
-		class AMapPawn* Pawn;
-		class AConnectedPlayer* Player;
+		int OwnerID;
+		int PawnIndex;
 	};
 
 	bool GetOpenSpawnLocation(FGridCoordinate& Location);
@@ -160,8 +160,9 @@ private:
 	int ActivePlayer;
 	bool bInitialized;
 	vector2D<CellPtr> LogicalGrid;
-	std::queue<int> CharacterTurnSequence;
-	std::map<int, CharacterInfo> Characters;
+	std::queue<PawnIndex> TurnSequence;
+	std::map<int, class AConnectedPlayer*> PlayerCollection;
+	std::map<int, std::map<int, std::unique_ptr<class AMapPawn*>>> PawnCollection;
 	std::map<CoordinatePair, class ASpawner*> SpawnLocations;
 	std::map<CoordinatePair, class AActor*> VisualGridRefrences;
 
