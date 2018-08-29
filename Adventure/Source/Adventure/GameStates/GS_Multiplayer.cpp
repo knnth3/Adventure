@@ -48,35 +48,6 @@ void AGS_Multiplayer::HandleBeginPlay()
 					break;
 				}
 			}
-
-			//Add map characters
-			for (const auto& player : PlayerArray)
-			{
-				bool success = false;
-				int PlayerID = player->PlayerId;
-				TActorIterator<AWorldGrid> GridItr(GetWorld());
-				if (GridItr)
-				{
-					GridItr->AddCharacter();
-					if (/*HostID != PlayerID && */ !GridItr->AddCharacter(PlayerID))
-					{
-						UE_LOG(LogNotice, Error, TEXT("No Spawns available to create character."));
-					}
-					else
-					{
-						success = true;
-					}
-				}
-				else
-				{
-					UE_LOG(LogNotice, Error, TEXT("Player connected but character could not be spawned"));
-				}
-				if (success)
-				{
-					UE_LOG(LogNotice, Log, TEXT("<HandleBeginPlay>: Created Pawn for: %s, id = %i"), *player->GetPlayerName(), PlayerID);
-				}
-			}
-			return;
 		}
 	}
 }

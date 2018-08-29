@@ -78,25 +78,22 @@ public:
 	bool IsFreeRoamActive()const;
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void BeginTurnBasedMechanics(AConnectedPlayer * ConnectedPlayer);
+	void BeginTurnBasedMechanics();
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void EndTurnBasedMechanics(AConnectedPlayer * ConnectedPlayer);
+	void EndTurnBasedMechanics();
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void EndTurn(AConnectedPlayer* ConnectedPlayer);
+	void EndTurn(const int PawnID);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FGridCoordinate& Destination, int PawnID = 0);
+	bool MoveCharacter(const int PawnID, const FGridCoordinate& Destination, const bool bOverrideMechanics = false);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool SetPawnBodyArmor(const AConnectedPlayer* ConnectedPlayer, const int BodyIndex, int PawnID = 0);
+	void RegisterPlayerController(class AConnectedPlayer* ConnectedPlayer);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool SetPawnHead(const AConnectedPlayer* ConnectedPlayer, const int HeadIndex, const int bBoy, int PawnID = 0);
-
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool RegisterPlayerController(class AConnectedPlayer* ConnectedPlayer, int& CharacterID, const int DesiredPawn = 0);
+	int AddCharacter(int OwnerID, int ClassIndex = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool FindPath(const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
@@ -104,8 +101,6 @@ public:
 	CellPtr At(const int X, const int Y)const;
 	CellPtr At(const FGridCoordinate& Location)const;
 
-
-	bool AddCharacter(int PlayerID = -1, int ClassIndex = 0);
 	bool AddBlockingSpace(const FGridCoordinate& Location);
 	bool AddVisual(int ClassIndex, const FGridCoordinate& Location);
 	bool AddSpawnLocation(int ClassIndex, const FGridCoordinate& Location);
@@ -119,6 +114,9 @@ public:
 	void ClearCharacters();
 	void ClearBlockingSpaces();
 	void ClearSpawnLocations();
+
+	int GetHostID() const;
+	class AMapPawn* GetPawn(const int PawnID);
 
 protected:
 
@@ -149,6 +147,8 @@ private:
 	void GenerateGrid();
 	void SetupVisuals(const FGridCoordinate & GridDimensions);
 	bool SetPosition(const FGridCoordinate& Location, const FGridCoordinate& Destination);
+	int GenerateNewPawnIndex(const int OwnerID);
+	void GetPawnIDParams(const int PawnID, int& OwnerID, int& PawnIndex) const;
 
 	UFUNCTION()
 	void OnGridDimensionRep();
@@ -156,8 +156,8 @@ private:
 	UPROPERTY(replicatedUsing = OnGridDimensionRep)
 	FGridCoordinate Dimensions;
 
-	int OwnerID;
-	int ActivePlayer;
+	int HostID;
+	int ActivePawnID;
 	bool bInitialized;
 	vector2D<CellPtr> LogicalGrid;
 	std::queue<PawnIndex> TurnSequence;

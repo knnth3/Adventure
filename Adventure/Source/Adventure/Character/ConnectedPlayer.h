@@ -53,10 +53,6 @@ public:
 	UFUNCTION(Client, reliable)
 	void ClientChangeState(const TURN_BASED_STATE CurrentState);
 
-	// Server Public Functions
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerRegisterPawn(class AMapPawn* MapPawn);
-
 	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable)
 	void ServerScaleHead(const FVector& Size);
 
@@ -106,8 +102,13 @@ protected:
 	class UCameraComponent* FollowCamera;
 
 private:
+
 	CONNECTED_PLAYER_CAMERA CameraType;
 	class AMapPawn* SelectedMapPawn;
+	std::vector<int> OwningPawns;
+
+	UPROPERTY(ReplicatedUsing = OnSpectateReplicated)
+	int SpectatingPawnID;
 
 	UPROPERTY(Replicated)
 	CONNECTED_PLAYER_TYPE PlayerType;
@@ -120,6 +121,9 @@ private:
 	void ServerEndTurnBasedMechanics();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerMovePlayer(const int PlayerID, const FVector& Location, const int PawnID);
+	void ServerMovePlayer(const FVector& Location, const int PawnID);
+
+	UFUNCTION()
+	void OnSpectateReplicated();
 
 };

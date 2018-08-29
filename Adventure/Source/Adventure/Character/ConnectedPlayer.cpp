@@ -44,16 +44,24 @@ void AConnectedPlayer::Tick(float DeltaTime)
 	static bool bRegistered = false;
 	Super::Tick(DeltaTime);
 
-	if (!bRegistered)
+	// Only happens on the server
+	if (HasAuthority())
 	{
-		if (HasAuthority())
+		if (!bRegistered)
 		{
 			bRegistered = true;
 			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 			if (WorldGrid)
 			{
 				int CharacterID = 0;
-				WorldGrid->RegisterPlayerController(this, CharacterID, 0);
+				WorldGrid->RegisterPlayerController(this);
+				int NewPawn = WorldGrid->AddCharacter(GetPlayerID());
+				if (NewPawn)
+				{
+					SpectatingPawnID = NewPawn;
+					OwningPawns.push_back(NewPawn);
+					SelectedMapPawn = WorldGrid->GetPawn(NewPawn);
+				}
 			}
 		}
 	}
@@ -72,6 +80,7 @@ void AConnectedPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AConnectedPlayer, PlayerType);
+	DOREPLIFETIME(AConnectedPlayer, SpectatingPawnID);
 }
 
 void AConnectedPlayer::ClientChangeState_Implementation(const TURN_BASED_STATE CurrentState)
@@ -113,16 +122,6 @@ bool AConnectedPlayer::GetPawnLocation(FVector & Location) const
 	return false;
 }
 
-void AConnectedPlayer::ServerRegisterPawn_Implementation(AMapPawn * MapPawn)
-{
-	SelectedMapPawn = MapPawn;
-}
-
-bool AConnectedPlayer::ServerRegisterPawn_Validate(AMapPawn * MapPawn)
-{
-	return true;
-}
-
 void AConnectedPlayer::ServerScaleHead_Implementation(const FVector & Size)
 {
 	if (SelectedMapPawn)
@@ -144,7 +143,7 @@ void AConnectedPlayer::BeginPlay()
 
 void AConnectedPlayer::MovePlayer(const FVector & Location, const int PawnID)
 {
-	ServerMovePlayer(GetPlayerID(), Location, PawnID);
+	ServerMovePlayer(Location, PawnID);
 }
 
 void AConnectedPlayer::Attack(AMapPawnAttack* Attack, const FVector & EndLocation)
@@ -218,12 +217,26 @@ CONNECTED_PLAYER_CAMERA AConnectedPlayer::GetCameraType() const
 	return CameraType;
 }
 
+void AConnectedPlayer::OnSpectateReplicated()
+{
+	if (Role == ROLE_AutonomousProxy) 
+	{
+		for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+		{
+			if (SpectatingPawnID == ActorItr->GetPawnID())
+			{
+				SelectedMapPawn = (*ActorItr);
+			}
+		}
+	}
+}
+
 void AConnectedPlayer::ServerBeginTurnBasedMechanics_Implementation()
 {
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{
-		WorldGrid->BeginTurnBasedMechanics(this);
+		WorldGrid->BeginTurnBasedMechanics();
 	}
 	else
 	{
@@ -241,7 +254,7 @@ void AConnectedPlayer::ServerEndTurnBasedMechanics_Implementation()
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{
-		WorldGrid->EndTurnBasedMechanics(this);
+		WorldGrid->EndTurnBasedMechanics();
 	}
 	else
 	{
@@ -254,12 +267,12 @@ bool AConnectedPlayer::ServerEndTurnBasedMechanics_Validate()
 	return true;
 }
 
-void AConnectedPlayer::ServerMovePlayer_Implementation(const int PlayerID, const FVector & Location, const int PawnID)
+void AConnectedPlayer::ServerMovePlayer_Implementation(const FVector & Location, const int PawnID)
 {
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{
-		WorldGrid->MoveCharacter(this, Location, PawnID);
+		WorldGrid->MoveCharacter(PawnID, Location, (WorldGrid->GetHostID() == GetPlayerID()) ? true : false);
 	}
 	else
 	{
@@ -267,7 +280,7 @@ void AConnectedPlayer::ServerMovePlayer_Implementation(const int PlayerID, const
 	}
 }
 
-bool AConnectedPlayer::ServerMovePlayer_Validate(const int PlayerID, const FVector & Location, const int PawnID)
+bool AConnectedPlayer::ServerMovePlayer_Validate(const FVector & Location, const int PawnID)
 {
 	return true;
 }

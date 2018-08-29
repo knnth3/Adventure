@@ -18,8 +18,8 @@ AWorldGrid::AWorldGrid()
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 	bInitialized = false;
-	ActivePlayer = -1;
-	OwnerID = 0;
+	ActivePawnID = -1;
+	HostID = 0;
 
 	//Create a component to hold the visual
 	PlaneVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualRepresentation"));
@@ -44,7 +44,7 @@ void AWorldGrid::Initialize(const int HostID, FGridCoordinate GridDimensions)
 {
 	if (HasAuthority() && !bInitialized)
 	{
-		OwnerID = HostID;
+		this->HostID = HostID;
 		bInitialized = true;
 		Dimensions = GridDimensions;
 		GenerateGrid();
@@ -74,153 +74,86 @@ bool AWorldGrid::IsSpawnLocation(const FGridCoordinate & Location)const
 
 bool AWorldGrid::IsFreeRoamActive() const
 {
-	return (ActivePlayer == -1);
+	return (ActivePawnID == -1);
 }
 
-void AWorldGrid::BeginTurnBasedMechanics(AConnectedPlayer * ConnectedPlayer)
+void AWorldGrid::BeginTurnBasedMechanics()
 {
-	if (ConnectedPlayer->GetPlayerID() == OwnerID)
+	for (auto& players : PlayerCollection)
 	{
-		for (const auto& character : PawnCollection)
-		{
-			for (const auto& pawn : character.second)
-			{
-				pawn.Owner->ClientChangeState(TURN_BASED_STATE::STANDBY);
-			}
-		}
-		ActivePlayer = 0;
+		players.second->ClientChangeState(TURN_BASED_STATE::STANDBY);
 	}
+	ActivePawnID = 0;
 }
 
-void AWorldGrid::EndTurnBasedMechanics(AConnectedPlayer * ConnectedPlayer)
+void AWorldGrid::EndTurnBasedMechanics()
 {
-	if (ConnectedPlayer->GetPlayerID() == OwnerID)
+	for (auto& players : PlayerCollection)
 	{
-		for (const auto& character : PawnCollection)
-		{
-			for (const auto& pawn : character.second)
-			{
-				pawn.Owner->ClientChangeState(TURN_BASED_STATE::FREE_ROAM);
-			}
-		}
-		ActivePlayer = -1;
+		players.second->ClientChangeState(TURN_BASED_STATE::FREE_ROAM);
 	}
+	ActivePawnID = -1;
 }
 
-void AWorldGrid::EndTurn(AConnectedPlayer * ConnectedPlayer)
+void AWorldGrid::EndTurn(const int PawnID)
 {
-	if (ConnectedPlayer && !TurnSequence.empty() && ConnectedPlayer->GetPlayerID() == ActivePlayer)
-	{
-		int NextPlayerID = TurnSequence.front();
-		TurnSequence.pop();
-		TurnSequence.push(NextPlayerID);
-		ConnectedPlayer->ClientChangeState(TURN_BASED_STATE::STANDBY);
+}
 
-		auto found = PawnCollection.find(NextPlayerID);
-		if (found != PawnCollection.end())
+bool AWorldGrid::MoveCharacter(const int PawnID, const FGridCoordinate& Destination, const bool bOverrideMechanics)
+{
+	int OwnerID;
+	int PawnIndex;
+	GetPawnIDParams(PawnID, OwnerID, PawnIndex);
+	auto& Selected = PawnCollection[OwnerID][PawnIndex];
+	if (Selected)
+	{
+		if (bOverrideMechanics || IsFreeRoamActive() || (PawnID == ActivePawnID))
 		{
-			ActivePlayer = NextPlayerID;
-			//found->second.Owner->ClientChangeState(TURN_BASED_STATE::ACTIVE);
+			(*Selected)->SetDestination(Destination);
+			return true;
 		}
 	}
+
+	return false;
 }
 
-bool AWorldGrid::MoveCharacter(const AConnectedPlayer* ConnectedPlayer, const FGridCoordinate& Destination, int PawnID)
+void AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer)
 {
-	bool Success = false;
-	unsigned int OwnerID = ConnectedPlayer->GetPlayerID();
-	if (ConnectedPlayer && ConnectedPlayer->PlayerState)
-	{
+	int OwnerID = ConnectedPlayer->GetPlayerID();
+	PlayerCollection[OwnerID] = ConnectedPlayer;
+}
 
-		//Host requests a move
-		if (ConnectedPlayer->GetPlayerID() == OwnerID)
+int AWorldGrid::AddCharacter(int OwnerID, int ClassIndex)
+{
+	int PawnIndex = GenerateNewPawnIndex(OwnerID);
+	int PawnID = (OwnerID * 10) + PawnIndex;
+
+	if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])
+	{
+		FGridCoordinate Location;
+		if (GetOpenSpawnLocation(Location))
 		{
-			auto Selected = PawnCollection[OwnerID][PawnID];
-			if (Selected)
+			CellPtr Cell = At(Location);
+			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+			UWorld* World = GetWorld();
+			if (World && Cell)
 			{
-				(*Selected)->SetDestination(Destination);
-			}
-		}
-		else
-		{ 
-			//Client wants to make a move
-			auto found = PawnCollection.find(ConnectedPlayer->PlayerState->PlayerId);
-			if (found != PawnCollection.end())
-			{
-				if (IsFreeRoamActive())
+				AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[ClassIndex], &WorldLocation));
+				if (NewPawn)
 				{
-					found->second.Pawn->SetDestination(Destination);
-					Success = true;
-				}
-				else if (found->second.Pawn->GetPawnID() == ActivePlayer)
-				{
-					found->second.Pawn->SetDestination(Destination);
-					Success = true;
+					UE_LOG(LogNotice, Display, TEXT("Added new MapPawn with ID= %i : Owner= %i"), PawnID, OwnerID);
+
+					NewPawn->SetOwnerID(OwnerID);
+					NewPawn->SetPawnID(PawnID);
+					Cell->isOcupied = true;
+					PawnCollection[OwnerID][PawnIndex] = std::make_unique<AMapPawn*>(NewPawn);
+					return PawnID;
 				}
 			}
 		}
 	}
 
-	if (Success)
-	{
-		UE_LOG(LogNotice, Log, TEXT("%s moved pawn #%i to (%i, %i)"), *ConnectedPlayer->PlayerState->GetPlayerName(), PawnID, Destination.X, Destination.Y);
-	}
-
-	return Success;
-}
-
-bool AWorldGrid::SetPawnBodyArmor(const AConnectedPlayer * ConnectedPlayer, const int BodyIndex, int PawnID)
-{
-	bool Success = false;
-	return Success;
-}
-
-bool AWorldGrid::SetPawnHead(const AConnectedPlayer * ConnectedPlayer, const int HeadIndex, const int bBoy, int PawnID)
-{
-	bool Success = false;
-	return Success;
-}
-
-bool AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer, int & CharacterID, const int DesiredPawn)
-{
-	CharacterID = -1;
-	bool success = false;
-	if (ConnectedPlayer && ConnectedPlayer->PlayerState)
-	{
-		int PlayerID = ConnectedPlayer->PlayerState->PlayerId;
-		if (PlayerID == OwnerID)
-		{
-			if (DesiredPawn >= 0 && PawnCollection.size() > DesiredPawn)
-			{
-				int count = 0;
-				auto found = PawnCollection.begin();
-				while (count < DesiredPawn)
-				{
-					found = found++;
-					count++;
-				}
-				ConnectedPlayer->ServerRegisterPawn(found->second.Pawn);
-				CharacterID = DesiredPawn;
-				success = true;
-			}
-		}
-		else
-		{
-			auto found = PawnCollection.find(PlayerID);
-			if (found != PawnCollection.end())
-			{
-				found->second.Owner = ConnectedPlayer;
-				CharacterID = found->second.Pawn->GetPawnID();
-				ConnectedPlayer->ServerRegisterPawn(found->second.Pawn);
-				success = true;
-			}
-
-		}
-		UE_LOG(LogNotice, Warning, TEXT("Registering %s: ID = %i, Success = %i, Registered to PawnID = %i"), 
-			*ConnectedPlayer->PlayerState->GetPlayerName(), ConnectedPlayer->PlayerState->PlayerId, success, CharacterID);
-	}
-
-	return success;
+	return 0;
 }
 
 bool AWorldGrid::FindPath(const FGridCoordinate & Start, const FGridCoordinate & End, TArray<FGridCoordinate>& OutPath)
@@ -246,42 +179,6 @@ CellPtr AWorldGrid::At(const int X, const int Y) const
 CellPtr AWorldGrid::At(const FGridCoordinate& Location) const
 {
 	return At(Location.X, Location.Y);
-}
-
-bool AWorldGrid::AddCharacter(int PlayerID, int ClassIndex)
-{
-	static int NextCharacterID = 0;
-	if (PawnCollection.find(PlayerID) == PawnCollection.end())
-	{
-		if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])
-		{
-			FGridCoordinate Location;
-			if (GetOpenSpawnLocation(Location))
-			{
-				CellPtr Cell = At(Location);
-				FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-				UWorld* World = GetWorld();
-				if (World && Cell)
-				{
-					AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[ClassIndex], &WorldLocation));
-					if (NewPawn)
-					{
-						UE_LOG(LogNotice, Display, TEXT("Added new MapPawn with ID= %i : Owner= %i"), NextCharacterID, PlayerID);
-
-						NewPawn->SetOwnerID(PlayerID);
-						NewPawn->SetPawnID(NextCharacterID++);
-
-						Cell->isOcupied = true;
-
-						PawnCollection[PlayerID].push_back({ NewPawn, nullptr });
-						return true;
-					}
-				}
-			}
-		}
-	}
-
-	return false;
 }
 
 bool AWorldGrid::AddBlockingSpace(const FGridCoordinate& Location)
@@ -377,19 +274,23 @@ bool AWorldGrid::AddSpawnLocations(int ClassIndex, const TArray<FGridCoordinate>
 	return true;
 }
 
-bool AWorldGrid::RemoveCharacter(int PlayerID)
+bool AWorldGrid::RemoveCharacter(int PawnID)
 {
-	auto found = PawnCollection.find(PlayerID);
-	if (PawnCollection.find(PlayerID) != PawnCollection.end() && found->second.Pawn)
+	int OwnerID;
+	int PawnIndex;
+	GetPawnIDParams(PawnID, OwnerID, PawnIndex);
+	auto& found = PawnCollection[OwnerID][PawnIndex];
+	if (found)
 	{
-		CellPtr CharacterLocation = At(found->second.Pawn->GetActorLocation());
+		CellPtr CharacterLocation = At((*found)->GetActorLocation());
 		if (CharacterLocation)
 		{
 			CharacterLocation->isOcupied = false;
-			found->second.Pawn->Destroy();
-			found = PawnCollection.end();
-			PawnCollection.erase(PlayerID);
 		}
+		(*found)->Destroy();
+		found = nullptr;
+
+		return true;
 	}
 
 	return false;
@@ -435,15 +336,19 @@ bool AWorldGrid::RemoveSpawnLocation(const FGridCoordinate & Location)
 
 void AWorldGrid::ClearCharacters()
 {
-	for (const auto& character : PawnCollection)
+	for (auto& character : PawnCollection)
 	{
-		if (character.second.Pawn)
+		for (auto& pawn : character.second)
 		{
-			CellPtr CharacterLocation = At(character.second.Pawn->GetActorLocation());
-			if (CharacterLocation)
+			if (pawn.second)
 			{
-				CharacterLocation->isOcupied = false;
-				character.second.Pawn->Destroy();
+				CellPtr CharacterLocation = At((*pawn.second)->GetActorLocation());
+				if (CharacterLocation)
+				{
+					CharacterLocation->isOcupied = false;
+				}
+				(*pawn.second)->Destroy();
+				pawn.second = nullptr;
 			}
 		}
 	}
@@ -472,6 +377,20 @@ void AWorldGrid::ClearSpawnLocations()
 	{
 		RemoveSpawnLocation(Location.first);
 	}
+}
+
+int AWorldGrid::GetHostID() const
+{
+	return HostID;
+}
+
+AMapPawn* AWorldGrid::GetPawn(const int PawnID)
+{
+	int OwnerID;
+	int PawnIndex;
+	GetPawnIDParams(PawnID, OwnerID, PawnIndex);
+	auto& Selected = PawnCollection[OwnerID][PawnIndex];
+	return (*Selected);
 }
 
 bool AWorldGrid::GetOpenSpawnLocation(FGridCoordinate & Location)
@@ -575,6 +494,19 @@ bool AWorldGrid::SetPosition(const FGridCoordinate & Location, const FGridCoordi
 	}
 
 	return moved;
+}
+
+int AWorldGrid::GenerateNewPawnIndex(const int OwnerID)
+{
+	int CharacterCount = PawnCollection[OwnerID].size();
+	PawnCollection[OwnerID][CharacterCount] = nullptr;
+	return CharacterCount;
+}
+
+void AWorldGrid::GetPawnIDParams(const int PawnID, int & OwnerID, int & PawnIndex) const
+{
+	PawnIndex = PawnID % 10;
+	OwnerID = PawnID / 10;
 }
 
 void AWorldGrid::OnGridDimensionRep()
