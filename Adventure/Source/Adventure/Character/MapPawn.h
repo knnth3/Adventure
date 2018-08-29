@@ -50,7 +50,6 @@ public:
 	// Owner Properties
 	int GetOwnerID()const;
 	void SetOwnerID(const int ID);
-	int GetPawnID()const;
 	void SetPawnID(const int ID);
 
 	// Camera Controlls
@@ -70,6 +69,12 @@ public:
 	void SetDestination(FGridCoordinate GridLocation);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void SetTarget(FVector Location);
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void ClearTarget();
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void Attack(const AMapPawnAttack* AttackMove, const FVector Location);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
@@ -78,6 +83,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void ScaleHead(const FVector& Scale);
 
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	int GetPawnID()const;
 
 protected:
 
@@ -112,7 +119,9 @@ private:
 	bool bMoveCharacter;
 	bool bRotateCharacter;
 	bool bIsTurnActive;
+	bool bHasTarget;
 	float DesiredCameraZoom;
+	FVector TargetedLocation;
 	FCameraSettings CameraSettings;
 	class USceneComponent* Scene;
 	class UCameraComponent* FollowCamera;
@@ -146,7 +155,13 @@ private:
 	FRotator Rotation;
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetDestination(FGridCoordinate GridLocation, bool bRotateOnly = false);
+	void Server_SetDestination(FGridCoordinate GridLocation);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_TargetLocation(FVector Location);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_ClearTarget();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Attack(FVector Location);
@@ -156,4 +171,5 @@ private:
 
 	UFUNCTION()
 	void OnRotation_Rep();
+
 };

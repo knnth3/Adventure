@@ -78,6 +78,9 @@ public:
 	bool IsFreeRoamActive()const;
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	bool IsTurn(const int PawnID)const;
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	void BeginTurnBasedMechanics();
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
@@ -116,7 +119,7 @@ public:
 	void ClearSpawnLocations();
 
 	int GetHostID() const;
-	class AMapPawn* GetPawn(const int PawnID);
+	class AMapPawn* GetPawn(const int PlayerID, const int PawnID);
 
 protected:
 

@@ -14,7 +14,8 @@ AConnectedPlayer::AConnectedPlayer()
 	PrimaryActorTick.bCanEverTick = true;
 	PlayerType = CONNECTED_PLAYER_TYPE::NONE;
 	CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
-	SelectedMapPawn = nullptr;
+	SelectedPawn = nullptr;
+	SpectatingPawnID = 0;
 
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -53,14 +54,17 @@ void AConnectedPlayer::Tick(float DeltaTime)
 			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 			if (WorldGrid)
 			{
-				int CharacterID = 0;
 				WorldGrid->RegisterPlayerController(this);
-				int NewPawn = WorldGrid->AddCharacter(GetPlayerID());
-				if (NewPawn)
+				for (int x = 0; x < 2; x++)
 				{
-					SpectatingPawnID = NewPawn;
-					OwningPawns.push_back(NewPawn);
-					SelectedMapPawn = WorldGrid->GetPawn(NewPawn);
+					int NewPawnID = WorldGrid->AddCharacter(GetPlayerID());
+					if (NewPawnID)
+					{
+						SpectatingPawnID = NewPawnID;
+						OwningPawns.push_back(NewPawnID);
+						SelectedPawn = WorldGrid->GetPawn(GetPlayerID(), NewPawnID);
+						Client_SetFocusToSelectedPawn();
+					}
 				}
 			}
 		}
@@ -81,25 +85,12 @@ void AConnectedPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 	DOREPLIFETIME(AConnectedPlayer, PlayerType);
 	DOREPLIFETIME(AConnectedPlayer, SpectatingPawnID);
+	DOREPLIFETIME(AConnectedPlayer, CurrentState);
 }
 
-void AConnectedPlayer::ClientChangeState_Implementation(const TURN_BASED_STATE CurrentState)
+void AConnectedPlayer::SetPlayerState(const TURN_BASED_STATE NewState)
 {
-	OnPlayerStatusChanged(CurrentState);
-	switch (CurrentState)
-	{
-	case TURN_BASED_STATE::FREE_ROAM:
-		OnEndCombat();
-		break;
-	case TURN_BASED_STATE::STANDBY:
-		OnEndCombat();
-		break;
-	case TURN_BASED_STATE::ACTIVE:
-		OnBeginCombat();
-		break;
-	default:
-		break;
-	}
+	CurrentState = NewState;
 }
 
 int AConnectedPlayer::GetPlayerID() const
@@ -114,23 +105,23 @@ int AConnectedPlayer::GetPlayerID() const
 
 bool AConnectedPlayer::GetPawnLocation(FVector & Location) const
 {
-	if (SelectedMapPawn)
+	if (SelectedPawn)
 	{
-		Location = SelectedMapPawn->GetActorLocation();
+		Location = SelectedPawn->GetActorLocation();
 		return true;
 	}
 	return false;
 }
 
-void AConnectedPlayer::ServerScaleHead_Implementation(const FVector & Size)
+void AConnectedPlayer::Server_ScaleHead_Implementation(const FVector & Size)
 {
-	if (SelectedMapPawn)
+	if (SelectedPawn)
 	{
-		SelectedMapPawn->ScaleHead(Size);
+		SelectedPawn->ScaleHead(Size);
 	}
 }
 
-bool AConnectedPlayer::ServerScaleHead_Validate(const FVector & Size)
+bool AConnectedPlayer::Server_ScaleHead_Validate(const FVector & Size)
 {
 	return true;
 }
@@ -141,45 +132,96 @@ void AConnectedPlayer::BeginPlay()
 	Super::BeginPlay();
 }
 
-void AConnectedPlayer::MovePlayer(const FVector & Location, const int PawnID)
+int AConnectedPlayer::GetSpectatingPawnID() const
 {
-	ServerMovePlayer(Location, PawnID);
+	return SpectatingPawnID;
+}
+
+// Move the spectating pawn if exists, otherwise move the pawn at the given index
+void AConnectedPlayer::MovePlayer(const FVector & Location, const int PawnIndex)
+{
+	unsigned int Index = PawnIndex;
+
+	switch (CameraType)
+	{
+	case CONNECTED_PLAYER_CAMERA::CHARACTER:
+		if (SelectedPawn)
+		{
+			Server_MovePlayer(Location, SpectatingPawnID);
+		}
+		break;
+	case CONNECTED_PLAYER_CAMERA::OVERVIEW:
+		if (OwningPawns.size() > Index)
+		{
+			Server_MovePlayer(Location, OwningPawns[Index]);
+		}
+		break;
+	case CONNECTED_PLAYER_CAMERA::NONE:
+	default:
+		UE_LOG(LogNotice, Warning, TEXT("Connected player camera type is invalid"));
+		break;
+	}
+}
+
+void AConnectedPlayer::SetPawnTargetLocation(const FVector & Location)
+{
+	if (SelectedPawn)
+	{
+		SelectedPawn->SetTarget(Location);
+	}
+}
+
+void AConnectedPlayer::ClearPawnTargetLocation()
+{
+	if (SelectedPawn)
+	{
+		SelectedPawn->ClearTarget();
+	}
 }
 
 void AConnectedPlayer::Attack(AMapPawnAttack* Attack, const FVector & EndLocation)
 {
-	if (SelectedMapPawn)
+	Server_Attack(Attack, EndLocation);
+}
+
+void AConnectedPlayer::SetCameraToOverview(const float time)
+{
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+	if (PlayerController)
 	{
-		SelectedMapPawn->Attack(Attack, EndLocation);
+		UE_LOG(LogNotice, Warning, TEXT("Changed camera view to type: Overview"));
+		PlayerController->SetViewTargetWithBlend(this, time, VTBlend_Linear, 0.0f, true);
+		CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
+	}
+}
+
+void AConnectedPlayer::SetCameraToCharacter(const float time)
+{
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+	if (PlayerController)
+	{
+		UE_LOG(LogNotice, Warning, TEXT("Changed camera view to type: Character"));
+		PlayerController->SetViewTargetWithBlend(SelectedPawn, time, VTBlend_Linear, 0.0f, true);
+		CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
 	}
 }
 
 void AConnectedPlayer::SwapCameraView(const float& time)
 {
-	if (SelectedMapPawn)
+	if (SelectedPawn)
 	{
-		APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
-		if (PlayerController)
+		switch (CameraType)
 		{
-			switch (CameraType)
-			{
-			case CONNECTED_PLAYER_CAMERA::CHARACTER:
-				PlayerController->SetViewTargetWithBlend(this, time, VTBlend_Linear, 0.0f, true);
-				CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
-				break;
-			case CONNECTED_PLAYER_CAMERA::OVERVIEW:
-				PlayerController->SetViewTargetWithBlend(SelectedMapPawn, time, VTBlend_Linear, 0.0f, true);
-				CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
-				break;
-			case CONNECTED_PLAYER_CAMERA::NONE:
-			default:
-				UE_LOG(LogNotice, Warning, TEXT("Connected player camera type was invalid"));
-				break;
-			}
-		}
-		else
-		{
-			UE_LOG(LogNotice, Warning, TEXT("No controller found while swapping cameras"));
+		case CONNECTED_PLAYER_CAMERA::CHARACTER:
+			SetCameraToOverview(time);
+			break;
+		case CONNECTED_PLAYER_CAMERA::OVERVIEW:
+			SetCameraToCharacter(time);
+			break;
+		case CONNECTED_PLAYER_CAMERA::NONE:
+		default:
+			UE_LOG(LogNotice, Warning, TEXT("Connected player camera type is invalid"));
+			break;
 		}
 	}
 	else
@@ -190,25 +232,25 @@ void AConnectedPlayer::SwapCameraView(const float& time)
 
 void AConnectedPlayer::RotatePawnCameraUpDown(const float & AxisValue, const float & DeltaTime)
 {
-	if (SelectedMapPawn)
+	if (SelectedPawn)
 	{
-		SelectedMapPawn->RotateCameraPitch(AxisValue, DeltaTime);
+		SelectedPawn->RotateCameraPitch(AxisValue, DeltaTime);
 	}
 }
 
 void AConnectedPlayer::RotatePawnCameraLeftRight(const float & AxisValue, const float & DeltaTime)
 {
-	if (SelectedMapPawn)
+	if (SelectedPawn)
 	{
-		SelectedMapPawn->RotateCameraYaw(AxisValue, DeltaTime);
+		SelectedPawn->RotateCameraYaw(AxisValue, DeltaTime);
 	}
 }
 
 void AConnectedPlayer::ZoomPawnCameraInOut(const float & AxisValue, const float & DeltaTime)
 {
-	if (SelectedMapPawn)
+	if (SelectedPawn)
 	{
-		SelectedMapPawn->ZoomCamera(AxisValue, DeltaTime);
+		SelectedPawn->ZoomCamera(AxisValue, DeltaTime);
 	}
 }
 
@@ -217,21 +259,57 @@ CONNECTED_PLAYER_CAMERA AConnectedPlayer::GetCameraType() const
 	return CameraType;
 }
 
+void AConnectedPlayer::Server_Attack_Implementation(AMapPawnAttack* Attack, const FVector & EndLocation)
+{
+	if (SelectedPawn)
+	{
+		TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+		if (WorldGrid->GetHostID() == GetPlayerID() || WorldGrid && WorldGrid->IsTurn(SpectatingPawnID))
+		{
+			SelectedPawn->Attack(Attack, EndLocation);
+		}
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("Attack does not replicate over the network!"));
+	}
+}
+
+bool AConnectedPlayer::Server_Attack_Validate(AMapPawnAttack* Attack, const FVector & EndLocation)
+{
+	return true;
+}
+
+void AConnectedPlayer::Client_SetFocusToSelectedPawn_Implementation()
+{
+	UE_LOG(LogNotice, Warning, TEXT("Role: %s"), *GetStringOf(Role));
+	if (Role == ROLE_Authority)
+	{
+		SetCameraToCharacter();
+	}
+}
+
+void AConnectedPlayer::OnCurrentState_Rep()
+{
+	OnPlayerStatusChanged(CurrentState);
+}
+
 void AConnectedPlayer::OnSpectateReplicated()
 {
+	// If you're on the host and it's your designated player class, find your pawn.
 	if (Role == ROLE_AutonomousProxy) 
 	{
 		for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
 		{
 			if (SpectatingPawnID == ActorItr->GetPawnID())
 			{
-				SelectedMapPawn = (*ActorItr);
+				SelectedPawn = (*ActorItr);
 			}
 		}
 	}
 }
 
-void AConnectedPlayer::ServerBeginTurnBasedMechanics_Implementation()
+void AConnectedPlayer::Server_BeginTurnBasedMechanics_Implementation()
 {
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
@@ -244,12 +322,12 @@ void AConnectedPlayer::ServerBeginTurnBasedMechanics_Implementation()
 	}
 }
 
-bool AConnectedPlayer::ServerBeginTurnBasedMechanics_Validate()
+bool AConnectedPlayer::Server_BeginTurnBasedMechanics_Validate()
 {
 	return true;
 }
 
-void AConnectedPlayer::ServerEndTurnBasedMechanics_Implementation()
+void AConnectedPlayer::Server_EndTurnBasedMechanics_Implementation()
 {
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
@@ -262,12 +340,12 @@ void AConnectedPlayer::ServerEndTurnBasedMechanics_Implementation()
 	}
 }
 
-bool AConnectedPlayer::ServerEndTurnBasedMechanics_Validate()
+bool AConnectedPlayer::Server_EndTurnBasedMechanics_Validate()
 {
 	return true;
 }
 
-void AConnectedPlayer::ServerMovePlayer_Implementation(const FVector & Location, const int PawnID)
+void AConnectedPlayer::Server_MovePlayer_Implementation(const FVector & Location, const int PawnID)
 {
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
@@ -280,7 +358,7 @@ void AConnectedPlayer::ServerMovePlayer_Implementation(const FVector & Location,
 	}
 }
 
-bool AConnectedPlayer::ServerMovePlayer_Validate(const FVector & Location, const int PawnID)
+bool AConnectedPlayer::Server_MovePlayer_Validate(const FVector & Location, const int PawnID)
 {
 	return true;
 }

@@ -77,11 +77,16 @@ bool AWorldGrid::IsFreeRoamActive() const
 	return (ActivePawnID == -1);
 }
 
+bool AWorldGrid::IsTurn(const int PawnID) const
+{
+	return (IsFreeRoamActive() || (PawnID == ActivePawnID));
+}
+
 void AWorldGrid::BeginTurnBasedMechanics()
 {
 	for (auto& players : PlayerCollection)
 	{
-		players.second->ClientChangeState(TURN_BASED_STATE::STANDBY);
+		players.second->SetPlayerState(TURN_BASED_STATE::STANDBY);
 	}
 	ActivePawnID = 0;
 }
@@ -90,7 +95,7 @@ void AWorldGrid::EndTurnBasedMechanics()
 {
 	for (auto& players : PlayerCollection)
 	{
-		players.second->ClientChangeState(TURN_BASED_STATE::FREE_ROAM);
+		players.second->SetPlayerState(TURN_BASED_STATE::FREE_ROAM);
 	}
 	ActivePawnID = -1;
 }
@@ -107,7 +112,7 @@ bool AWorldGrid::MoveCharacter(const int PawnID, const FGridCoordinate& Destinat
 	auto& Selected = PawnCollection[OwnerID][PawnIndex];
 	if (Selected)
 	{
-		if (bOverrideMechanics || IsFreeRoamActive() || (PawnID == ActivePawnID))
+		if (bOverrideMechanics || IsTurn(PawnID))
 		{
 			(*Selected)->SetDestination(Destination);
 			return true;
@@ -384,13 +389,19 @@ int AWorldGrid::GetHostID() const
 	return HostID;
 }
 
-AMapPawn* AWorldGrid::GetPawn(const int PawnID)
+AMapPawn* AWorldGrid::GetPawn(const int PlayerID, const int PawnID)
 {
 	int OwnerID;
 	int PawnIndex;
 	GetPawnIDParams(PawnID, OwnerID, PawnIndex);
-	auto& Selected = PawnCollection[OwnerID][PawnIndex];
-	return (*Selected);
+
+	if (PlayerID == OwnerID)
+	{
+		auto& Selected = PawnCollection[OwnerID][PawnIndex];
+		return (*Selected);
+	}
+
+	return nullptr;
 }
 
 bool AWorldGrid::GetOpenSpawnLocation(FGridCoordinate & Location)

@@ -13,6 +13,7 @@ AMapPawn::AMapPawn()
 	bMoveCharacter = false;
 	bReplicates = true;
 	bRotateCharacter = false;
+	bHasTarget = false;
 	OwnerID = -1;
 	SkeletalMeshIndex = -1;
 
@@ -60,6 +61,20 @@ AMapPawn::AMapPawn()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 }
 
+//sets variables for replicaton over a network
+void AMapPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AMapPawn, StatSheet);
+	DOREPLIFETIME(AMapPawn, FinalDestination);
+	DOREPLIFETIME(AMapPawn, Rotation);
+	DOREPLIFETIME(AMapPawn, OwnerID);
+	DOREPLIFETIME(AMapPawn, PawnID);
+	DOREPLIFETIME(AMapPawn, TargetedLocation);
+
+}
+
 // Called when the game starts or when spawned
 void AMapPawn::BeginPlay()
 {
@@ -92,8 +107,9 @@ void AMapPawn::BeginPlay()
 
 	if (HasAuthority())
 	{
-		StatSheet.MaxHealth = (FMath::Rand() % 100) + 1;
-		StatSheet.CurrentHealth = StatSheet.MaxHealth;
+		FRandomStream rand;
+		rand.GenerateNewSeed();
+		StatSheet.Name = StatSheet.Name + FString::FromInt(rand.FRandRange(0, 100));
 	}
 }
 
@@ -174,12 +190,7 @@ void AMapPawn::SetDestination(FGridCoordinate GridLocation)
 		//Attempt to find a new path to where we want to go
 		TArray<FGridCoordinate> Array;
 		bool Success = GridItr->FindPath(UGridFunctions::WorldToGridLocation(FinalDestination), GridLocation, Array);
-		if (!Success)
-		{
-			UE_LOG(LogNotice, Warning, TEXT("Couldn't find a Path"));
-			Server_SetDestination(GridLocation, true);
-		}
-		else
+		if (Success)
 		{
 			//Clear the previous queue;
 			std::queue<FGridCoordinate> PrevMoves;
@@ -194,6 +205,16 @@ void AMapPawn::SetDestination(FGridCoordinate GridLocation)
 			MoveToNextLocation();
 		}
 	}
+}
+
+void AMapPawn::SetTarget(FVector Location)
+{
+	Server_TargetLocation(Location);
+}
+
+void AMapPawn::ClearTarget()
+{
+	Server_ClearTarget();
 }
 
 //Returns the pawns stats
@@ -274,10 +295,10 @@ void AMapPawn::MovePawn(float DeltaTime)
 			{
 				AddActorWorldOffset(DeltaLocation);
 			}
-			//else
-			//{
-			//	SetDestination(UGridFunctions::GridToWorldLocation(GetActorGridLocation()));
-			//}
+			if (!bMoveCharacter && MoveQueue.empty() && bHasTarget)
+			{
+				Server_TargetLocation(TargetedLocation);
+			}
 		}
 		else
 		{
@@ -363,6 +384,47 @@ void AMapPawn::MoveToNextLocation()
 	}
 }
 
+void AMapPawn::Server_TargetLocation_Implementation(FVector ViewLocation)
+{
+	FVector CurrentLocation = GetActorLocation();
+
+	//Rotate the character;
+	FVector TravelVector = ViewLocation - CurrentLocation;
+	if (TravelVector.Size2D() > 0.1f)
+	{
+		TargetedLocation = ViewLocation;
+		TravelVector = TravelVector.GetSafeNormal2D();
+		float AngleBetween = FMath::Atan2(TravelVector.Y, TravelVector.X);
+
+		AngleBetween = FMath::RadiansToDegrees(AngleBetween);
+		FRotator FinalRotation(0.0f, AngleBetween - 90.0f, 0.0f);
+
+		if (PawnBody)
+		{
+			bHasTarget = true;
+			Rotation = FinalRotation;
+			bRotateCharacter = true;
+		}
+	}
+}
+
+bool AMapPawn::Server_TargetLocation_Validate(FVector Location)
+{
+	return true;
+}
+
+void AMapPawn::Server_ClearTarget_Implementation()
+{
+	bHasTarget = false;
+	TargetedLocation = FVector(0.0f);
+}
+
+bool AMapPawn::Server_ClearTarget_Validate()
+{
+	return true;
+}
+
+
 //Called on CurrentDestination replication (client)
 void AMapPawn::OnDestination_Rep()
 {
@@ -375,27 +437,14 @@ void AMapPawn::OnRotation_Rep()
 	bRotateCharacter = true;
 }
 
-//sets variables for replicaton over a network
-void AMapPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AMapPawn, StatSheet);
-	DOREPLIFETIME(AMapPawn, FinalDestination);
-	DOREPLIFETIME(AMapPawn, Rotation);
-	DOREPLIFETIME(AMapPawn, OwnerID);
-	DOREPLIFETIME(AMapPawn, PawnID);
-	
-}
-
 //Sets a destination if valid (server)
-void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation, bool bRotateOnly)
+void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation)
 {
 	TActorIterator<AWorldGrid> GridItr(GetWorld());
 	FVector Location = GetActorLocation();
 	FVector CurrentDestination = UGridFunctions::GridToWorldLocation(GridLocation);
 
-	if (GridItr && !bRotateOnly)
+	if (GridItr)
 	{
 		//Move the character
 		if (!GridItr->IsSpaceTraversable(GridLocation) || GridLocation == GetActorGridLocation())
@@ -427,7 +476,7 @@ void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation
 }
 
 //Vaidates non-cheat move (server)
-bool AMapPawn::Server_SetDestination_Validate(FGridCoordinate WorldLocation, bool bRotateOnly)
+bool AMapPawn::Server_SetDestination_Validate(FGridCoordinate WorldLocation)
 {
 	return true;
 }
