@@ -81,7 +81,7 @@ public:
 	bool IsTurn(const int PawnID)const;
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void BeginTurnBasedMechanics();
+	void BeginTurnBasedMechanics(const TArray<int>& Order);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	void EndTurnBasedMechanics();

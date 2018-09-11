@@ -13,7 +13,7 @@ AConnectedPlayer::AConnectedPlayer()
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	PlayerType = CONNECTED_PLAYER_TYPE::NONE;
-	CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
+	CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
 	SelectedPawn = nullptr;
 	SpectatingPawnID = 0;
 
@@ -32,10 +32,10 @@ AConnectedPlayer::AConnectedPlayer()
 	CameraBoom->bEnableCameraRotationLag = true;
 	CameraBoom->CameraRotationLagSpeed = 10.0f;
 	CameraBoom->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
-
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
+
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 }
 
@@ -55,13 +55,15 @@ void AConnectedPlayer::Tick(float DeltaTime)
 			if (WorldGrid)
 			{
 				WorldGrid->RegisterPlayerController(this);
+
+				// Add two new characters
 				for (int x = 0; x < 2; x++)
 				{
 					int NewPawnID = WorldGrid->AddCharacter(GetPlayerID());
 					if (NewPawnID)
 					{
 						SpectatingPawnID = NewPawnID;
-						OwningPawns.push_back(NewPawnID);
+						OwningPawns.Push(NewPawnID);
 						SelectedPawn = WorldGrid->GetPawn(GetPlayerID(), NewPawnID);
 						Client_SetFocusToSelectedPawn();
 					}
@@ -86,11 +88,13 @@ void AConnectedPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AConnectedPlayer, PlayerType);
 	DOREPLIFETIME(AConnectedPlayer, SpectatingPawnID);
 	DOREPLIFETIME(AConnectedPlayer, CurrentState);
+	DOREPLIFETIME(AConnectedPlayer, OwningPawns);
 }
 
 void AConnectedPlayer::SetPlayerState(const TURN_BASED_STATE NewState)
 {
 	CurrentState = NewState;
+	Client_NotifyStateChange();
 }
 
 int AConnectedPlayer::GetPlayerID() const
@@ -126,10 +130,41 @@ bool AConnectedPlayer::Server_ScaleHead_Validate(const FVector & Size)
 	return true;
 }
 
+void AConnectedPlayer::SetSpectatingPawn(const int Index)
+{
+	Server_SetSpectatingPawn(Index);
+}
+
+void AConnectedPlayer::BeginCombat(const TArray<int>& PlayerOrder)
+{
+	Server_BeginTurnBasedMechanics(PlayerOrder);
+}
+
+void AConnectedPlayer::EndCombat()
+{
+	Server_EndTurnBasedMechanics();
+}
+
 // Called when the game starts or when spawned
 void AConnectedPlayer::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+int AConnectedPlayer::GetNumOwningPawns() const
+{
+	return OwningPawns.Num();
+}
+
+bool AConnectedPlayer::GetSelectedActorLocation(FVector& Location) const
+{
+	if (SelectedPawn)
+	{
+		Location = SelectedPawn->GetActorLocation();
+		return true;
+	}
+
+	return false;
 }
 
 int AConnectedPlayer::GetSpectatingPawnID() const
@@ -137,29 +172,11 @@ int AConnectedPlayer::GetSpectatingPawnID() const
 	return SpectatingPawnID;
 }
 
-// Move the spectating pawn if exists, otherwise move the pawn at the given index
-void AConnectedPlayer::MovePlayer(const FVector & Location, const int PawnIndex)
+void AConnectedPlayer::MovePlayer(const FVector & Location)
 {
-	unsigned int Index = PawnIndex;
-
-	switch (CameraType)
+	if (SelectedPawn)
 	{
-	case CONNECTED_PLAYER_CAMERA::CHARACTER:
-		if (SelectedPawn)
-		{
-			Server_MovePlayer(Location, SpectatingPawnID);
-		}
-		break;
-	case CONNECTED_PLAYER_CAMERA::OVERVIEW:
-		if (OwningPawns.size() > Index)
-		{
-			Server_MovePlayer(Location, OwningPawns[Index]);
-		}
-		break;
-	case CONNECTED_PLAYER_CAMERA::NONE:
-	default:
-		UE_LOG(LogNotice, Warning, TEXT("Connected player camera type is invalid"));
-		break;
+		Server_MovePlayer(Location, SpectatingPawnID);
 	}
 }
 
@@ -189,7 +206,6 @@ void AConnectedPlayer::SetCameraToOverview(const float time)
 	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
 	if (PlayerController)
 	{
-		UE_LOG(LogNotice, Warning, TEXT("Changed camera view to type: Overview"));
 		PlayerController->SetViewTargetWithBlend(this, time, VTBlend_Linear, 0.0f, true);
 		CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
 	}
@@ -200,7 +216,6 @@ void AConnectedPlayer::SetCameraToCharacter(const float time)
 	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
 	if (PlayerController)
 	{
-		UE_LOG(LogNotice, Warning, TEXT("Changed camera view to type: Character"));
 		PlayerController->SetViewTargetWithBlend(SelectedPawn, time, VTBlend_Linear, 0.0f, true);
 		CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
 	}
@@ -280,41 +295,12 @@ bool AConnectedPlayer::Server_Attack_Validate(AMapPawnAttack* Attack, const FVec
 	return true;
 }
 
-void AConnectedPlayer::Client_SetFocusToSelectedPawn_Implementation()
-{
-	UE_LOG(LogNotice, Warning, TEXT("Role: %s"), *GetStringOf(Role));
-	if (Role == ROLE_Authority)
-	{
-		SetCameraToCharacter();
-	}
-}
-
-void AConnectedPlayer::OnCurrentState_Rep()
-{
-	OnPlayerStatusChanged(CurrentState);
-}
-
-void AConnectedPlayer::OnSpectateReplicated()
-{
-	// If you're on the host and it's your designated player class, find your pawn.
-	if (Role == ROLE_AutonomousProxy) 
-	{
-		for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
-		{
-			if (SpectatingPawnID == ActorItr->GetPawnID())
-			{
-				SelectedPawn = (*ActorItr);
-			}
-		}
-	}
-}
-
-void AConnectedPlayer::Server_BeginTurnBasedMechanics_Implementation()
+void AConnectedPlayer::Server_BeginTurnBasedMechanics_Implementation(const TArray<int>& Order)
 {
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
+	if (WorldGrid && WorldGrid->GetHostID() == GetPlayerID())
 	{
-		WorldGrid->BeginTurnBasedMechanics();
+		WorldGrid->BeginTurnBasedMechanics(Order);
 	}
 	else
 	{
@@ -322,7 +308,7 @@ void AConnectedPlayer::Server_BeginTurnBasedMechanics_Implementation()
 	}
 }
 
-bool AConnectedPlayer::Server_BeginTurnBasedMechanics_Validate()
+bool AConnectedPlayer::Server_BeginTurnBasedMechanics_Validate(const TArray<int>& Order)
 {
 	return true;
 }
@@ -361,4 +347,48 @@ void AConnectedPlayer::Server_MovePlayer_Implementation(const FVector & Location
 bool AConnectedPlayer::Server_MovePlayer_Validate(const FVector & Location, const int PawnID)
 {
 	return true;
+}
+
+void AConnectedPlayer::Server_SetSpectatingPawn_Implementation(const int PawnIndex)
+{
+	if (OwningPawns.Num() > PawnIndex && PawnIndex >= 0)
+	{
+		TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+		if (WorldGrid)
+		{
+			int NewPawnID = OwningPawns[PawnIndex];
+			SpectatingPawnID = NewPawnID;
+			SelectedPawn = WorldGrid->GetPawn(GetPlayerID(), NewPawnID);
+			Client_SetFocusToSelectedPawn();
+		}
+	}
+}
+
+bool AConnectedPlayer::Server_SetSpectatingPawn_Validate(const int PawnIndex)
+{
+	return true;
+}
+
+void AConnectedPlayer::Client_SetFocusToSelectedPawn_Implementation()
+{
+	if (Role == ROLE_Authority)
+	{
+		for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+		{
+			if (SpectatingPawnID == ActorItr->GetPawnID())
+			{
+				SelectedPawn = (*ActorItr);
+
+				if (CameraType == CONNECTED_PLAYER_CAMERA::CHARACTER)
+				{
+					SetCameraToCharacter(0.5f);
+				}
+			}
+		}
+	}
+}
+
+void AConnectedPlayer::Client_NotifyStateChange_Implementation()
+{
+	OnPlayerStatusChanged(CurrentState);
 }

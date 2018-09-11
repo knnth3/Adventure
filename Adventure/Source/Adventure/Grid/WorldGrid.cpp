@@ -82,7 +82,7 @@ bool AWorldGrid::IsTurn(const int PawnID) const
 	return (IsFreeRoamActive() || (PawnID == ActivePawnID));
 }
 
-void AWorldGrid::BeginTurnBasedMechanics()
+void AWorldGrid::BeginTurnBasedMechanics(const TArray<int>& Order)
 {
 	for (auto& players : PlayerCollection)
 	{

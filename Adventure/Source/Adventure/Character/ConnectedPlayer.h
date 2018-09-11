@@ -79,11 +79,18 @@ protected:
 	CONNECTED_PLAYER_CAMERA GetCameraType()const;
 
 	// Accessor Functions
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	int GetNumOwningPawns() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	bool GetSelectedActorLocation(FVector& Location) const;
+
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	int GetSpectatingPawnID() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void MovePlayer(const FVector& Location, const int PawnID = 0);
+	void MovePlayer(const FVector& Location);
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	void SetPawnTargetLocation(const FVector& Location);
@@ -94,6 +101,15 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	void Attack(AMapPawnAttack* Attack, const FVector& EndLocation);
 
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	void SetSpectatingPawn(const int Index);
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	void BeginCombat(const TArray<int>& PlayerOrder);
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	void EndCombat();
+
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -103,26 +119,31 @@ private:
 
 	CONNECTED_PLAYER_CAMERA CameraType;
 	class AMapPawn* SelectedPawn;
-	std::vector<int> OwningPawns;
 
 	void SetCameraToOverview(const float time = 0.0f);
 	void SetCameraToCharacter(const float time = 0.0f);
 
-	UPROPERTY(ReplicatedUsing = OnSpectateReplicated)
+	UPROPERTY(Replicated)
 	int SpectatingPawnID;
 
-	UPROPERTY(ReplicatedUsing = OnCurrentState_Rep)
+	UPROPERTY(Replicated)
 	TURN_BASED_STATE CurrentState;
 
 	UPROPERTY(Replicated)
 	CONNECTED_PLAYER_TYPE PlayerType;
 
+	UPROPERTY(Replicated)
+	TArray<int> OwningPawns;
+
 	// Server Private Functions
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_BeginTurnBasedMechanics();
+	void Server_BeginTurnBasedMechanics(const TArray<int>& Order);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_EndTurnBasedMechanics();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetSpectatingPawn(const int PawnIndex);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_MovePlayer(const FVector& Location, const int PawnID);
@@ -137,11 +158,7 @@ private:
 	UFUNCTION(Client, Reliable)
 	void Client_SetFocusToSelectedPawn();
 
-	// Rep Functions
-	UFUNCTION()
-	void OnCurrentState_Rep();
-
-	UFUNCTION()
-	void OnSpectateReplicated();
+	UFUNCTION(Client, Reliable)
+	void Client_NotifyStateChange();
 
 };
