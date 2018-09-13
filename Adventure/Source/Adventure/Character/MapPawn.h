@@ -53,6 +53,7 @@ public:
 	void SetPawnID(const int ID);
 
 	// Camera Controlls
+	const FVector GetCameraLocation() const;
 	void RotateCameraPitch(const float& AxisValue, const float& DeltaTime);
 	void RotateCameraYaw(const float& AxisValue, const float& DeltaTime);
 	void ZoomCamera(const float& AxisValue, const float& DeltaTime);

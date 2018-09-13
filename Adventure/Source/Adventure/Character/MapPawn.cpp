@@ -145,6 +145,11 @@ void AMapPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 
+const FVector AMapPawn::GetCameraLocation() const
+{
+	return FollowCamera->GetComponentLocation();
+}
+
 void AMapPawn::RotateCameraPitch(const float & AxisValue, const float & DeltaTime)
 {
 	if (AxisValue)

@@ -18,7 +18,7 @@ AWorldGrid::AWorldGrid()
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 	bInitialized = false;
-	ActivePawnID = -1;
+	ActivePlayerID = -1;
 	HostID = 0;
 
 	//Create a component to hold the visual
@@ -62,7 +62,7 @@ bool AWorldGrid::IsSpaceTraversable(const FGridCoordinate & Location)const
 	CellPtr CellLocation = At(Location);
 	if (CellLocation)
 	{
-		return CellLocation->isOcupied;
+		return CellLocation->bNonTraversable;
 	}
 	return false;
 }
@@ -74,21 +74,35 @@ bool AWorldGrid::IsSpawnLocation(const FGridCoordinate & Location)const
 
 bool AWorldGrid::IsFreeRoamActive() const
 {
-	return (ActivePawnID == -1);
+	return (ActivePlayerID == -1);
 }
 
 bool AWorldGrid::IsTurn(const int PawnID) const
 {
-	return (IsFreeRoamActive() || (PawnID == ActivePawnID));
+	return (IsFreeRoamActive() || (PawnID == ActivePlayerID));
 }
 
 void AWorldGrid::BeginTurnBasedMechanics(const TArray<int>& Order)
 {
-	for (auto& players : PlayerCollection)
+	if (Order.Num() > 0)
 	{
-		players.second->SetPlayerState(TURN_BASED_STATE::STANDBY);
+		for (auto& ID : Order)
+		{
+			TurnSequence.push(ID);
+		}
+		for (auto& players : PlayerCollection)
+		{
+			if (players.first == TurnSequence.front())
+			{
+				players.second->SetPlayerState(TURN_BASED_STATE::ACTIVE);
+			}
+			else
+			{
+				players.second->SetPlayerState(TURN_BASED_STATE::STANDBY);
+			}
+		}
+		ActivePlayerID = TurnSequence.front();
 	}
-	ActivePawnID = 0;
 }
 
 void AWorldGrid::EndTurnBasedMechanics()
@@ -97,7 +111,7 @@ void AWorldGrid::EndTurnBasedMechanics()
 	{
 		players.second->SetPlayerState(TURN_BASED_STATE::FREE_ROAM);
 	}
-	ActivePawnID = -1;
+	ActivePlayerID = -1;
 }
 
 void AWorldGrid::EndTurn(const int PawnID)
@@ -126,20 +140,21 @@ void AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer)
 {
 	int OwnerID = ConnectedPlayer->GetPlayerID();
 	PlayerCollection[OwnerID] = ConnectedPlayer;
+	ConnectedPlayer->SetPlayerState(TURN_BASED_STATE::FREE_ROAM);
 }
 
-int AWorldGrid::AddCharacter(int OwnerID, int ClassIndex)
+int AWorldGrid::AddCharacter(int OwnerID, bool OverrideLocation, FVector NewLocation, int ClassIndex)
 {
 	int PawnIndex = GenerateNewPawnIndex(OwnerID);
 	int PawnID = (OwnerID * 10) + PawnIndex;
 
 	if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])
 	{
-		FGridCoordinate Location;
-		if (GetOpenSpawnLocation(Location))
+		std::shared_ptr<FGridCoordinate> Location = (OverrideLocation) ? std::make_shared<FGridCoordinate>(NewLocation) : GetOpenSpawnLocation();
+		if (Location)
 		{
-			CellPtr Cell = At(Location);
-			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+			CellPtr Cell = At(*Location);
+			FVector WorldLocation = UGridFunctions::GridToWorldLocation(*Location);
 			UWorld* World = GetWorld();
 			if (World && Cell)
 			{
@@ -150,8 +165,9 @@ int AWorldGrid::AddCharacter(int OwnerID, int ClassIndex)
 
 					NewPawn->SetOwnerID(OwnerID);
 					NewPawn->SetPawnID(PawnID);
-					Cell->isOcupied = true;
+					Cell->SetOccupied(true);
 					PawnCollection[OwnerID][PawnIndex] = std::make_unique<AMapPawn*>(NewPawn);
+					NotifyConnectedPlayerOfNewPawn(OwnerID, PawnID);
 					return PawnID;
 				}
 			}
@@ -191,13 +207,12 @@ bool AWorldGrid::AddBlockingSpace(const FGridCoordinate& Location)
 	CellPtr BlockingSpace = At(Location);
 	if (BlockingSpace && !IsSpawnLocation(Location))
 	{
-		BlockingSpace->isOcupied = true;
-		BlockingSpace->isBlockingSpace = true;
+		BlockingSpace->SetOccupied(true);
 	}
 	return false;
 }
 
-bool AWorldGrid::AddVisual(int ClassIndex, const FGridCoordinate & Location)
+bool AWorldGrid::AddVisual(int ClassIndex, const FGridCoordinate & Location, bool makeMovableOverride)
 {
 	auto found = VisualGridRefrences.find(Location.toPair());
 	if (found == VisualGridRefrences.end())
@@ -211,6 +226,11 @@ bool AWorldGrid::AddVisual(int ClassIndex, const FGridCoordinate & Location)
 				AInteractable* NewVisual = Cast<AInteractable>(World->SpawnActor(*InteractableClasses[ClassIndex], &WorldLocation));
 				if (NewVisual)
 				{
+					if (!makeMovableOverride)
+					{
+						AddBlockingSpace(Location);
+					}
+
 					VisualGridRefrences[Location.toPair()] = NewVisual;
 					return true;
 				}
@@ -224,7 +244,7 @@ bool AWorldGrid::AddSpawnLocation(int ClassIndex, const FGridCoordinate & Locati
 {
 	CellPtr FoundCell = At(Location);
 	bool bExists = IsSpawnLocation(Location);
-	if (FoundCell && !FoundCell->isOcupied && !bExists)
+	if (FoundCell && !FoundCell->bNonTraversable && !bExists)
 	{
 		int SpawnerClassNum = SpawnerClasses.Num();
 		if (ClassIndex >= 0 && ClassIndex < SpawnerClassNum)
@@ -290,7 +310,7 @@ bool AWorldGrid::RemoveCharacter(int PawnID)
 		CellPtr CharacterLocation = At((*found)->GetActorLocation());
 		if (CharacterLocation)
 		{
-			CharacterLocation->isOcupied = false;
+			CharacterLocation->SetOccupied(false);
 		}
 		(*found)->Destroy();
 		found = nullptr;
@@ -319,7 +339,7 @@ bool AWorldGrid::RemoveBlockingSpace(const FGridCoordinate & Location)
 	CellPtr BlockingSpace = At(Location);
 	if (BlockingSpace)
 	{
-		BlockingSpace->isOcupied = false;
+		BlockingSpace->SetOccupied(false);
 		return true;
 	}
 
@@ -350,7 +370,7 @@ void AWorldGrid::ClearCharacters()
 				CellPtr CharacterLocation = At((*pawn.second)->GetActorLocation());
 				if (CharacterLocation)
 				{
-					CharacterLocation->isOcupied = false;
+					CharacterLocation->SetOccupied(false);
 				}
 				(*pawn.second)->Destroy();
 				pawn.second = nullptr;
@@ -359,21 +379,6 @@ void AWorldGrid::ClearCharacters()
 	}
 
 	PawnCollection.clear();
-}
-
-void AWorldGrid::ClearBlockingSpaces()
-{
-	for (const auto& X : LogicalGrid)
-	{
-		for (const auto& cell : X)
-		{
-			if (cell->isBlockingSpace)
-			{
-				cell->isOcupied = false;
-				cell->isBlockingSpace = false;
-			}
-		}
-	}
 }
 
 void AWorldGrid::ClearSpawnLocations()
@@ -404,20 +409,19 @@ AMapPawn* AWorldGrid::GetPawn(const int PlayerID, const int PawnID)
 	return nullptr;
 }
 
-bool AWorldGrid::GetOpenSpawnLocation(FGridCoordinate & Location)
+std::shared_ptr<FGridCoordinate> AWorldGrid::GetOpenSpawnLocation()
 {
 	for (auto& spawn : SpawnLocations)
 	{
 		CellPtr SpawnLocation = At(spawn.first);
-		if (SpawnLocation && !SpawnLocation->isOcupied)
+		if (SpawnLocation && !SpawnLocation->IsOcupied())
 		{
-			SpawnLocation->isOcupied = true;
-			Location = spawn.first;
-			return true;
+			SpawnLocation->SetOccupied(true);
+			return std::make_shared<FGridCoordinate>(spawn.first);
 		}
 	}
 
-	return false;
+	return nullptr;
 }
 
 void AWorldGrid::GenerateGrid()
@@ -495,10 +499,10 @@ bool AWorldGrid::SetPosition(const FGridCoordinate & Location, const FGridCoordi
 	{
 		CellPtr FoundLocation = At(Location);
 		CellPtr FoundDestination = At(Destination);
-		if (FoundLocation && FoundDestination && !FoundDestination->isOcupied)
+		if (FoundLocation && FoundDestination && !FoundDestination->bNonTraversable)
 		{
-			FoundLocation->isOcupied = false;
-			FoundDestination->isOcupied = true;
+			FoundLocation->SetOccupied(false);
+			FoundDestination->SetOccupied(true);
 			moved = true;
 		}
 
@@ -520,6 +524,15 @@ void AWorldGrid::GetPawnIDParams(const int PawnID, int & OwnerID, int & PawnInde
 	OwnerID = PawnID / 10;
 }
 
+void AWorldGrid::NotifyConnectedPlayerOfNewPawn(int PlayerID, int PawnID)
+{
+	auto ConnectedPlayer = PlayerCollection[PlayerID];
+	if (ConnectedPlayer)
+	{
+		ConnectedPlayer->AddNewCharacter(PawnID);
+	}
+}
+
 void AWorldGrid::OnGridDimensionRep()
 {
 	bInitialized = true;
@@ -533,11 +546,11 @@ void AWorldGrid::OnGridDimensionRep()
 
 Cell::Cell()
 {
-	isBlockingSpace = false;
-	isOcupied = false;
 	H_Cost = 0;
 	G_Cost = 0;
+	objectCount = 0;
 	Parent = nullptr;
+	bNonTraversable = false;
 	Location = FGridCoordinate(-1, -1);
 
 	for (auto& n : Neighbors)
@@ -563,6 +576,23 @@ bool Cell::operator<(const Cell & b)
 	}
 
 	return F_Cost() < b.F_Cost();
+}
+
+bool Cell::IsOcupied() const
+{
+	return (bool)objectCount;
+}
+
+void Cell::SetOccupied(bool value)
+{
+	if (value)
+	{
+		objectCount++;
+	}
+	else if (objectCount > 0)
+	{
+		objectCount--;
+	}
 }
 
 CellPtr& Cell::operator[](const CELL_NEIGHBOR & Location)
@@ -602,7 +632,7 @@ std::list<CellPtr> Cell::GetEmptyNeighbors()
 	// 8 total possible neighbors
 	for (int x = 0; x < 8; x++)
 	{
-		if (Neighbors[x] && !Neighbors[x]->isOcupied)
+		if (Neighbors[x] && !Neighbors[x]->bNonTraversable)
 		{
 			list.push_back(Neighbors[x]);
 		}

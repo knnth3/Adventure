@@ -3,6 +3,8 @@
 #include "PathFinder.h"
 #include "Algo/Reverse.h"
 
+#define OCCUPIED_CELL_COST 400
+
 bool UPathFinder::FindPath(AWorldGrid * Grid, const FGridCoordinate & Start, const FGridCoordinate & End, TArray<FGridCoordinate>& OutPath)
 {
 	if (!Grid)
@@ -92,11 +94,12 @@ int UPathFinder::GetDistance(const CellPtr& from, const CellPtr& to)
 	{
 		int xDistance = abs(from->Location.X - to->Location.X);
 		int yDistance = abs(from->Location.Y - to->Location.Y);
+		int extraCost = (to->IsOcupied()) ? OCCUPIED_CELL_COST : 0;
 
 		if (xDistance > yDistance)
-			return (14 * yDistance) + 10 * (xDistance - yDistance);
+			return (14 * yDistance) + 10 * (xDistance - yDistance) + extraCost;
 
-		return (14 * xDistance) + 10 * (yDistance - xDistance);
+		return (14 * xDistance) + 10 * (yDistance - xDistance) + extraCost;
 	}
 
 	return 0;

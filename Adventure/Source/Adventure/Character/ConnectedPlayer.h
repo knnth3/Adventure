@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Basics.h"
+#include "MapPawnStatSheet.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "ConnectedPlayer.generated.h"
@@ -38,7 +39,9 @@ class ADVENTURE_API AConnectedPlayer : public APawn
 
 public:
 	AConnectedPlayer();
-	void SetPlayerState(const TURN_BASED_STATE CurrentState);
+
+	void SetPlayerState(const TURN_BASED_STATE currentState);
+	void AddNewCharacter(const int PawnID, bool IgnoreCameraLogic = false);
 
 	// Accessor Methods
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
@@ -48,6 +51,10 @@ public:
 	bool GetPawnLocation(FVector& Location) const;
 
 protected:
+
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	TURN_BASED_STATE CurrentState;
+
 	// Player Components
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
 	class USceneComponent* Scene;
@@ -60,11 +67,11 @@ protected:
 
 	// Client State Change Functions
 	UFUNCTION(BlueprintImplementableEvent, Category = "Connected Player")
-	void OnPlayerStatusChanged(const TURN_BASED_STATE CurrentState);
+	void OnPlayerStatusChanged(const TURN_BASED_STATE state);
 
 	// Camera Functions
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void SwapCameraView(const float& time);
+	void SwapCameraView();
 
 	UFUNCTION(BlueprintCallable, Category = "MapPawn Camera")
 	void RotatePawnCameraUpDown(const float& AxisValue, const float& DeltaTime);
@@ -85,6 +92,9 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	bool GetSelectedActorLocation(FVector& Location) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	bool GetSelectedActorStats(FMapPawnStatSheet& Stats) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	int GetSpectatingPawnID() const;
@@ -110,6 +120,9 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	void EndCombat();
 
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	void AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner , FVector NewLocation);
+
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -119,15 +132,13 @@ private:
 
 	CONNECTED_PLAYER_CAMERA CameraType;
 	class AMapPawn* SelectedPawn;
+	float CameraTransitionAcceleration;
 
-	void SetCameraToOverview(const float time = 0.0f);
-	void SetCameraToCharacter(const float time = 0.0f);
+	void SetCameraToOverview();
+	void SetCameraToCharacter();
 
 	UPROPERTY(Replicated)
 	int SpectatingPawnID;
-
-	UPROPERTY(Replicated)
-	TURN_BASED_STATE CurrentState;
 
 	UPROPERTY(Replicated)
 	CONNECTED_PLAYER_TYPE PlayerType;
@@ -153,6 +164,9 @@ private:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ScaleHead(const FVector& Size);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner, FVector NewLocation);
 
 	//Client Private Functions
 	UFUNCTION(Client, Reliable)

@@ -34,20 +34,21 @@ public:
 
 	int F_Cost()const;
 	bool operator<(const Cell& b);
-
+	bool IsOcupied() const;
+	void SetOccupied(bool value);
 	CellPtr& operator[](const CELL_NEIGHBOR& Location);
 	CellPtr& GetNeighbor(const CELL_NEIGHBOR& Location);
 	std::list<CellPtr> GetEmptyNeighbors();
 
 	FGridCoordinate Location;
 	CellPtr Parent;
-	bool isOcupied;
-	bool isBlockingSpace;
+	bool bNonTraversable;
 	int H_Cost;
 	int G_Cost;
 
 private:
 
+	int objectCount;
 	CellPtr Neighbors[8];
 };
 
@@ -96,7 +97,7 @@ public:
 	void RegisterPlayerController(class AConnectedPlayer* ConnectedPlayer);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	int AddCharacter(int OwnerID, int ClassIndex = 0);
+	int AddCharacter(int OwnerID, bool OverrideLocation, FVector NewLocation, int ClassIndex = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	bool FindPath(const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
@@ -105,7 +106,7 @@ public:
 	CellPtr At(const FGridCoordinate& Location)const;
 
 	bool AddBlockingSpace(const FGridCoordinate& Location);
-	bool AddVisual(int ClassIndex, const FGridCoordinate& Location);
+	bool AddVisual(int ClassIndex, const FGridCoordinate& Location, bool makeMovableOverride = false);
 	bool AddSpawnLocation(int ClassIndex, const FGridCoordinate& Location);
 	bool AddSpawnLocations(int ClassIndex, const TArray<FGridCoordinate>& Locations);
 
@@ -115,7 +116,6 @@ public:
 	bool RemoveSpawnLocation(const FGridCoordinate& Location);
 
 	void ClearCharacters();
-	void ClearBlockingSpaces();
 	void ClearSpawnLocations();
 
 	int GetHostID() const;
@@ -140,18 +140,13 @@ protected:
 
 private:
 
-	struct PawnIndex
-	{
-		int OwnerID;
-		int PawnIndex;
-	};
-
-	bool GetOpenSpawnLocation(FGridCoordinate& Location);
+	std::shared_ptr<FGridCoordinate> GetOpenSpawnLocation();
 	void GenerateGrid();
 	void SetupVisuals(const FGridCoordinate & GridDimensions);
 	bool SetPosition(const FGridCoordinate& Location, const FGridCoordinate& Destination);
 	int GenerateNewPawnIndex(const int OwnerID);
 	void GetPawnIDParams(const int PawnID, int& OwnerID, int& PawnIndex) const;
+	void NotifyConnectedPlayerOfNewPawn(int PlayerID, int PawnID);
 
 	UFUNCTION()
 	void OnGridDimensionRep();
@@ -160,10 +155,10 @@ private:
 	FGridCoordinate Dimensions;
 
 	int HostID;
-	int ActivePawnID;
+	int ActivePlayerID;
 	bool bInitialized;
 	vector2D<CellPtr> LogicalGrid;
-	std::queue<PawnIndex> TurnSequence;
+	std::queue<int> TurnSequence;
 	std::map<int, class AConnectedPlayer*> PlayerCollection;
 	std::map<int, std::map<int, std::unique_ptr<class AMapPawn*>>> PawnCollection;
 	std::map<CoordinatePair, class ASpawner*> SpawnLocations;
