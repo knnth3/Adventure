@@ -36,7 +36,7 @@ protected:
 
 private:
 
-	FString MapName;
+	FString CurrentMapName;
 	int Rows, Columns, HostID;
 	TArray<struct FGAMEBUILDER_OBJECT> MapDecorations;
 };

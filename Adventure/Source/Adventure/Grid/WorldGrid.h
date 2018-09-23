@@ -67,6 +67,9 @@ public:
 	void Initialize(const int HostID, FGridCoordinate GridDimensions);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
+	void RegisterConnectedPlayers();
+
+	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	FGridCoordinate GetDimensions()const;
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
@@ -123,6 +126,9 @@ public:
 
 protected:
 
+	UPROPERTY(BlueprintReadOnly, Category = "Spawnables")
+	bool bInitialized;
+
 	UPROPERTY(EditAnywhere, Category = "Spawnables")
 	TArray<TSubclassOf<class ASpawner>> SpawnerClasses;
 
@@ -137,6 +143,9 @@ protected:
 
 	UPROPERTY(EditAnywhere)
 	class UMaterialInterface* Material;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "World Grid")
+	AMapPawn* OnSpawnNewPawnRequest(const int pawnID, const FGridCoordinate location);
 
 private:
 
@@ -156,7 +165,6 @@ private:
 
 	int HostID;
 	int ActivePlayerID;
-	bool bInitialized;
 	vector2D<CellPtr> LogicalGrid;
 	std::queue<int> TurnSequence;
 	std::map<int, class AConnectedPlayer*> PlayerCollection;

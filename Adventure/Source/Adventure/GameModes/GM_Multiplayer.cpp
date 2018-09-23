@@ -17,7 +17,7 @@ FGridCoordinate AGM_Multiplayer::GetMapSize()const
 
 FString AGM_Multiplayer::GetMapName() const
 {
-	return MapName;
+	return CurrentMapName;
 }
 
 void AGM_Multiplayer::GetMapObjects(TArray<struct FGAMEBUILDER_OBJECT>& Objects) const
@@ -52,11 +52,11 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 		MapDecorations = MapSaveFile->Objects;
 	}
 
-	APlayerController* Owner = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (Owner)
+	APlayerController* GameHost = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (GameHost)
 	{
-		FString Name = Owner->PlayerState->GetPlayerName();
-		HostID = Owner->PlayerState->PlayerId;
+		FString Name = GameHost->PlayerState->GetPlayerName();
+		HostID = GameHost->PlayerState->PlayerId;
 		UE_LOG(LogNotice, Warning, TEXT("Found Owner: %s with id= %i."), *Name, HostID);
 	}
 
@@ -68,6 +68,6 @@ void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController*& NewPlayer)
 	auto state = NewPlayer->PlayerState;
 	if (state)
 	{
-		UE_LOG(LogNotice, Error, TEXT("<HandleSeamlessTravel>: %s: %i"), *state->GetPlayerName(), state->PlayerId);
+		UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s: %i"), *state->GetPlayerName(), state->PlayerId);
 	}
 }

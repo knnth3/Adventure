@@ -99,7 +99,7 @@ protected:
 	UStaticMesh* BaseHeadMesh;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
-	UAnimBlueprint* BaseAnimationBlueprint;
+	UAnimBlueprintGeneratedClass* BaseAnimationBlueprint;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
 	TSubclassOf<class AMapPawnComponent_Head> PawnHeadClass;
@@ -122,7 +122,6 @@ private:
 	bool bIsTurnActive;
 	bool bHasTarget;
 	float DesiredCameraZoom;
-	FVector TargetedLocation;
 	FCameraSettings CameraSettings;
 	class USceneComponent* Scene;
 	class UCameraComponent* FollowCamera;
@@ -148,6 +147,9 @@ private:
 
 	UPROPERTY(Replicated)
 	FMapPawnStatSheet StatSheet;
+
+	UPROPERTY(Replicated)
+	FVector TargetedLocation;
 
 	UPROPERTY(ReplicatedUsing = OnDestination_Rep)
 	FVector FinalDestination;

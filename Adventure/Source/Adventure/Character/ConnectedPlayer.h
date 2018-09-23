@@ -50,6 +50,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	bool GetPawnLocation(FVector& Location) const;
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_RegisterPlayer();
+
 protected:
 
 	UPROPERTY(Replicated, BlueprintReadOnly)
@@ -123,7 +126,6 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	void AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner , FVector NewLocation);
 
-	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -154,7 +156,7 @@ private:
 	void Server_EndTurnBasedMechanics();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetSpectatingPawn(const int PawnIndex);
+	void Server_SetSpectatingPawn(const int PawnIndex, bool setFocus = false);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_MovePlayer(const FVector& Location, const int PawnID);
@@ -170,7 +172,7 @@ private:
 
 	//Client Private Functions
 	UFUNCTION(Client, Reliable)
-	void Client_SetFocusToSelectedPawn();
+	void Client_SetFocusToSelectedPawn(bool setFocus = false);
 
 	UFUNCTION(Client, Reliable)
 	void Client_NotifyStateChange();

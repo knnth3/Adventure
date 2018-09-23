@@ -95,7 +95,7 @@ void AMapPawn::BeginPlay()
 		// Body Set-up
 		PawnBody->SetWorldScale3D(FVector(0.5f));
 		PawnBody->SetSkeletalMesh(BaseSkeletalMesh);
-		PawnBody->SetAnimInstanceClass(BaseAnimationBlueprint->GetAnimBlueprintGeneratedClass());
+		PawnBody->SetAnimInstanceClass(BaseAnimationBlueprint);
 
 		// Head Set-up
 		FTransform Transform;

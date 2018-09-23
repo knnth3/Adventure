@@ -40,15 +40,23 @@ void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AWorldGrid, Dimensions);
 }
 
-void AWorldGrid::Initialize(const int HostID, FGridCoordinate GridDimensions)
+void AWorldGrid::Initialize(const int hostID, FGridCoordinate gridDimensions)
 {
 	if (HasAuthority() && !bInitialized)
 	{
-		this->HostID = HostID;
+		this->HostID = hostID;
 		bInitialized = true;
-		Dimensions = GridDimensions;
+		Dimensions = gridDimensions;
 		GenerateGrid();
 		SetupVisuals(Dimensions);
+	}
+}
+
+void AWorldGrid::RegisterConnectedPlayers()
+{
+	for (TActorIterator<AConnectedPlayer> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+	{
+		RegisterPlayerController(*ActorItr);
 	}
 }
 
@@ -141,6 +149,7 @@ void AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer)
 	int OwnerID = ConnectedPlayer->GetPlayerID();
 	PlayerCollection[OwnerID] = ConnectedPlayer;
 	ConnectedPlayer->SetPlayerState(TURN_BASED_STATE::FREE_ROAM);
+	ConnectedPlayer->Server_RegisterPlayer();
 }
 
 int AWorldGrid::AddCharacter(int OwnerID, bool OverrideLocation, FVector NewLocation, int ClassIndex)
@@ -154,11 +163,11 @@ int AWorldGrid::AddCharacter(int OwnerID, bool OverrideLocation, FVector NewLoca
 		if (Location)
 		{
 			CellPtr Cell = At(*Location);
-			FVector WorldLocation = UGridFunctions::GridToWorldLocation(*Location);
-			UWorld* World = GetWorld();
-			if (World && Cell)
+			if (Cell)
 			{
-				AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[ClassIndex], &WorldLocation));
+				UE_LOG(LogNotice, Error, TEXT("Will Crash?"));
+				AMapPawn* NewPawn = OnSpawnNewPawnRequest(ClassIndex, *Location);
+				UE_LOG(LogNotice, Error, TEXT("Yup!"));
 				if (NewPawn)
 				{
 					UE_LOG(LogNotice, Display, TEXT("Added new MapPawn with ID= %i : Owner= %i"), PawnID, OwnerID);
@@ -170,8 +179,24 @@ int AWorldGrid::AddCharacter(int OwnerID, bool OverrideLocation, FVector NewLoca
 					NotifyConnectedPlayerOfNewPawn(OwnerID, PawnID);
 					return PawnID;
 				}
+				else
+				{
+					UE_LOG(LogNotice, Error, TEXT("Failed to create pawn for: Owner= %i"), OwnerID);
+				}
+			}
+			else
+			{
+				UE_LOG(LogNotice, Error, TEXT("Failed to find World while creating pawn: Owner= %i"), OwnerID);
 			}
 		}
+		else
+		{
+			UE_LOG(LogNotice, Error, TEXT("Failed find location while creating pawn: Owner= %i"), OwnerID);
+		}
+	}
+	else
+	{
+		UE_LOG(LogNotice, Error, TEXT("Class Index is invalid while creating pawn: Owner= %i"), OwnerID);
 	}
 
 	return 0;
@@ -416,7 +441,6 @@ std::shared_ptr<FGridCoordinate> AWorldGrid::GetOpenSpawnLocation()
 		CellPtr SpawnLocation = At(spawn.first);
 		if (SpawnLocation && !SpawnLocation->IsOcupied())
 		{
-			SpawnLocation->SetOccupied(true);
 			return std::make_shared<FGridCoordinate>(spawn.first);
 		}
 	}
@@ -595,14 +619,14 @@ void Cell::SetOccupied(bool value)
 	}
 }
 
-CellPtr& Cell::operator[](const CELL_NEIGHBOR & Location)
+CellPtr& Cell::operator[](const CELL_NEIGHBOR & position)
 {
-	return GetNeighbor(Location);
+	return GetNeighbor(position);
 }
 
-CellPtr& Cell::GetNeighbor(const CELL_NEIGHBOR & Location)
+CellPtr& Cell::GetNeighbor(const CELL_NEIGHBOR & position)
 {
-	switch (Location)
+	switch (position)
 	{
 	case Cell::CELL_TOP:
 		return Neighbors[0];

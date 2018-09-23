@@ -13,7 +13,7 @@ AConnectedPlayer::AConnectedPlayer()
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	PlayerType = CONNECTED_PLAYER_TYPE::NONE;
-	CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
+	CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
 	SelectedPawn = nullptr;
 	SpectatingPawnID = 0;
 	CameraTransitionAcceleration = 5500.0f;
@@ -43,32 +43,7 @@ AConnectedPlayer::AConnectedPlayer()
 // Called every frame
 void AConnectedPlayer::Tick(float DeltaTime)
 {
-	static bool bRegistered = false;
 	Super::Tick(DeltaTime);
-
-	// Only happens on the server
-	if (HasAuthority())
-	{
-		if (!bRegistered)
-		{
-			bRegistered = true;
-			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-			if (WorldGrid)
-			{
-				WorldGrid->RegisterPlayerController(this);
-
-				// Add two new characters
-				if (WorldGrid->GetHostID() != GetPlayerID())
-				{
-					WorldGrid->AddCharacter(GetPlayerID(), false, FVector());
-				}
-				else
-				{
-					CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
-				}
-			}
-		}
-	}
 }
 
 // Called to bind functionality to input
@@ -99,13 +74,13 @@ void AConnectedPlayer::AddNewCharacter(const int PawnID, bool IgnoreCameraLogic)
 {
 	OwningPawns.Push(PawnID);
 
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
+	TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+	if (WorldGridItr)
 	{
 		if (!SelectedPawn)
 		{
 			SpectatingPawnID = PawnID;
-			SelectedPawn = WorldGrid->GetPawn(GetPlayerID(), PawnID);
+			SelectedPawn = WorldGridItr->GetPawn(GetPlayerID(), PawnID);
 		}
 
 		if (!IgnoreCameraLogic && CameraType == CONNECTED_PLAYER_CAMERA::CHARACTER)
@@ -163,15 +138,9 @@ void AConnectedPlayer::EndCombat()
 	Server_EndTurnBasedMechanics();
 }
 
-void AConnectedPlayer::AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner = false, FVector NewLocation = FVector())
+void AConnectedPlayer::AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner, FVector NewLocation)
 {
 	Server_AddCharacter(PlayerID, PawnTypeIndex, OverrideSpawner, NewLocation);
-}
-
-// Called when the game starts or when spawned
-void AConnectedPlayer::BeginPlay()
-{
-	Super::BeginPlay();
 }
 
 int AConnectedPlayer::GetNumOwningPawns() const
@@ -328,10 +297,13 @@ void AConnectedPlayer::Server_Attack_Implementation(AMapPawnAttack* Attack, cons
 {
 	if (SelectedPawn)
 	{
-		TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-		if (WorldGrid->GetHostID() == GetPlayerID() || WorldGrid && WorldGrid->IsTurn(SpectatingPawnID))
+		TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+		if (WorldGridItr)
 		{
-			SelectedPawn->Attack(Attack, EndLocation);
+			if (WorldGridItr->GetHostID() == GetPlayerID() || WorldGridItr->IsTurn(SpectatingPawnID))
+			{
+				SelectedPawn->Attack(Attack, EndLocation);
+			}
 		}
 	}
 	else
@@ -347,10 +319,10 @@ bool AConnectedPlayer::Server_Attack_Validate(AMapPawnAttack* Attack, const FVec
 
 void AConnectedPlayer::Server_BeginTurnBasedMechanics_Implementation(const TArray<int>& Order)
 {
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid && WorldGrid->GetHostID() == GetPlayerID())
+	TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+	if (WorldGridItr && WorldGridItr->GetHostID() == GetPlayerID())
 	{
-		WorldGrid->BeginTurnBasedMechanics(Order);
+		WorldGridItr->BeginTurnBasedMechanics(Order);
 	}
 	else
 	{
@@ -365,10 +337,10 @@ bool AConnectedPlayer::Server_BeginTurnBasedMechanics_Validate(const TArray<int>
 
 void AConnectedPlayer::Server_EndTurnBasedMechanics_Implementation()
 {
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
+	TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+	if (WorldGridItr)
 	{
-		WorldGrid->EndTurnBasedMechanics();
+		WorldGridItr->EndTurnBasedMechanics();
 	}
 	else
 	{
@@ -383,10 +355,10 @@ bool AConnectedPlayer::Server_EndTurnBasedMechanics_Validate()
 
 void AConnectedPlayer::Server_MovePlayer_Implementation(const FVector & Location, const int PawnID)
 {
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
+	TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+	if (WorldGridItr)
 	{
-		WorldGrid->MoveCharacter(PawnID, Location, (WorldGrid->GetHostID() == GetPlayerID()) ? true : false);
+		WorldGridItr->MoveCharacter(PawnID, Location, (WorldGridItr->GetHostID() == GetPlayerID()) ? true : false);
 	}
 	else
 	{
@@ -399,28 +371,31 @@ bool AConnectedPlayer::Server_MovePlayer_Validate(const FVector & Location, cons
 	return true;
 }
 
-void AConnectedPlayer::Server_SetSpectatingPawn_Implementation(const int PawnIndex)
+void AConnectedPlayer::Server_SetSpectatingPawn_Implementation(const int PawnIndex, bool focusPawn)
 {
+	UE_LOG(LogNotice, Warning, TEXT("Setting spectating spawn"));
 	if (OwningPawns.Num() > PawnIndex && PawnIndex >= 0)
 	{
-		TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-		if (WorldGrid)
+		TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+		if (WorldGridItr)
 		{
+			UE_LOG(LogNotice, Warning, TEXT("World Grid Avalable"));
 			int NewPawnID = OwningPawns[PawnIndex];
 			SpectatingPawnID = NewPawnID;
-			SelectedPawn = WorldGrid->GetPawn(GetPlayerID(), NewPawnID);
-			Client_SetFocusToSelectedPawn();
+			SelectedPawn = WorldGridItr->GetPawn(GetPlayerID(), NewPawnID);
+			Client_SetFocusToSelectedPawn(focusPawn);
 		}
 	}
 }
 
-bool AConnectedPlayer::Server_SetSpectatingPawn_Validate(const int PawnIndex)
+bool AConnectedPlayer::Server_SetSpectatingPawn_Validate(const int PawnIndex, bool focusPawn)
 {
 	return true;
 }
 
-void AConnectedPlayer::Client_SetFocusToSelectedPawn_Implementation()
+void AConnectedPlayer::Client_SetFocusToSelectedPawn_Implementation(bool focusPawn)
 {
+	UE_LOG(LogNotice, Warning, TEXT("Setting focus to pawn"));
 	if (Role == ROLE_Authority)
 	{
 		for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
@@ -429,8 +404,9 @@ void AConnectedPlayer::Client_SetFocusToSelectedPawn_Implementation()
 			{
 				SelectedPawn = (*ActorItr);
 
-				if (CameraType == CONNECTED_PLAYER_CAMERA::CHARACTER)
+				if (focusPawn)
 				{
+					CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
 					SetCameraToCharacter();
 				}
 			}
@@ -450,10 +426,11 @@ void AConnectedPlayer::Server_AddCharacter_Implementation(int PlayerID, int Pawn
 		PlayerID = GetPlayerID();
 	}
 
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid && WorldGrid->GetHostID() == GetPlayerID())
+	TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+	if (WorldGridItr && WorldGridItr->GetHostID() == GetPlayerID())
 	{
-		WorldGrid->AddCharacter(PlayerID, OverrideSpawner, NewLocation, PawnTypeIndex);
+		UE_LOG(LogNotice, Warning, TEXT("Spawning New Character..."));
+		WorldGridItr->AddCharacter(PlayerID, OverrideSpawner, NewLocation, PawnTypeIndex);
 	}
 	else
 	{
@@ -462,6 +439,21 @@ void AConnectedPlayer::Server_AddCharacter_Implementation(int PlayerID, int Pawn
 }
 
 bool AConnectedPlayer::Server_AddCharacter_Validate(int PlayerID, int PawnTypeIndex, bool OverrideSpawner, FVector NewLocation)
+{
+	return true;
+}
+
+void AConnectedPlayer::Server_RegisterPlayer_Implementation() 
+{
+	TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+	if (WorldGridItr)
+	{
+		Server_AddCharacter(GetPlayerID(), 0, false, FVector());
+		Server_SetSpectatingPawn(0, true);
+	}
+}
+
+bool AConnectedPlayer::Server_RegisterPlayer_Validate()
 {
 	return true;
 }

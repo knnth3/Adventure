@@ -48,6 +48,8 @@ void AGS_Multiplayer::HandleBeginPlay()
 					break;
 				}
 			}
+
+			WorldGrid->RegisterConnectedPlayers();
 		}
 	}
 }
