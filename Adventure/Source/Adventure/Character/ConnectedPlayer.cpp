@@ -1,6 +1,7 @@
 // By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
 #include "ConnectedPlayer.h"
 
+#include "../PlayerControllers/PC_Multiplayer.h"
 #include "Grid/WorldGrid.h"
 #include "MapPawn.h"
 #include "Adventure.h"
@@ -16,7 +17,9 @@ AConnectedPlayer::AConnectedPlayer()
 	CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
 	SelectedPawn = nullptr;
 	SpectatingPawnID = 0;
+	UniqueID = -1;
 	CameraTransitionAcceleration = 5500.0f;
+	bRegistered = false;
 
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -44,6 +47,17 @@ AConnectedPlayer::AConnectedPlayer()
 void AConnectedPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	//Only run on server
+	if (HasAuthority() && !bRegistered)
+	{
+		TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+		if (WorldGridItr)
+		{
+			WorldGridItr->RegisterPlayerController(this);
+			bRegistered = true;
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -62,6 +76,7 @@ void AConnectedPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AConnectedPlayer, SpectatingPawnID);
 	DOREPLIFETIME(AConnectedPlayer, CurrentState);
 	DOREPLIFETIME(AConnectedPlayer, OwningPawns);
+	DOREPLIFETIME(AConnectedPlayer, UniqueID);
 }
 
 void AConnectedPlayer::SetPlayerState(const TURN_BASED_STATE NewState)
@@ -90,14 +105,29 @@ void AConnectedPlayer::AddNewCharacter(const int PawnID, bool IgnoreCameraLogic)
 	}
 }
 
+void AConnectedPlayer::AdjustCameraToMap(const FGridCoordinate gridDimensions)
+{
+	FVector CStartLocation = UGridFunctions::GridToWorldLocation(UGridFunctions::WorldToGridLocation(FVector()));
+	FVector CEndLocation = UGridFunctions::GridToWorldLocation(gridDimensions);
+
+	FVector Center((CStartLocation.X + CEndLocation.X)*0.5f, (CStartLocation.Y + CEndLocation.Y)*0.5f, 0.0f);
+
+	UE_LOG(LogNotice, Warning, TEXT("CameraLocation: %s"), *GetActorLocation().ToString());
+
+	UE_LOG(LogNotice, Warning, TEXT("EndLocation GridSpace: %i, %i"), gridDimensions.X, gridDimensions.Y);
+	UE_LOG(LogNotice, Warning, TEXT("EndLocation: %s"), *CEndLocation.ToString());
+	UE_LOG(LogNotice, Warning, TEXT("Next CameraLocation: %s"), *Center.ToString());
+	SetActorLocation(Center);
+}
+
+void AConnectedPlayer::SetPlayerID(int newID)
+{
+	UniqueID = newID;
+}
+
 int AConnectedPlayer::GetPlayerID() const
 {
-	if (PlayerState)
-	{
-		return PlayerState->PlayerId;
-	}
-
-	return -1;
+	return UniqueID;
 }
 
 bool AConnectedPlayer::GetPawnLocation(FVector & Location) const
@@ -210,7 +240,7 @@ void AConnectedPlayer::SetCameraToOverview()
 	if (PlayerController)
 	{
 		// Get Distance between the two cameras
-		FVector StartLocation = PlayerController->PlayerCameraManager->GetCameraLocation();
+		FVector StartLocation = SelectedPawn->GetCameraLocation();
 		FVector EndLocation = FollowCamera->GetComponentLocation();
 		float Distance = FVector::Distance(StartLocation, EndLocation);
 		
@@ -228,7 +258,7 @@ void AConnectedPlayer::SetCameraToCharacter()
 	if (PlayerController)
 	{
 		// Get Distance between the two cameras
-		FVector StartLocation = PlayerController->PlayerCameraManager->GetCameraLocation();
+		FVector StartLocation = FollowCamera->GetComponentLocation();
 		FVector EndLocation = SelectedPawn->GetCameraLocation();
 		float Distance = FVector::Distance(StartLocation, EndLocation);
 		
@@ -373,13 +403,11 @@ bool AConnectedPlayer::Server_MovePlayer_Validate(const FVector & Location, cons
 
 void AConnectedPlayer::Server_SetSpectatingPawn_Implementation(const int PawnIndex, bool focusPawn)
 {
-	UE_LOG(LogNotice, Warning, TEXT("Setting spectating spawn"));
 	if (OwningPawns.Num() > PawnIndex && PawnIndex >= 0)
 	{
 		TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
 		if (WorldGridItr)
 		{
-			UE_LOG(LogNotice, Warning, TEXT("World Grid Avalable"));
 			int NewPawnID = OwningPawns[PawnIndex];
 			SpectatingPawnID = NewPawnID;
 			SelectedPawn = WorldGridItr->GetPawn(GetPlayerID(), NewPawnID);
@@ -395,21 +423,13 @@ bool AConnectedPlayer::Server_SetSpectatingPawn_Validate(const int PawnIndex, bo
 
 void AConnectedPlayer::Client_SetFocusToSelectedPawn_Implementation(bool focusPawn)
 {
-	UE_LOG(LogNotice, Warning, TEXT("Setting focus to pawn"));
-	if (Role == ROLE_Authority)
+	for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
 	{
-		for (TActorIterator<AMapPawn> ActorItr(GetWorld()); ActorItr; ++ActorItr)
+		UE_LOG(LogNotice, Warning, TEXT("Found Pawn id=%i"), ActorItr->GetPawnID());
+		if (SpectatingPawnID == ActorItr->GetPawnID())
 		{
-			if (SpectatingPawnID == ActorItr->GetPawnID())
-			{
-				SelectedPawn = (*ActorItr);
-
-				if (focusPawn)
-				{
-					CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
-					SetCameraToCharacter();
-				}
-			}
+			UE_LOG(LogNotice, Warning, TEXT("Setting view to actor: %i"), SpectatingPawnID);
+			SelectedPawn = (*ActorItr);
 		}
 	}
 }
@@ -421,21 +441,21 @@ void AConnectedPlayer::Client_NotifyStateChange_Implementation()
 
 void AConnectedPlayer::Server_AddCharacter_Implementation(int PlayerID, int PawnTypeIndex, bool OverrideSpawner, FVector NewLocation)
 {
-	if (PlayerID == 0)
-	{
-		PlayerID = GetPlayerID();
-	}
-
+	PlayerID = (PlayerID) ? PlayerID : GetPlayerID();
 	TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
-	if (WorldGridItr && WorldGridItr->GetHostID() == GetPlayerID())
-	{
-		UE_LOG(LogNotice, Warning, TEXT("Spawning New Character..."));
-		WorldGridItr->AddCharacter(PlayerID, OverrideSpawner, NewLocation, PawnTypeIndex);
-	}
-	else
+
+	if (!WorldGridItr)
 	{
 		UE_LOG(LogNotice, Warning, TEXT("No Grid found while attempting to spawn new character."));
 	}
+
+	if (WorldGridItr->GetHostID() != GetPlayerID())
+	{
+		UE_LOG(LogNotice, Warning, TEXT("Unauthorized access to create character!: PlayerID=%i"), GetPlayerID());
+		return;
+	}
+
+	WorldGridItr->AddCharacter(PlayerID, OverrideSpawner, NewLocation, PawnTypeIndex);
 }
 
 bool AConnectedPlayer::Server_AddCharacter_Validate(int PlayerID, int PawnTypeIndex, bool OverrideSpawner, FVector NewLocation)
@@ -448,8 +468,10 @@ void AConnectedPlayer::Server_RegisterPlayer_Implementation()
 	TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
 	if (WorldGridItr)
 	{
-		Server_AddCharacter(GetPlayerID(), 0, false, FVector());
-		Server_SetSpectatingPawn(0, true);
+		int NewPawnID = WorldGridItr->AddCharacter(GetPlayerID(), false, FVector(), 0);
+		SpectatingPawnID = NewPawnID;
+		SelectedPawn = WorldGridItr->GetPawn(GetPlayerID(), NewPawnID);
+		Client_SetFocusToSelectedPawn(true);
 	}
 }
 

@@ -42,6 +42,8 @@ public:
 
 	void SetPlayerState(const TURN_BASED_STATE currentState);
 	void AddNewCharacter(const int PawnID, bool IgnoreCameraLogic = false);
+	void AdjustCameraToMap(const FGridCoordinate GridDimensions);
+	void SetPlayerID(int newID);
 
 	// Accessor Methods
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
@@ -132,12 +134,16 @@ protected:
 
 private:
 
+	bool bRegistered;
 	CONNECTED_PLAYER_CAMERA CameraType;
 	class AMapPawn* SelectedPawn;
 	float CameraTransitionAcceleration;
 
 	void SetCameraToOverview();
 	void SetCameraToCharacter();
+
+	UPROPERTY(Replicated)
+	int UniqueID;
 
 	UPROPERTY(Replicated)
 	int SpectatingPawnID;

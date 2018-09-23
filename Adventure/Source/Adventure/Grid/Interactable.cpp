@@ -16,11 +16,18 @@ AInteractable::AInteractable()
 	VisibilityValue = 1.0f;
 	bCanBeTransparent = true;
 
-	//Create a static mesh component
+	// Create a static mesh component
 	Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Focus"));
 	RootComponent = Scene;
 
-	//Create a component for the pawns body
+	// Create a box collision
+	BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollision"));
+	BoxCollision->SetupAttachment(Scene);
+	BoxCollision->SetWorldScale3D(FVector(1.524));
+	BoxCollision->SetRelativeLocation(FVector(0.0f, 0.0f, 40.0f));
+	BoxCollision->ComponentTags.Add(FName("PathBlock"));
+
+	// Create a component for the pawns body
 	Visual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Visual"));
 	Visual->SetupAttachment(Scene);
 	Visual->SetCollisionResponseToChannel(ECollisionChannel::ECC_GameTraceChannel4, ECollisionResponse::ECR_Block);

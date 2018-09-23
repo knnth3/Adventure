@@ -36,7 +36,11 @@ protected:
 
 private:
 
+	int PlayerIndexCount;
 	FString CurrentMapName;
+	FString HostUsername;
 	int Rows, Columns, HostID;
 	TArray<struct FGAMEBUILDER_OBJECT> MapDecorations;
+
+	int GeneratePlayerID();
 };

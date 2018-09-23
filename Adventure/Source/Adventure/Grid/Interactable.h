@@ -29,6 +29,9 @@ protected:
 	class UStaticMeshComponent* Visual;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
+	class UBoxComponent* BoxCollision;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
 	bool bCanBeTransparent;
 
 	// Called when the game starts or when spawned

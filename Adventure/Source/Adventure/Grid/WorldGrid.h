@@ -67,9 +67,6 @@ public:
 	void Initialize(const int HostID, FGridCoordinate GridDimensions);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void RegisterConnectedPlayers();
-
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	FGridCoordinate GetDimensions()const;
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")

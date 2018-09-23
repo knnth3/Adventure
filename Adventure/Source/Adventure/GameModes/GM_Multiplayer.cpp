@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "GM_Multiplayer.h"
 
+#include "../PlayerControllers/PC_Multiplayer.h"
 #include "GI_Adventure.h"
 #include "Adventure.h"
 #include "Grid/WorldGrid.h"
@@ -52,12 +53,13 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 		MapDecorations = MapSaveFile->Objects;
 	}
 
-	APlayerController* GameHost = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	APC_Multiplayer* GameHost = Cast<APC_Multiplayer>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 	if (GameHost)
 	{
-		FString Name = GameHost->PlayerState->GetPlayerName();
-		HostID = GameHost->PlayerState->PlayerId;
-		UE_LOG(LogNotice, Warning, TEXT("Found Owner: %s with id= %i."), *Name, HostID);
+		HostUsername = GameHost->PlayerState->GetPlayerName();
+		HostID = GeneratePlayerID();
+		GameHost->SetPlayerID(HostID);
+		UE_LOG(LogNotice, Warning, TEXT("Found Owner: %s with id= %i."), *HostUsername, HostID);
 	}
 
 }
@@ -65,9 +67,33 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController*& NewPlayer)
 {
 	Super::HandleSeamlessTravelPlayer(NewPlayer);
-	auto state = NewPlayer->PlayerState;
-	if (state)
+
+	APC_Multiplayer* Player = Cast<APC_Multiplayer>(NewPlayer);
+	AConnectedPlayer* PlayerActor = Cast<AConnectedPlayer>(NewPlayer->GetPawn());
+	if (Player && PlayerActor)
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s: %i"), *state->GetPlayerName(), state->PlayerId);
+		if (*Player->PlayerState->GetPlayerName() == HostUsername)
+		{
+			PlayerActor->SetPlayerID(HostID);
+			UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s: %i"), *Player->PlayerState->GetPlayerName(), HostID);
+		}
+		else if (PlayerActor->GetPlayerID() == -1)
+		{
+			int newID = GeneratePlayerID();
+			Player->SetPlayerID(newID);
+			PlayerActor->SetPlayerID(newID);
+			UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s: %i"), *Player->PlayerState->GetPlayerName(), newID);
+		}
+
+		AConnectedPlayer* playerClass = Cast<AConnectedPlayer>(Player->GetPawn());
+		if (playerClass)
+		{
+			playerClass->AdjustCameraToMap(FGridCoordinate(Rows, Columns));
+		}
 	}
+}
+
+int AGM_Multiplayer::GeneratePlayerID()
+{
+	return PlayerIndexCount++;
 }

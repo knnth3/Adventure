@@ -501,8 +501,8 @@ void UGI_Adventure::LoadNextMap()
 				*/
 				SessionSettings = MakeShareable(new FOnlineSessionSettings());
 
-				SessionSettings->bIsLANMatch = false;
-				SessionSettings->bUsesPresence = true;
+				SessionSettings->bIsLANMatch = HostGameSettings.IsLan;
+				SessionSettings->bUsesPresence = !HostGameSettings.IsLan;
 				SessionSettings->NumPublicConnections = 10;
 				SessionSettings->NumPrivateConnections = 10;
 				SessionSettings->bAllowInvites = true;

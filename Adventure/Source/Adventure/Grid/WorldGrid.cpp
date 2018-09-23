@@ -52,14 +52,6 @@ void AWorldGrid::Initialize(const int hostID, FGridCoordinate gridDimensions)
 	}
 }
 
-void AWorldGrid::RegisterConnectedPlayers()
-{
-	for (TActorIterator<AConnectedPlayer> ActorItr(GetWorld()); ActorItr; ++ActorItr)
-	{
-		RegisterPlayerController(*ActorItr);
-	}
-}
-
 FGridCoordinate AWorldGrid::GetDimensions()const
 {
 	return Dimensions;
@@ -165,9 +157,7 @@ int AWorldGrid::AddCharacter(int OwnerID, bool OverrideLocation, FVector NewLoca
 			CellPtr Cell = At(*Location);
 			if (Cell)
 			{
-				UE_LOG(LogNotice, Error, TEXT("Will Crash?"));
 				AMapPawn* NewPawn = OnSpawnNewPawnRequest(ClassIndex, *Location);
-				UE_LOG(LogNotice, Error, TEXT("Yup!"));
 				if (NewPawn)
 				{
 					UE_LOG(LogNotice, Display, TEXT("Added new MapPawn with ID= %i : Owner= %i"), PawnID, OwnerID);
