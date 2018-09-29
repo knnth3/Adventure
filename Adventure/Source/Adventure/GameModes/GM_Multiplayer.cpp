@@ -28,7 +28,7 @@ void AGM_Multiplayer::GetMapObjects(TArray<struct FGAMEBUILDER_OBJECT>& Objects)
 
 int AGM_Multiplayer::GetHostID() const
 {
-	return HostID;
+	return ConnnectedPlayers.at(HostUsername);
 }
 
 void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
@@ -52,16 +52,6 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 		this->Columns = MapSaveFile->MapSize.Y;
 		MapDecorations = MapSaveFile->Objects;
 	}
-
-	APC_Multiplayer* GameHost = Cast<APC_Multiplayer>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-	if (GameHost)
-	{
-		HostUsername = GameHost->PlayerState->GetPlayerName();
-		HostID = GeneratePlayerID();
-		GameHost->SetPlayerID(HostID);
-		UE_LOG(LogNotice, Warning, TEXT("Found Owner: %s with id= %i."), *HostUsername, HostID);
-	}
-
 }
 
 void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController*& NewPlayer)
@@ -72,24 +62,29 @@ void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController*& NewPlayer)
 	AConnectedPlayer* PlayerActor = Cast<AConnectedPlayer>(NewPlayer->GetPawn());
 	if (Player && PlayerActor)
 	{
-		if (*Player->PlayerState->GetPlayerName() == HostUsername)
+		std::string PlayerName = TCHAR_TO_UTF8(*Player->PlayerState->GetPlayerName());
+
+		//Host should always connect first
+		if (HostUsername.empty())
 		{
-			PlayerActor->SetPlayerID(HostID);
-			UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s: %i"), *Player->PlayerState->GetPlayerName(), HostID);
-		}
-		else if (PlayerActor->GetPlayerID() == -1)
-		{
-			int newID = GeneratePlayerID();
-			Player->SetPlayerID(newID);
-			PlayerActor->SetPlayerID(newID);
-			UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s: %i"), *Player->PlayerState->GetPlayerName(), newID);
+			HostUsername = PlayerName;
+			UE_LOG(LogNotice, Warning, TEXT("<ServerSetup>: Host registered as %s"), *FString(HostUsername.c_str()));
 		}
 
-		AConnectedPlayer* playerClass = Cast<AConnectedPlayer>(Player->GetPawn());
-		if (playerClass)
+		// New player has joined
+		if (ConnnectedPlayers.find(PlayerName) == ConnnectedPlayers.end())
 		{
-			playerClass->AdjustCameraToMap(FGridCoordinate(Rows, Columns));
+			ConnnectedPlayers[PlayerName] = GeneratePlayerID();
+			Player->SetPlayerID(ConnnectedPlayers[PlayerName]);
+			PlayerActor->Server_SetPlayerID(ConnnectedPlayers[PlayerName]);
+			UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s: %i"), *FString(PlayerName.c_str()), PlayerActor->GetPlayerID());
 		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s has reconnected via seamless travel?"), *FString(PlayerName.c_str()));
+		}
+
+		PlayerActor->Server_AdjustCameraToMap(FGridCoordinate(Rows, Columns));
 	}
 }
 

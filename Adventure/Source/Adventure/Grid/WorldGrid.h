@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <queue>
+#include <deque>
 #include "Basics.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -88,10 +88,10 @@ public:
 	void EndTurnBasedMechanics();
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void EndTurn(const int PawnID);
+	void AdvanceTurnBasedMechanics(bool startNew = false);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool MoveCharacter(const int PawnID, const FGridCoordinate& Destination, const bool bOverrideMechanics = false);
+	bool MoveCharacter(const int PawnID, const FGridCoordinate& Destination);
 
 	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
 	void RegisterPlayerController(class AConnectedPlayer* ConnectedPlayer);
@@ -118,6 +118,7 @@ public:
 	void ClearCharacters();
 	void ClearSpawnLocations();
 
+	int GetActivePlayerID() const;
 	int GetHostID() const;
 	class AMapPawn* GetPawn(const int PlayerID, const int PawnID);
 
@@ -163,7 +164,7 @@ private:
 	int HostID;
 	int ActivePlayerID;
 	vector2D<CellPtr> LogicalGrid;
-	std::queue<int> TurnSequence;
+	std::deque<int> TurnSequence;
 	std::map<int, class AConnectedPlayer*> PlayerCollection;
 	std::map<int, std::map<int, std::unique_ptr<class AMapPawn*>>> PawnCollection;
 	std::map<CoordinatePair, class ASpawner*> SpawnLocations;

@@ -5,6 +5,7 @@
 #include <queue>
 #include "Basics.h"
 #include "MapPawnStatSheet.h"
+#include "./Components/HoverArrowComponent.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "MapPawn.generated.h"
@@ -87,10 +88,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	int GetPawnID()const;
 
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void ServerOnly_ShowSelectionArrow(bool value);
+
 protected:
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	UHoverArrowComponent* ArrowComponent;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
 	USkeletalMesh* BaseSkeletalMesh;
@@ -168,6 +175,9 @@ private:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Attack(FVector Location);
+
+	UFUNCTION(Client, Reliable)
+	void Client_ShowSelectionArrow(bool value);
 
 	UFUNCTION()
 	void OnDestination_Rep();

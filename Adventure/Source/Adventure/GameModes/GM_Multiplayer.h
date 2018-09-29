@@ -36,10 +36,13 @@ protected:
 
 private:
 
+	int Rows, Columns;
 	int PlayerIndexCount;
 	FString CurrentMapName;
-	FString HostUsername;
-	int Rows, Columns, HostID;
+	std::string HostUsername;
+	std::map<std::string, int> ConnnectedPlayers;
+
+	// Temporary setup data
 	TArray<struct FGAMEBUILDER_OBJECT> MapDecorations;
 
 	int GeneratePlayerID();

@@ -59,6 +59,11 @@ AMapPawn::AMapPawn()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+
+	// Create a selection arrow
+	ArrowComponent = CreateDefaultSubobject<UHoverArrowComponent>(TEXT("Selection Arrow"));
+	ArrowComponent->SetupAttachment(Scene);
+	ArrowComponent->SetIsReplicated(true);
 }
 
 //sets variables for replicaton over a network
@@ -272,6 +277,12 @@ int AMapPawn::GetPawnID() const
 	return PawnID;
 }
 
+void AMapPawn::ServerOnly_ShowSelectionArrow(bool value)
+{
+	value ? ArrowComponent->ShowCursor() : ArrowComponent->HideCursor();
+	Client_ShowSelectionArrow(value);
+}
+
 void AMapPawn::SetPawnID(const int ID)
 {
 	if (HasAuthority())
@@ -429,6 +440,10 @@ bool AMapPawn::Server_ClearTarget_Validate()
 	return true;
 }
 
+void AMapPawn::Client_ShowSelectionArrow_Implementation(bool value)
+{
+	ArrowComponent->SetVisibility(value, true);
+}
 
 //Called on CurrentDestination replication (client)
 void AMapPawn::OnDestination_Rep()

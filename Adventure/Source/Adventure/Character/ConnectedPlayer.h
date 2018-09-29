@@ -40,10 +40,17 @@ class ADVENTURE_API AConnectedPlayer : public APawn
 public:
 	AConnectedPlayer();
 
-	void SetPlayerState(const TURN_BASED_STATE currentState);
-	void AddNewCharacter(const int PawnID, bool IgnoreCameraLogic = false);
-	void AdjustCameraToMap(const FGridCoordinate GridDimensions);
-	void SetPlayerID(int newID);
+	//Server
+	void Server_SetPlayerState(const TURN_BASED_STATE currentState);
+	void Server_AddNewCharacter(const int PawnID, bool IgnoreCameraLogic = false);
+	void Server_AdjustCameraToMap(const FGridCoordinate GridDimensions);
+	void Server_SetPlayerID(int newID);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_RegisterPlayer();
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	AMapPawn* ServerOnly_GetSpectatingPawn()const;
 
 	// Accessor Methods
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
@@ -51,9 +58,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	bool GetPawnLocation(FVector& Location) const;
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_RegisterPlayer();
 
 protected:
 
@@ -72,7 +76,11 @@ protected:
 
 	// Client State Change Functions
 	UFUNCTION(BlueprintImplementableEvent, Category = "Connected Player")
-	void OnPlayerStatusChanged(const TURN_BASED_STATE state);
+	void Client_OnStateChanged(const TURN_BASED_STATE state);
+
+	// Server State Change Functions
+	UFUNCTION(BlueprintImplementableEvent, Category = "Connected Player")
+	void Server_OnStateChanged(const TURN_BASED_STATE state);
 
 	// Camera Functions
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
@@ -123,6 +131,9 @@ protected:
 	void BeginCombat(const TArray<int>& PlayerOrder);
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	void AdvanceCombat();
+
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	void EndCombat();
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
@@ -136,7 +147,7 @@ private:
 
 	bool bRegistered;
 	CONNECTED_PLAYER_CAMERA CameraType;
-	class AMapPawn* SelectedPawn;
+	class AMapPawn* SpectatingMapPawn;
 	float CameraTransitionAcceleration;
 
 	void SetCameraToOverview();
@@ -159,6 +170,9 @@ private:
 	void Server_BeginTurnBasedMechanics(const TArray<int>& Order);
 
 	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_AdvanceTurnBasedMechanics();
+
+	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_EndTurnBasedMechanics();
 
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -171,16 +185,19 @@ private:
 	void Server_Attack(AMapPawnAttack* Attack, const FVector & EndLocation);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_ScaleHead(const FVector& Size);
+	void Server_AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner, FVector NewLocation);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner, FVector NewLocation);
+	void Server_SetPawnTargetLocation(const FVector& Location);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_ClearPawnTargetLocation();
 
 	//Client Private Functions
 	UFUNCTION(Client, Reliable)
 	void Client_SetFocusToSelectedPawn(bool setFocus = false);
 
 	UFUNCTION(Client, Reliable)
-	void Client_NotifyStateChange();
+	void Client_NotifyStateChange(const TURN_BASED_STATE NewState);
 
 };

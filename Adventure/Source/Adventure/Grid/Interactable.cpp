@@ -30,6 +30,7 @@ AInteractable::AInteractable()
 	// Create a component for the pawns body
 	Visual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Visual"));
 	Visual->SetupAttachment(Scene);
+	Visual->SetCollisionResponseToChannel(ECollisionChannel::ECC_Vehicle, ECollisionResponse::ECR_Block);
 	Visual->SetCollisionResponseToChannel(ECollisionChannel::ECC_GameTraceChannel4, ECollisionResponse::ECR_Block);
 	bReplicates = true;
 }
