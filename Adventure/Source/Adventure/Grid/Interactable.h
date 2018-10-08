@@ -2,23 +2,27 @@
 
 #pragma once
 
+#include "Grid/GridEntity.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interactable.generated.h"
 
 UCLASS()
-class ADVENTURE_API AInteractable : public AActor
+class ADVENTURE_API AInteractable : public AActor, public IGridEntity
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
 	AInteractable();
-	virtual void Tick(float DeltaTime) override;
 	void SetStaticMesh(class UStaticMesh* StaticMesh);
+	void ServerOnly_SetObjectID(int ID);
+	void ServerOnly_SetClassIndex(int Index);
 
-	UFUNCTION(BlueprintCallable)
-	void MakeTransparent();
+	virtual int GetClassIndex_Implementation() const override;
+	virtual int GetObjectID_Implementation() const override;
+	virtual bool IsNonTraversable_Implementation() const override;
+	virtual bool IsBlockingSpace_Implementation() const override;
 
 protected:
 
@@ -34,15 +38,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
 	bool bCanBeTransparent;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Grid Logic")
+	bool bIsTraversable;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Grid Logic")
+	bool bHasMovementPenalty;
+
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Interactable")
-	void OnVisibilityValueChanged(const float Value);
 	
 private:
 
-	float VisibilityValue;
-	float TargetVisibility;
-	float OpacityTransitionValue;
+	int m_ClassIndex;
+	int m_ObjectID;
 };

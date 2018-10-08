@@ -4,24 +4,16 @@
 
 
 // Sets default values
-AMapPawnComponent_Head::AMapPawnComponent_Head()
+UMapPawnComponent_Head::UMapPawnComponent_Head()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = true;
 
 }
 
 // Called when the game starts or when spawned
-void AMapPawnComponent_Head::BeginPlay()
+void UMapPawnComponent_Head::BeginPlay()
 {
 	Super::BeginPlay();
 	
 }
-
-// Called every frame
-void AMapPawnComponent_Head::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-

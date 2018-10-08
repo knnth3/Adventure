@@ -10,11 +10,10 @@
 AInteractable::AInteractable()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-	TargetVisibility = 1.0f;
-	OpacityTransitionValue = 0.05;
-	VisibilityValue = 1.0f;
-	bCanBeTransparent = true;
+	PrimaryActorTick.bCanEverTick = false;
+	m_ObjectID = -1;
+	bIsTraversable = true;
+	bHasMovementPenalty = false;
 
 	// Create a static mesh component
 	Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Focus"));
@@ -35,36 +34,11 @@ AInteractable::AInteractable()
 	bReplicates = true;
 }
 
-void AInteractable::MakeTransparent()
-{
-	if (bCanBeTransparent)
-		TargetVisibility = 0.0f;
-}
-
 // Called when the game starts or when spawned
 void AInteractable::BeginPlay()
 {
 	Super::BeginPlay();
 	
-}
-
-// Called every frame
-void AInteractable::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	// Modify opacity based on bMakeTransparent set by camera owner
-	if (bCanBeTransparent && TargetVisibility != VisibilityValue)
-	{
-		VisibilityValue = FMath::Clamp(FMath::Lerp(VisibilityValue, TargetVisibility, OpacityTransitionValue), 0.0f, 1.0f);
-		float Distance = FMath::Abs(VisibilityValue - TargetVisibility);
-		if (Distance <= 0.1f)
-		{
-			VisibilityValue = TargetVisibility;
-		}
-		OnVisibilityValueChanged(VisibilityValue);
-	}
-	TargetVisibility = 1.0f;
 }
 
 void AInteractable::SetStaticMesh(UStaticMesh * StaticMesh)
@@ -73,5 +47,35 @@ void AInteractable::SetStaticMesh(UStaticMesh * StaticMesh)
 	{
 		Visual->SetStaticMesh(StaticMesh);
 	}
+}
+
+void AInteractable::ServerOnly_SetObjectID(int ID)
+{
+	m_ObjectID = ID;
+}
+
+void AInteractable::ServerOnly_SetClassIndex(int Index)
+{
+	m_ClassIndex = Index;
+}
+
+int AInteractable::GetClassIndex_Implementation() const
+{
+	return m_ClassIndex;
+}
+
+int AInteractable::GetObjectID_Implementation() const
+{
+	return m_ObjectID;
+}
+
+bool AInteractable::IsNonTraversable_Implementation() const
+{
+	return bIsTraversable;
+}
+
+bool AInteractable::IsBlockingSpace_Implementation() const
+{
+	return bHasMovementPenalty;
 }
 

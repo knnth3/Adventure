@@ -8,23 +8,8 @@
 #include "GameFramework/Pawn.h"
 #include "ConnectedPlayer.generated.h"
 
-UENUM()
-enum class TURN_BASED_STATE : uint8
-{
-	FREE_ROAM,
-	STANDBY,
-	ACTIVE
-};
 
-UENUM()
-enum class CONNECTED_PLAYER_TYPE : uint8
-{
-	NONE,
-	HOST,
-	CLIENT
-};
-
-UENUM()
+UENUM(BlueprintType)
 enum class CONNECTED_PLAYER_CAMERA : uint8
 {
 	NONE,
@@ -39,30 +24,14 @@ class ADVENTURE_API AConnectedPlayer : public APawn
 
 public:
 	AConnectedPlayer();
-
-	//Server
-	void Server_SetPlayerState(const TURN_BASED_STATE currentState);
-	void Server_AddNewCharacter(const int PawnID, bool IgnoreCameraLogic = false);
-	void Server_AdjustCameraToMap(const FGridCoordinate GridDimensions);
-	void Server_SetPlayerID(int newID);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_RegisterPlayer();
-
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	AMapPawn* ServerOnly_GetSpectatingPawn()const;
-
-	// Accessor Methods
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	int GetPlayerID()const;
+	virtual void Tick(float DeltaTime) override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	bool GetPawnLocation(FVector& Location) const;
 
 protected:
-
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	TURN_BASED_STATE CurrentState;
 
 	// Player Components
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
@@ -73,14 +42,6 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	class UCameraComponent* FollowCamera;
-
-	// Client State Change Functions
-	UFUNCTION(BlueprintImplementableEvent, Category = "Connected Player")
-	void Client_OnStateChanged(const TURN_BASED_STATE state);
-
-	// Server State Change Functions
-	UFUNCTION(BlueprintImplementableEvent, Category = "Connected Player")
-	void Server_OnStateChanged(const TURN_BASED_STATE state);
 
 	// Camera Functions
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
@@ -101,9 +62,6 @@ protected:
 	// Accessor Functions
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	int GetNumOwningPawns() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	bool GetSelectedActorLocation(FVector& Location) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
@@ -122,82 +80,37 @@ protected:
 	void ClearPawnTargetLocation();
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void Attack(AMapPawnAttack* Attack, const FVector& EndLocation);
+	void SetSpectatingPawn(const int PawnID);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Connected Player")
+	void OnCameraTypeChanged(CONNECTED_PLAYER_CAMERA Type);
+
+	// Host Functions
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void SetSpectatingPawn(const int Index);
-
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void BeginCombat(const TArray<int>& PlayerOrder);
-
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void AdvanceCombat();
-
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void EndCombat();
-
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner , FVector NewLocation);
-
-	virtual void Tick(float DeltaTime) override;
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	void SpawnPawn(FGridCoordinate Location, const int ClassIndex = 0, const int OwnerID = 0);
 
 private:
 
 	bool bRegistered;
-	CONNECTED_PLAYER_CAMERA CameraType;
-	class AMapPawn* SpectatingMapPawn;
-	float CameraTransitionAcceleration;
+	class AMapPawn* m_SelectedPawn;
+	class AWorldGrid* m_WorldGrid;
+	float m_CameraTransitionAcceleration;
+	CONNECTED_PLAYER_CAMERA m_CameraType;
 
 	void SetCameraToOverview();
 	void SetCameraToCharacter();
 
 	UPROPERTY(Replicated)
-	int UniqueID;
-
-	UPROPERTY(Replicated)
 	int SpectatingPawnID;
 
-	UPROPERTY(Replicated)
-	CONNECTED_PLAYER_TYPE PlayerType;
-
-	UPROPERTY(Replicated)
-	TArray<int> OwningPawns;
-
-	// Server Private Functions
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_BeginTurnBasedMechanics(const TArray<int>& Order);
+	void Server_MovePlayer(const int PawnID, const FVector& Location);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_AdvanceTurnBasedMechanics();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_EndTurnBasedMechanics();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetSpectatingPawn(const int PawnIndex, bool setFocus = false);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_MovePlayer(const FVector& Location, const int PawnID);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_Attack(AMapPawnAttack* Attack, const FVector & EndLocation);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_AddCharacter(int PlayerID, int PawnTypeIndex, bool OverrideSpawner, FVector NewLocation);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetPawnTargetLocation(const FVector& Location);
+	void Server_SetPawnTargetLocation(const int PawnID, const FVector& Location);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ClearPawnTargetLocation();
-
-	//Client Private Functions
-	UFUNCTION(Client, Reliable)
-	void Client_SetFocusToSelectedPawn(bool setFocus = false);
-
-	UFUNCTION(Client, Reliable)
-	void Client_NotifyStateChange(const TURN_BASED_STATE NewState);
 
 };

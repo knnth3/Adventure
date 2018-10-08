@@ -6,9 +6,9 @@
 
 void AGS_GameBuilder::Initialize(FString MapName, int Rows, int Columns)
 {
-	this->MapName = MapName;
-	this->Rows = Rows;
-	this->Columns = Columns;
+	this->m_MapName = MapName;
+	this->m_Rows = Rows;
+	this->m_Columns = Columns;
 }
 
 void AGS_GameBuilder::HandleBeginPlay()
@@ -16,7 +16,7 @@ void AGS_GameBuilder::HandleBeginPlay()
 	Super::HandleBeginPlay();
 
 	FVector Location(0.0f);
-	WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
+	m_WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
 
 	UE_LOG(LogNotice, Warning, TEXT("GameState has begun play!"));
 
@@ -28,11 +28,11 @@ void AGS_GameBuilder::HandleBeginPlay()
 
 		UE_LOG(LogNotice, Warning, TEXT("Found Playerstate: %s with id= %i. IsAuth= %i"), *Name, PlayerID, Auth);
 
-		if (Auth && WorldGrid)
+		if (Auth && m_WorldGrid)
 		{
-			FGridCoordinate MapDimensions = FGridCoordinate(Rows, Columns);
+			FGridCoordinate MapDimensions = FGridCoordinate(m_Rows, m_Columns);
 			UE_LOG(LogNotice, Warning, TEXT("Begin World Grid Init"));
-			WorldGrid->Initialize(PlayerID, MapDimensions);
+			m_WorldGrid->ServerOnly_GenerateGrid(MapDimensions);
 			return;
 		}
 	}
@@ -41,10 +41,10 @@ void AGS_GameBuilder::HandleBeginPlay()
 
 FGridCoordinate AGS_GameBuilder::GetMapSize() const
 {
-	return FGridCoordinate(Rows, Columns);
+	return FGridCoordinate(m_Rows, m_Columns);
 }
 
 FString AGS_GameBuilder::GetMapName() const
 {
-	return MapName;
+	return m_MapName;
 }

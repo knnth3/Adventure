@@ -2,172 +2,134 @@
 
 #pragma once
 
-#include <deque>
-#include "Basics.h"
+#include <map>
+#include "WorldGrid_Cell.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "WorldGrid.generated.h"
-
-#define MAKE_CELL(x) CellPtr(new Cell(x))
-
-typedef std::shared_ptr<class Cell> CellPtr;
-
-class ADVENTURE_API Cell
-{
-public:
-	//Enum to access neighbors
-	enum CELL_NEIGHBOR
-	{
-		CELL_TOP,
-		CELL_LEFT,
-		CELL_RIGHT,
-		CELL_BOTTOM,
-		CELL_TOPLEFT,
-		CELL_BOTTOMLEFT,
-		CELL_TOPRIGHT,
-		CELL_BOTTOMRIGHT
-	};
-
-public:
-	Cell();
-	Cell(const FGridCoordinate& Location);
-
-	int F_Cost()const;
-	bool operator<(const Cell& b);
-	bool IsOcupied() const;
-	void SetOccupied(bool value);
-	CellPtr& operator[](const CELL_NEIGHBOR& Location);
-	CellPtr& GetNeighbor(const CELL_NEIGHBOR& Location);
-	std::list<CellPtr> GetEmptyNeighbors();
-
-	FGridCoordinate Location;
-	CellPtr Parent;
-	bool bNonTraversable;
-	int H_Cost;
-	int G_Cost;
-
-private:
-
-	int objectCount;
-	CellPtr Neighbors[8];
-};
 
 UCLASS()
 class ADVENTURE_API AWorldGrid : public AActor
 {
 	GENERATED_BODY()
 	
-	friend class AMapPawn;
-	
 public:	
-	// Sets default values for this actor's properties
+
 	AWorldGrid();
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	void ServerOnly_GenerateGrid(const FGridCoordinate& Dimensions, std::vector<std::vector<int>> GridSheet);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void Initialize(const int HostID, FGridCoordinate GridDimensions);
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	void ServerOnly_GenerateGrid(const FGridCoordinate& Dimensions);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	FGridCoordinate GetDimensions()const;
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	void ServerOnly_ResetGrid();
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool IsSpaceTraversable(const FGridCoordinate& Location)const;
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_AddVisual(int ClassIndex, const FGridCoordinate & Location);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool IsSpawnLocation(const FGridCoordinate& Location)const;
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_RemoveVisual(const FGridCoordinate& Location);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool IsFreeRoamActive()const;
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_AddBlockingObject(int ClassIndex, const FGridCoordinate & Location);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool IsTurn(const int PawnID)const;
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_RemoveBlockingObject(const FGridCoordinate& Location);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void BeginTurnBasedMechanics(const TArray<int>& Order);
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_AddSpawnLocation(int ClassIndex, const FGridCoordinate & Location);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void EndTurnBasedMechanics();
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_RemoveSpawnLocation(const FGridCoordinate& Location);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void AdvanceTurnBasedMechanics(bool startNew = false);
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Location, int OwningPlayerID);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool MoveCharacter(const int PawnID, const FGridCoordinate& Destination);
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawnID);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	void RegisterPlayerController(class AConnectedPlayer* ConnectedPlayer);
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	class AMapPawn* ServerOnly_GetPawn(int pawnID);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	int AddCharacter(int OwnerID, bool OverrideLocation, FVector NewLocation, int ClassIndex = 0);
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	TArray<class AMapPawn*> ServerOnly_GetAllPawns(int pawnID);
 
-	UFUNCTION(BlueprintCallable, Category = "WorldGrid")
-	bool FindPath(const FGridCoordinate& Start, const FGridCoordinate& End, TArray<FGridCoordinate>& OutPath);
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath);
 
-	CellPtr At(const int X, const int Y)const;
-	CellPtr At(const FGridCoordinate& Location)const;
-
-	bool AddBlockingSpace(const FGridCoordinate& Location);
-	bool AddVisual(int ClassIndex, const FGridCoordinate& Location, bool makeMovableOverride = false);
-	bool AddSpawnLocation(int ClassIndex, const FGridCoordinate& Location);
-	bool AddSpawnLocations(int ClassIndex, const TArray<FGridCoordinate>& Locations);
-
-	bool RemoveCharacter(int PlayerID);
-	bool RemoveVisual(const FGridCoordinate& Location);
-	bool RemoveBlockingSpace(const FGridCoordinate& Location);
-	bool RemoveSpawnLocation(const FGridCoordinate& Location);
-
-	void ClearCharacters();
-	void ClearSpawnLocations();
-
-	int GetActivePlayerID() const;
-	int GetHostID() const;
-	class AMapPawn* GetPawn(const int PlayerID, const int PawnID);
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	FGridCoordinate ServerOnly_GetOpenSpawnLocation()const;
 
 protected:
 
-	UPROPERTY(BlueprintReadOnly, Category = "Spawnables")
-	bool bInitialized;
-
-	UPROPERTY(EditAnywhere, Category = "Spawnables")
+	// Spawner Components
+	UPROPERTY(EditAnywhere, Category = "Components")
 	TArray<TSubclassOf<class ASpawner>> SpawnerClasses;
 
-	UPROPERTY(EditAnywhere, Category = "Spawnables")
+	UPROPERTY(EditAnywhere, Category = "Components")
 	TArray<TSubclassOf<class AMapPawn>> MapPawnClasses;
 
-	UPROPERTY(EditAnywhere, Category = "Spawnables")
+	UPROPERTY(EditAnywhere, Category = "Components")
 	TArray<TSubclassOf<class AInteractable>> InteractableClasses;
 
-	UPROPERTY(EditAnywhere)
-	class UStaticMeshComponent* PlaneVisual;
+	UPROPERTY(EditAnywhere, Category = "Components")
+	TArray<TSubclassOf<class AWorldGrid_Cell>> CellClasses;
 
-	UPROPERTY(EditAnywhere)
-	class UMaterialInterface* Material;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Instanced Cells")
+	class UInstancedStaticMeshComponent* GridCellsMesh;
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "World Grid")
-	AMapPawn* OnSpawnNewPawnRequest(const int pawnID, const FGridCoordinate location);
+	UPROPERTY(EditAnywhere, Category = "Out of bounds settings")
+	class URuntimeMeshComponent* RuntimeMesh;
+
+	UPROPERTY(EditAnywhere, Category = "Out of bounds settings")
+	UMaterialInterface* GeneratedAreaMaterial;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
+	float GeneratedAreaWidth;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
+	float GeneratedAreaTesselation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
+	float GeneratedAreaHeightRange;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
+	float GeneratedAreaPlayAreaRandomIntensity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
+	bool bConfineCameraToPlayArea;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Out of bounds settings")
+	float GetGeneratedHeightValue(const FVector2D& Location);
 
 private:
 
-	std::shared_ptr<FGridCoordinate> GetOpenSpawnLocation();
-	void GenerateGrid();
-	void SetupVisuals(const FGridCoordinate & GridDimensions);
-	bool SetPosition(const FGridCoordinate& Location, const FGridCoordinate& Destination);
-	int GenerateNewPawnIndex(const int OwnerID);
-	void GetPawnIDParams(const int PawnID, int& OwnerID, int& PawnIndex) const;
-	void NotifyConnectedPlayerOfNewPawn(int PlayerID, int PawnID);
+	void GenerateEnvironment(const FGridCoordinate& GridDimensions);
+	bool ContainsCoordinate(int x, int y);
+	void ServerOnly_LinkCell(AWorldGrid_Cell* NewCell);
+	void GenerateBackdrop(const FGridCoordinate& GridDimensions);
 
 	UFUNCTION()
-	void OnGridDimensionRep();
+	void OnRep_HasBeenConstructed();
 
-	UPROPERTY(replicatedUsing = OnGridDimensionRep)
-	FGridCoordinate Dimensions;
+	UPROPERTY(ReplicatedUsing = OnRep_HasBeenConstructed)
+	FGridCoordinate m_GridDimensions;
 
-	int HostID;
-	int ActivePlayerID;
-	vector2D<CellPtr> LogicalGrid;
-	std::deque<int> TurnSequence;
-	std::map<int, class AConnectedPlayer*> PlayerCollection;
-	std::map<int, std::map<int, std::unique_ptr<class AMapPawn*>>> PawnCollection;
-	std::map<CoordinatePair, class ASpawner*> SpawnLocations;
-	std::map<CoordinatePair, class AActor*> VisualGridRefrences;
+	template<typename T>
+	int FindEmptyIndex(std::vector<T*>& list)
+	{
+		int newID = list.size();
+		list.push_back(nullptr);
+		return newID;
+	}
 
+	bool bHasBeenConstructed;
+	std::map<int, int> m_PlayerPawnCount;
+	std::vector<FGridCoordinate> m_SpawnLocations;
+	std::vector<class AInteractable*> m_Visuals;
+	std::vector<class AMapPawn*> m_MapPawns;
+	std::vector<class ASpawner*> m_Spawns;
+	std::vector<std::vector<AWorldGrid_Cell*>> m_Grid;
 };

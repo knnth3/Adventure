@@ -33,7 +33,7 @@ public:
 private:
 
 	bool m_bNewMap;
-	FString MapName;
-	int Rows, Columns;
-	TArray<struct FGAMEBUILDER_OBJECT> PendingObjects;
+	FString m_MapName;
+	int m_Rows, m_Columns;
+	TArray<struct FGAMEBUILDER_OBJECT> m_PendingObjects;
 };

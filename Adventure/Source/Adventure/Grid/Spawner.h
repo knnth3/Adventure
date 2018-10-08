@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Basics.h"
 #include "GameFramework/Actor.h"
 #include "Spawner.generated.h"
 
@@ -14,6 +15,8 @@ class ADVENTURE_API ASpawner : public AActor
 public:	
 	// Sets default values for this actor's properties
 	ASpawner();
+	void Initialize(const FGridCoordinate& Location);
+	FGridCoordinate GetLocation() const;
 
 protected:
 	// Called when the game starts or when spawned
@@ -23,6 +26,8 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	
+private:
+
+	FGridCoordinate m_Location;
 	
 };

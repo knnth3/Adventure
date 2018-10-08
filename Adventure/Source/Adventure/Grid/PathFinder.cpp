@@ -5,20 +5,14 @@
 
 #define OCCUPIED_CELL_COST 400
 
-bool UPathFinder::FindPath(AWorldGrid * Grid, const FGridCoordinate & Start, const FGridCoordinate & End, TArray<FGridCoordinate>& OutPath)
+bool UPathFinder::FindPath(AWorldGrid_Cell* start, AWorldGrid_Cell* end, TArray<FGridCoordinate>& OutPath)
 {
-	if (!Grid)
-		return false;
-
-	CellPtr start = Grid->At(Start);
-	CellPtr end = Grid->At(End);
-
 	if (!start || !end)
 		return false;
 
-	PRIORITY_QUEUE(Cell) openQueue;
-	std::map<CoordinatePair, CellPtr> openSet;
-	std::map<CoordinatePair, CellPtr> closedSet;
+	PRIORITY_QUEUE(AWorldGrid_Cell) openQueue;
+	std::map<CoordinatePair, AWorldGrid_Cell*> openSet;
+	std::map<CoordinatePair, AWorldGrid_Cell*> closedSet;
 
 	openQueue.push(start);
 	openSet[start->Location.toPair()] = start;
@@ -39,7 +33,7 @@ bool UPathFinder::FindPath(AWorldGrid * Grid, const FGridCoordinate & Start, con
 			return true;
 		}
 
-		for (const auto& neighbor : current->GetEmptyNeighbors())
+		for (const auto& neighbor : current->GetTraversableNeighbors())
 		{
 			if (closedSet.find(neighbor->Location.toPair()) != closedSet.end())
 			{
@@ -72,10 +66,10 @@ bool UPathFinder::FindPath(AWorldGrid * Grid, const FGridCoordinate & Start, con
 	return false;
 }
 
-TArray<FGridCoordinate> UPathFinder::TraceParentOwnership(const CellPtr & begin, const CellPtr & end)
+TArray<FGridCoordinate> UPathFinder::TraceParentOwnership(AWorldGrid_Cell* begin, AWorldGrid_Cell* end)
 {
 	TArray<FGridCoordinate> Path;
-	CellPtr current = end;
+	AWorldGrid_Cell* current = end;
 
 	while (current != begin)
 	{
@@ -88,13 +82,13 @@ TArray<FGridCoordinate> UPathFinder::TraceParentOwnership(const CellPtr & begin,
 	return Path;
 }
 
-int UPathFinder::GetDistance(const CellPtr& from, const CellPtr& to)
+int UPathFinder::GetDistance(const AWorldGrid_Cell* begin, const AWorldGrid_Cell* end)
 {
-	if (from && to)
+	if (begin && end)
 	{
-		int xDistance = abs(from->Location.X - to->Location.X);
-		int yDistance = abs(from->Location.Y - to->Location.Y);
-		int extraCost = (to->IsOcupied()) ? OCCUPIED_CELL_COST : 0;
+		int xDistance = abs(begin->Location.X - end->Location.X);
+		int yDistance = abs(begin->Location.Y - end->Location.Y);
+		int extraCost = (end->IsOcupied()) ? OCCUPIED_CELL_COST : 0;
 
 		if (xDistance > yDistance)
 			return (14 * yDistance) + 10 * (xDistance - yDistance) + extraCost;

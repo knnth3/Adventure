@@ -109,6 +109,15 @@ struct shared_ptr_compare
 	}
 };
 
+template <typename T>
+struct ptr_compare
+{
+	bool operator () (T* a, T* b) const
+	{
+		return !(a->operator<(b));
+	}
+};
+
 class Conversions
 {
 
@@ -260,4 +269,13 @@ public:
 
 	static ESessionState ToBlueprintType(EOnlineSessionState::Type Type);
 	static EJoinSessionResults ToBlueprintType(EOnJoinSessionCompleteResult::Type Type);
+};
+
+
+class MeshLibrary
+{
+public:
+
+	static void GenerateGrid(TArray<struct FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles,
+		int xDivisions, int yDivisions, float Width, float Height, float TopCornerX, float TopCornerY);
 };

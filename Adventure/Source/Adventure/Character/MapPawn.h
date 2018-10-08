@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include <queue>
+#include <deque>
 #include "Basics.h"
+#include "Grid/GridEntity.h"
 #include "MapPawnStatSheet.h"
 #include "./Components/HoverArrowComponent.h"
 #include "CoreMinimal.h"
@@ -35,10 +36,13 @@ struct FCameraSettings
 	UPROPERTY(BlueprintReadWrite)
 	float MaxOutZoom;
 
+	UPROPERTY(BlueprintReadWrite)
+	float FinalCameraZoom;
+
 };
 
 UCLASS()
-class ADVENTURE_API AMapPawn : public APawn
+class ADVENTURE_API AMapPawn : public APawn, public IGridEntity
 {
 	GENERATED_BODY()
 
@@ -47,11 +51,28 @@ public:
 	AMapPawn();
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void BeginPlay() override;
+	virtual int GetClassIndex_Implementation() const override;
+	virtual int GetObjectID_Implementation() const override;
+
+	void ServerOnly_SetClassIndex(const int Index);
+	void ServerOnly_SetOwnerID(const int ID);
 
 	// Owner Properties
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void ServerOnly_SetPawnID(int newID);
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	int GetPawnID()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	int GetOwnerID()const;
-	void SetOwnerID(const int ID);
-	void SetPawnID(const int ID);
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	FMapPawnStatSheet GetStatSheet()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	bool IsMoving()const;
 
 	// Camera Controlls
 	const FVector GetCameraLocation() const;
@@ -59,130 +80,64 @@ public:
 	void RotateCameraYaw(const float& AxisValue, const float& DeltaTime);
 	void ZoomCamera(const float& AxisValue, const float& DeltaTime);
 
-	// Pawn Stats
+	// Server Only Functions
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	FMapPawnStatSheet GetStatSheet()const;
+	void ServerOnly_SetDestination(const FGridCoordinate& Destination);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	bool IsMoving()const;
-
-	// Pawn Actions
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void SetDestination(FGridCoordinate GridLocation);
+	void ServerOnly_SetTargetLocation(const FVector& Location);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void SetTarget(FVector Location);
+	FVector ServerOnly_GetDesiredForwardVector() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void ClearTarget();
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void Attack(const AMapPawnAttack* AttackMove, const FVector Location);
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void SetAsActivePawn(bool Active);
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void ScaleHead(const FVector& Scale);
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	int GetPawnID()const;
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void ServerOnly_ShowSelectionArrow(bool value);
+	void SetFocusToPawn(FVector CurrentCameraLocation, float TransitionAcceleration);
 
 protected:
-
-	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
 	UHoverArrowComponent* ArrowComponent;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
-	USkeletalMesh* BaseSkeletalMesh;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
-	UStaticMesh* BaseHeadMesh;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
-	UAnimBlueprintGeneratedClass* BaseAnimationBlueprint;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
-	TSubclassOf<class AMapPawnComponent_Head> PawnHeadClass;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
 	class USpringArmComponent* CameraBoom;
 
-	// BP Overridable functions
-	UFUNCTION(BlueprintImplementableEvent, Category = "Map Pawn")
-	void OnBeginTurn();
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	class UCameraComponent* FollowCamera;
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Map Pawn")
-	void OnEndTurn();
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	class USceneComponent* Scene;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	class USkeletalMeshComponent* PawnBody;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	class UMapPawnComponent_Head* PawnHead;
 
 private:
-	int SkeletalMeshIndex;
-	bool bMoveCharacter;
-	bool bRotateCharacter;
-	bool bIsTurnActive;
-	bool bHasTarget;
-	float DesiredCameraZoom;
-	FCameraSettings CameraSettings;
-	class USceneComponent* Scene;
-	class UCameraComponent* FollowCamera;
-	class USkeletalMeshComponent* PawnBody;
-	class UStaticMeshComponent* PawnHeadC;
-	class AMapPawnComponent_Head* PawnHead;
-	std::queue<FGridCoordinate> MoveQueue;
 
-	void MovePawn(float DeltaTime);
-	void RotatePawn(float DeltaTime);
-	FVector GetNextMove(float DeltaTime, bool& bHasNextMove);
-	FGridCoordinate GetActorGridLocation()const;
-	bool IsMoveValid(FVector DeltaLocation)const;
-	void MoveToNextLocation();
+	bool bMovePawn;
+	bool bRotatePawn;
+	bool bHasTarget;
+	int m_ClassIndex;
+
+	FVector m_ForwardVector;
+	FVector m_Destination;
+	FVector m_TargetedLocation;
+	FCameraSettings m_CameraSettings;
+	std::deque<FGridCoordinate> m_MoveQueue;
 
 	// Server Property/Functions
+	UPROPERTY(Replicated)
+	int m_PawnID;
 
 	UPROPERTY(Replicated)
-	int OwnerID;
+	int m_OwnerID;
 
 	UPROPERTY(Replicated)
-	int PawnID;
+	FMapPawnStatSheet m_StatSheet;
 
-	UPROPERTY(Replicated)
-	FMapPawnStatSheet StatSheet;
+	void RotatePawn(float DeltaTime);
+	void MovePawn(float DeltaTime);
 
-	UPROPERTY(Replicated)
-	FVector TargetedLocation;
-
-	UPROPERTY(ReplicatedUsing = OnDestination_Rep)
-	FVector FinalDestination;
-
-	UPROPERTY(ReplicatedUsing = OnRotation_Rep)
-	FRotator Rotation;
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetDestination(FGridCoordinate GridLocation);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_TargetLocation(FVector Location);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_ClearTarget();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_Attack(FVector Location);
-
-	UFUNCTION(Client, Reliable)
-	void Client_ShowSelectionArrow(bool value);
-
-	UFUNCTION()
-	void OnDestination_Rep();
-
-	UFUNCTION()
-	void OnRotation_Rep();
-
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetActiveDestination(const FVector& Location);
 };

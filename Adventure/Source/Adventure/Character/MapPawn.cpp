@@ -10,19 +10,25 @@ AMapPawn::AMapPawn()
 {
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	bMoveCharacter = false;
-	bReplicates = true;
-	bRotateCharacter = false;
+	bReplicateMovement = false;
+	bMovePawn = false;
+	bRotatePawn = false;
 	bHasTarget = false;
-	OwnerID = -1;
-	SkeletalMeshIndex = -1;
+	m_PawnID = -1;
 
-	CameraSettings.AngularVelocity = 240.0f;
-	CameraSettings.ZoomSpeed = Conversions::Meters::ToCentimeters(50.0f);
-	CameraSettings.MaxUpRotation = -85.0f;
-	CameraSettings.MaxDownRotation = -25.0f;
-	CameraSettings.MaxOutZoom = Conversions::Meters::ToCentimeters(8.0f);
-	CameraSettings.MaxInZoom = Conversions::Meters::ToCentimeters(2.0f);
+	FAttachmentTransformRules rules(
+		EAttachmentRule::SnapToTarget,
+		EAttachmentRule::KeepWorld,
+		EAttachmentRule::KeepWorld,
+		true
+	);
+
+	m_CameraSettings.AngularVelocity = 240.0f;
+	m_CameraSettings.ZoomSpeed = Conversions::Meters::ToCentimeters(50.0f);
+	m_CameraSettings.MaxUpRotation = -85.0f;
+	m_CameraSettings.MaxDownRotation = -25.0f;
+	m_CameraSettings.MaxOutZoom = Conversions::Meters::ToCentimeters(8.0f);
+	m_CameraSettings.MaxInZoom = Conversions::Meters::ToCentimeters(2.0f);
 
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -41,19 +47,21 @@ AMapPawn::AMapPawn()
 	PawnBody->SetupAttachment(Scene);
 	PawnBody->ComponentTags.Add(FName("Outline"));
 
-	PawnHeadC = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Pawn_Head"));
-	PawnHeadC->SetupAttachment(PawnBody);
-	PawnHeadC->ComponentTags.Add(FName("Outline"));
+	PawnHead = CreateDefaultSubobject<UMapPawnComponent_Head>(TEXT("Pawn_Head"));
+	PawnHead->SetupAttachment(PawnBody);
+	PawnHead->ComponentTags.Add(FName("Outline"));
+	PawnHead->SetupAttachment(PawnBody, TEXT("biped_mr_Neck_jnt"));
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetRelativeTransform(FTransform(FVector(0,0,200)));
 	CameraBoom->SetupAttachment(Scene);
-	CameraBoom->TargetArmLength = DesiredCameraZoom = 300.0f; // The camera follows at this distance behind the character	
+	CameraBoom->TargetArmLength = m_CameraSettings.FinalCameraZoom = 300.0f; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = false; // Rotate the arm based on the controller
 	CameraBoom->bEnableCameraRotationLag = true;
 	CameraBoom->CameraRotationLagSpeed = 10.0f;
 	CameraBoom->bDoCollisionTest = false;
+	CameraBoom->bAbsoluteRotation = true;
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -71,12 +79,9 @@ void AMapPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetime
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AMapPawn, StatSheet);
-	DOREPLIFETIME(AMapPawn, FinalDestination);
-	DOREPLIFETIME(AMapPawn, Rotation);
-	DOREPLIFETIME(AMapPawn, OwnerID);
-	DOREPLIFETIME(AMapPawn, PawnID);
-	DOREPLIFETIME(AMapPawn, TargetedLocation);
+	DOREPLIFETIME(AMapPawn, m_StatSheet);
+	DOREPLIFETIME(AMapPawn, m_PawnID);
+	DOREPLIFETIME(AMapPawn, m_OwnerID);
 
 }
 
@@ -85,47 +90,35 @@ void AMapPawn::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	FinalDestination = GetActorLocation();
-
-	if (PawnBody)
-	{
-		// Location, Rotation, Scale, bWeld
-		FAttachmentTransformRules rules(
-			EAttachmentRule::SnapToTarget,
-			EAttachmentRule::KeepWorld,
-			EAttachmentRule::KeepRelative,
-			true
-		);
-
-		// Body Set-up
-		PawnBody->SetWorldScale3D(FVector(0.5f));
-		PawnBody->SetSkeletalMesh(BaseSkeletalMesh);
-		PawnBody->SetAnimInstanceClass(BaseAnimationBlueprint);
-
-		// Head Set-up
-		FTransform Transform;
-		Transform.SetScale3D(FVector(0.0031f));
-		PawnHeadC->SetWorldTransform(Transform);
-		PawnHeadC->SetStaticMesh(BaseHeadMesh);
-		PawnHeadC->AttachToComponent(PawnBody, rules, "biped_mr_Neck_jnt");
-	}
+	m_ForwardVector = GetActorForwardVector();
+	m_Destination = GetActorLocation();
 
 	if (HasAuthority())
 	{
 		FRandomStream rand;
 		rand.GenerateNewSeed();
-		StatSheet.Name = StatSheet.Name + FString::FromInt(rand.FRandRange(0, 100));
+		m_StatSheet.Name = m_StatSheet.Name + FString::FromInt(rand.FRandRange(0, 100));
 	}
 }
 
-void AMapPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+int AMapPawn::GetClassIndex_Implementation() const
 {
-	Super::EndPlay(EndPlayReason);
+	return m_ClassIndex;
+}
 
-	if (PawnHead)
-	{
-		PawnHead->Destroy();
-	}
+int AMapPawn::GetObjectID_Implementation() const
+{
+	return GetPawnID();
+}
+
+void AMapPawn::ServerOnly_SetClassIndex(const int Index)
+{
+	m_ClassIndex = Index;
+}
+
+void AMapPawn::ServerOnly_SetOwnerID(const int ID)
+{
+	m_OwnerID = ID;
 }
 
 // Called every frame
@@ -133,14 +126,13 @@ void AMapPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	MoveToNextLocation();
-	MovePawn(DeltaTime);
 	RotatePawn(DeltaTime);
+	MovePawn(DeltaTime);
 
 	// Zoom camera using lerp
-	if (CameraBoom->TargetArmLength != DesiredCameraZoom)
+	if (CameraBoom->TargetArmLength != m_CameraSettings.FinalCameraZoom)
 	{
-		CameraBoom->TargetArmLength = FMath::Lerp(CameraBoom->TargetArmLength, DesiredCameraZoom, 0.075f);
+		CameraBoom->TargetArmLength = FMath::Lerp(CameraBoom->TargetArmLength, m_CameraSettings.FinalCameraZoom, 0.075f);
 	}
 }
 
@@ -150,9 +142,34 @@ void AMapPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 
+void AMapPawn::ServerOnly_SetPawnID(int newID)
+{
+	m_PawnID = newID;
+}
+
+int AMapPawn::GetPawnID() const
+{
+	return m_PawnID;
+}
+
+int AMapPawn::GetOwnerID() const
+{
+	return m_OwnerID;
+}
+
 const FVector AMapPawn::GetCameraLocation() const
 {
 	return FollowCamera->GetComponentLocation();
+}
+
+FMapPawnStatSheet AMapPawn::GetStatSheet() const
+{
+	return m_StatSheet;
+}
+
+bool AMapPawn::IsMoving() const
+{
+	return bMovePawn;
 }
 
 void AMapPawn::RotateCameraPitch(const float & AxisValue, const float & DeltaTime)
@@ -161,8 +178,8 @@ void AMapPawn::RotateCameraPitch(const float & AxisValue, const float & DeltaTim
 	{
 		FTransform transform = CameraBoom->GetRelativeTransform();
 		FRotator rotation = transform.GetRotation().Rotator();
-		float pitch = rotation.Pitch - AxisValue * DeltaTime * CameraSettings.AngularVelocity;
-		pitch = FMath::ClampAngle(pitch, CameraSettings.MaxUpRotation, CameraSettings.MaxDownRotation);
+		float pitch = rotation.Pitch - AxisValue * DeltaTime * m_CameraSettings.AngularVelocity;
+		pitch = FMath::ClampAngle(pitch, m_CameraSettings.MaxUpRotation, m_CameraSettings.MaxDownRotation);
 
 		CameraBoom->SetRelativeRotation(FRotator(pitch, rotation.Yaw, rotation.Roll));
 	}
@@ -174,7 +191,7 @@ void AMapPawn::RotateCameraYaw(const float & AxisValue, const float & DeltaTime)
 	{
 		FTransform transform = CameraBoom->GetRelativeTransform();
 		FRotator rotation = transform.GetRotation().Rotator();
-		float yaw = rotation.Yaw - AxisValue * DeltaTime * CameraSettings.AngularVelocity;
+		float yaw = rotation.Yaw - AxisValue * DeltaTime * m_CameraSettings.AngularVelocity;
 
 		CameraBoom->SetRelativeRotation(FRotator(rotation.Pitch, yaw, rotation.Roll));
 	}
@@ -184,329 +201,153 @@ void AMapPawn::ZoomCamera(const float & AxisValue, const float & DeltaTime)
 {
 	if (AxisValue)
 	{
-		DesiredCameraZoom = FMath::Clamp(
-			DesiredCameraZoom - (AxisValue * DeltaTime * CameraSettings.ZoomSpeed),
-			CameraSettings.MaxInZoom, CameraSettings.MaxOutZoom
+		m_CameraSettings.FinalCameraZoom = FMath::Clamp(
+			m_CameraSettings.FinalCameraZoom - (AxisValue * DeltaTime * m_CameraSettings.ZoomSpeed),
+			m_CameraSettings.MaxInZoom, m_CameraSettings.MaxOutZoom
 		);
 	}
 }
 
-//Set the pawns destination location
-void AMapPawn::SetDestination(FGridCoordinate GridLocation)
-{
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	if (GridItr)
-	{
-		//Attempt to find a new path to where we want to go
-		TArray<FGridCoordinate> Array;
-		bool Success = GridItr->FindPath(UGridFunctions::WorldToGridLocation(FinalDestination), GridLocation, Array);
-		if (Success)
-		{
-			//Clear the previous queue;
-			std::queue<FGridCoordinate> PrevMoves;
-			std::swap(MoveQueue, PrevMoves);
-
-			//Add the new path
-			for (const auto& entry : Array)
-			{
-				MoveQueue.push(entry);
-			}
-
-			MoveToNextLocation();
-		}
-	}
-}
-
-void AMapPawn::SetTarget(FVector Location)
-{
-	Server_TargetLocation(Location);
-}
-
-void AMapPawn::ClearTarget()
-{
-	Server_ClearTarget();
-}
-
-//Returns the pawns stats
-FMapPawnStatSheet AMapPawn::GetStatSheet() const
-{
-	return StatSheet;
-}
-
-//Return true if the pawn is moving
-bool AMapPawn::IsMoving() const
-{
-	return bMoveCharacter;
-}
-
-void AMapPawn::Attack(const AMapPawnAttack * AttackMove, const FVector Location)
-{
-	if (AttackMove)
-	{
-		AttackMove->Attack(StatSheet, GetActorLocation(), Location);
-	}
-}
-
-void AMapPawn::SetAsActivePawn(bool Active)
-{
-	if(Active != bIsTurnActive)
-	{
-		bIsTurnActive = Active;
-		if (Active)
-			OnBeginTurn();
-		else
-			OnEndTurn();
-	}
-}
-
-int AMapPawn::GetOwnerID() const
-{
-	return OwnerID;
-}
-
-void AMapPawn::SetOwnerID(const int ID)
+void AMapPawn::ServerOnly_SetDestination(const FGridCoordinate & Destination)
 {
 	if (HasAuthority())
 	{
-		OwnerID = ID;
-	}
-}
-
-int AMapPawn::GetPawnID() const
-{
-	return PawnID;
-}
-
-void AMapPawn::ServerOnly_ShowSelectionArrow(bool value)
-{
-	value ? ArrowComponent->ShowCursor() : ArrowComponent->HideCursor();
-	Client_ShowSelectionArrow(value);
-}
-
-void AMapPawn::SetPawnID(const int ID)
-{
-	if (HasAuthority())
-	{
-		PawnID = ID;
-	}
-}
-
-void AMapPawn::ScaleHead(const FVector & Scale)
-{
-	PawnHeadC->SetWorldScale3D(Scale);
-}
-
-//Moves a pawn if its destination is not the same as its position
-void AMapPawn::MovePawn(float DeltaTime)
-{
-	if (bMoveCharacter)
-	{
-		if (HasAuthority())
+		FGridCoordinate CurrentLocation = UGridFunctions::WorldToGridLocation(GetActorLocation());
+		if (CurrentLocation != Destination)
 		{
-			FVector DeltaLocation = GetNextMove(DeltaTime, bMoveCharacter);
+			TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+			if (WorldGridItr)
+			{
+				TArray<FGridCoordinate> Path;
+				if (WorldGridItr->ServerOnly_GetPath(CurrentLocation, Destination, Path))
+				{
+					m_MoveQueue.clear();
+					for (auto& step : Path)
+					{
+						m_MoveQueue.push_back(step);
+					}
 
-			//On the server, check if the delta location is valid
-			//If so, move the pawn one space back
-			if (IsMoveValid(DeltaLocation))
-			{
-				AddActorWorldOffset(DeltaLocation);
-			}
-			if (!bMoveCharacter && MoveQueue.empty() && bHasTarget)
-			{
-				Server_TargetLocation(TargetedLocation);
+					FVector newDestination = UGridFunctions::GridToWorldLocation(m_MoveQueue.front());
+					m_MoveQueue.pop_front();
+					Multicast_SetActiveDestination(newDestination);
+				}
+				else
+				{
+					UE_LOG(LogNotice, Warning, TEXT("<Pawn_%i Movement>: No path found to (%i, %i)"), GetPawnID(), Destination.X, Destination.Y);
+				}
 			}
 		}
-		else
-		{
-			//Clients can do the normal work based off the info recieved from the server
-			FVector DeltaLocation = GetNextMove(DeltaTime, bMoveCharacter);
-			AddActorWorldOffset(DeltaLocation);
-		}
 	}
 }
 
-//Rotates a pawn if the bRotateCharacter was set (usually when setDestination was called)
+void AMapPawn::ServerOnly_SetTargetLocation(const FVector& Location)
+{
+	m_TargetedLocation = Location;
+	FVector newForward = (m_TargetedLocation - GetActorLocation());
+	if (newForward != FVector(0.0f))
+	{
+		m_ForwardVector = newForward;
+		m_ForwardVector.Z = 0.0f;
+		m_ForwardVector.Normalize();
+		bRotatePawn = true;
+	}
+}
+
+FVector AMapPawn::ServerOnly_GetDesiredForwardVector() const
+{
+	return m_ForwardVector;
+}
+
+void AMapPawn::SetFocusToPawn(FVector CurrentCameraLocation, float TransitionAcceleration)
+{
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+	if (PlayerController)
+	{
+		// Get Distance between the two cameras
+		FVector StartLocation = CurrentCameraLocation;
+		FVector EndLocation = FollowCamera->GetComponentLocation();
+		float Distance = FVector::Distance(StartLocation, EndLocation);
+
+		// Calculate Time
+		float Time = FMath::Sqrt(2 * Distance / TransitionAcceleration);
+
+		PlayerController->SetViewTargetWithBlend(this, Time, VTBlend_Cubic, 0.0f, true);
+	}
+}
+
 void AMapPawn::RotatePawn(float DeltaTime)
 {
-	if (PawnBody && bRotateCharacter)
+	if (bRotatePawn)
 	{
-		float Multiplier = StatSheet.TurnSpeed;
-		FQuat CurrentRotation(PawnBody->RelativeRotation);
-		FQuat FinalRotation(Rotation);
+		// Rotate towards path
+		FVector currentForward = GetActorForwardVector();
+		FVector finalForward = m_ForwardVector;
 
-		FQuat NextRotation = FQuat::Slerp(CurrentRotation, FinalRotation, DeltaTime * Multiplier);
-		if (FinalRotation.AngularDistance(CurrentRotation) > NextRotation.AngularDistance(CurrentRotation))
+		float dot = FVector::DotProduct(currentForward, finalForward);
+		float mag = FVector::Distance(currentForward, FVector(0.0f)) * FVector::Distance(m_ForwardVector, FVector(0.0f));
+		float angle = FMath::RadiansToDegrees(FMath::Acos(dot / mag));
+
+		float w = DeltaTime * GetStatSheet().MoveSpeed * 0.5;
+
+		if (angle > 1.0f)
 		{
-			PawnBody->SetWorldRotation(NextRotation);
+			FRotator currentAngle = currentForward.Rotation();
+			FRotator finalAngle = m_ForwardVector.Rotation();
+
+			FQuat newRotation = FQuat::FastLerp(currentAngle.Quaternion(), finalAngle.Quaternion(), w);
+
+			SetActorRotation(newRotation);
 		}
-		else
+		else if (angle <= 1.0f)
 		{
-			PawnBody->SetWorldRotation(FinalRotation);
-			bRotateCharacter = false;
-		}
-	}
-}
-
-FVector AMapPawn::GetNextMove(float DeltaTime, bool& bHasNextMove)
-{
-	FVector CurrentLocation = GetActorLocation();
-	FVector TravelVector = FinalDestination - CurrentLocation;
-	FVector DeltaLocation = TravelVector.GetSafeNormal() * (StatSheet.MoveSpeed * (100.0f/6.0f)) * DeltaTime;
-
-	//Travel only the distance needed to reach the destination
-	if (TravelVector.Size2D() <= DeltaLocation.Size2D())
-	{
-		DeltaLocation = TravelVector;
-		bHasNextMove = false;
-	}
-
-	return DeltaLocation;
-}
-
-//Wrapper function to get current grid location
-FGridCoordinate AMapPawn::GetActorGridLocation() const
-{
-	return UGridFunctions::WorldToGridLocation(GetActorLocation());
-}
-
-//Validates a move and updates the WorldGrid
-bool AMapPawn::IsMoveValid(FVector DeltaLocation) const
-{
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	if (GridItr)
-	{
-		FGridCoordinate CurrentPosition = GetActorGridLocation();
-		FGridCoordinate CurrentDestination = UGridFunctions::WorldToGridLocation(GetActorLocation() + DeltaLocation);
-		if (CurrentPosition == CurrentDestination || GridItr->SetPosition(CurrentPosition, CurrentDestination))
-		{
-			return true;
-		}
-	}
-
-	return false;
-
-}
-
-void AMapPawn::MoveToNextLocation()
-{
-	if (!bMoveCharacter)
-	{
-		if (!MoveQueue.empty())
-		{
-			//Set the destination to the closest move
-			Server_SetDestination(MoveQueue.front());
-			MoveQueue.pop();
+			SetActorRotation(m_ForwardVector.Rotation());
+			bRotatePawn = false;
 		}
 	}
 }
 
-void AMapPawn::Server_TargetLocation_Implementation(FVector ViewLocation)
+void AMapPawn::MovePawn(float DeltaTime)
 {
-	FVector CurrentLocation = GetActorLocation();
-
-	//Rotate the character;
-	FVector TravelVector = ViewLocation - CurrentLocation;
-	if (TravelVector.Size2D() > 0.1f)
+	if (bMovePawn)
 	{
-		TargetedLocation = ViewLocation;
-		TravelVector = TravelVector.GetSafeNormal2D();
-		float AngleBetween = FMath::Atan2(TravelVector.Y, TravelVector.X);
+		FVector currentLocation = GetActorLocation();
+		FVector finalLocation = m_Destination;
+		FVector TravelVector = finalLocation - currentLocation;
 
-		AngleBetween = FMath::RadiansToDegrees(AngleBetween);
-		FRotator FinalRotation(0.0f, AngleBetween - 90.0f, 0.0f);
+		float v = DeltaTime * Conversions::Feet::ToCentimeters(GetStatSheet().MoveSpeed) * 0.5;
+		float totalLeft = FVector::Distance(TravelVector, FVector(0.0f));
 
-		if (PawnBody)
+		if (totalLeft > v)
 		{
-			bHasTarget = true;
-			Rotation = FinalRotation;
-			bRotateCharacter = true;
+			TravelVector.Normalize();
+			AddActorWorldOffset(TravelVector* v);
+		}
+		else if (totalLeft <= v)
+		{
+			SetActorLocation(finalLocation);
+
+			if (HasAuthority() && !m_MoveQueue.empty())
+			{
+				FVector newDestination = UGridFunctions::GridToWorldLocation(m_MoveQueue.front());
+				m_MoveQueue.pop_front();
+				Multicast_SetActiveDestination(newDestination);
+			}
+			else
+			{
+				bMovePawn = false;
+			}
 		}
 	}
 }
 
-bool AMapPawn::Server_TargetLocation_Validate(FVector Location)
+void AMapPawn::Multicast_SetActiveDestination_Implementation(const FVector& Location)
 {
-	return true;
-}
+	m_Destination = Location;
 
-void AMapPawn::Server_ClearTarget_Implementation()
-{
-	bHasTarget = false;
-	TargetedLocation = FVector(0.0f);
-}
+	m_ForwardVector = (m_Destination - GetActorLocation());
+	m_ForwardVector.Z = 0.0f;
+	m_ForwardVector.Normalize();
 
-bool AMapPawn::Server_ClearTarget_Validate()
-{
-	return true;
-}
-
-void AMapPawn::Client_ShowSelectionArrow_Implementation(bool value)
-{
-	ArrowComponent->SetVisibility(value, true);
-}
-
-//Called on CurrentDestination replication (client)
-void AMapPawn::OnDestination_Rep()
-{
-	bMoveCharacter = true;
-}
-
-//Called on Rotation replication (client)
-void AMapPawn::OnRotation_Rep()
-{
-	bRotateCharacter = true;
-}
-
-//Sets a destination if valid (server)
-void AMapPawn::Server_SetDestination_Implementation(FGridCoordinate GridLocation)
-{
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	FVector Location = GetActorLocation();
-	FVector CurrentDestination = UGridFunctions::GridToWorldLocation(GridLocation);
-
-	if (GridItr)
-	{
-		//Move the character
-		if (!GridItr->IsSpaceTraversable(GridLocation) || GridLocation == GetActorGridLocation())
-		{
-			FinalDestination.X = CurrentDestination.X;
-			FinalDestination.Y = CurrentDestination.Y;
-			FinalDestination.Z = Location.Z;
-
-			bMoveCharacter = true;
-		}
-	}
-
-	//Rotate the character;
-	FVector TravelVector = CurrentDestination - Location;
-	if (TravelVector.Size2D() > 0.1f)
-	{
-		TravelVector = TravelVector.GetSafeNormal2D();
-		float AngleBetween = FMath::Atan2(TravelVector.Y, TravelVector.X);
-
-		AngleBetween = FMath::RadiansToDegrees(AngleBetween);
-		FRotator DeltaRotation(0.0f, AngleBetween - 90.0f, 0.0f);
-
-		if (PawnBody)
-		{
-			Rotation = DeltaRotation;
-			bRotateCharacter = true;
-		}
-	}
-}
-
-//Vaidates non-cheat move (server)
-bool AMapPawn::Server_SetDestination_Validate(FGridCoordinate WorldLocation)
-{
-	return true;
-}
-
-void AMapPawn::Server_Attack_Implementation(FVector Location)
-{
-
-}
-
-bool AMapPawn::Server_Attack_Validate(FVector Location)
-{
-	return true;
+	bMovePawn = true;
+	bRotatePawn = true;
 }

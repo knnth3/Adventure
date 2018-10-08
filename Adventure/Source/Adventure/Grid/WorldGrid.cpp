@@ -1,251 +1,146 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
 #include "WorldGrid.h"
-
-#include "Spawner.h"
-#include "Adventure.h"
-#include "PathFinder.h"
+#include "./Character/MapPawn.h"
 #include "Interactable.h"
-#include "Character/MapPawn.h"
-#include "Character/ConnectedPlayer.h"
+#include "Spawner.h"
+#include "PathFinder.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "RuntimeMeshComponent.h"
 
-#include "Components/StaticMeshComponent.h"
-#include "Kismet/KismetMaterialLibrary.h"
+using namespace std;
 
-// Sets default values
 AWorldGrid::AWorldGrid()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
-	bInitialized = false;
-	ActivePlayerID = -1;
-	HostID = 0;
+	bAlwaysRelevant = true;
+	bReplicateMovement = false;
+	bHasBeenConstructed = false;
+	GeneratedAreaWidth = 1000.0f;
+	GeneratedAreaHeightRange = 1000.0f;
+	GeneratedAreaPlayAreaRandomIntensity = 1.0f;
+	GeneratedAreaTesselation = 20;
 
-	//Create a component to hold the visual
-	PlaneVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualRepresentation"));
-	RootComponent = PlaneVisual;
+	GridCellsMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("Focus"));
+	GridCellsMesh->SetIsReplicated(true);
+	RootComponent = GridCellsMesh;
 
-	//Load the visual for the grid
-	if (PlaneVisual)
+	RuntimeMesh = CreateDefaultSubobject<URuntimeMeshComponent>(TEXT("Surrounding"));
+	RuntimeMesh->SetIsReplicated(true);
+	RuntimeMesh->SetupAttachment(RootComponent);
+}
+
+void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const 
+{
+	DOREPLIFETIME(AWorldGrid, m_GridDimensions);
+}
+
+void AWorldGrid::BeginPlay()
+{
+
+}
+
+void AWorldGrid::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	ServerOnly_ResetGrid();
+}
+
+void AWorldGrid::ServerOnly_GenerateGrid(const FGridCoordinate & GridDimensions, std::vector<std::vector<int>> GridSheet)
+{
+
+	if (bHasBeenConstructed)
 	{
-		PlaneVisual->SetRelativeLocation(FVector(-500.0f, 500.0f, 0.0f));
-		PlaneVisual->SetWorldScale3D(FVector(10.0f));
+		ServerOnly_ResetGrid();
 	}
-}
 
-void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AWorldGrid, Dimensions);
-}
-
-void AWorldGrid::Initialize(const int hostID, FGridCoordinate gridDimensions)
-{
-	if (HasAuthority() && !bInitialized)
+	int cellCount = 0;
+	UWorld* World = GetWorld();
+	if (World)
 	{
-		this->HostID = hostID;
-		bInitialized = true;
-		Dimensions = gridDimensions;
-		GenerateGrid();
-		SetupVisuals(Dimensions);
-	}
-}
+		m_Grid.resize(GridDimensions.X);
 
-FGridCoordinate AWorldGrid::GetDimensions()const
-{
-	return Dimensions;
-}
-
-bool AWorldGrid::IsSpaceTraversable(const FGridCoordinate & Location)const
-{
-	CellPtr CellLocation = At(Location);
-	if (CellLocation)
-	{
-		return CellLocation->bNonTraversable;
-	}
-	return false;
-}
-
-bool AWorldGrid::IsSpawnLocation(const FGridCoordinate & Location)const
-{
-	return (SpawnLocations.find(Location.toPair()) != SpawnLocations.end());
-}
-
-bool AWorldGrid::IsFreeRoamActive() const
-{
-	return (ActivePlayerID == -1);
-}
-
-bool AWorldGrid::IsTurn(const int PawnID) const
-{
-	int PlayerID, PawnIndex;
-	GetPawnIDParams(PawnID, PlayerID, PawnIndex);
-	return (IsFreeRoamActive() || (PawnID == ActivePlayerID) || PlayerID == GetHostID());
-}
-
-void AWorldGrid::BeginTurnBasedMechanics(const TArray<int>& Order)
-{
-	if (Order.Num() > 0)
-	{
-		for (const auto& ID : Order)
+		for (int x = 0; x < GridDimensions.X; x++)
 		{
-			TurnSequence.push_back(ID);
+			m_Grid[x].resize(GridDimensions.Y, nullptr);
+
+			for (int y = 0; y < GridDimensions.Y; y++)
+			{
+				FVector WorldLocation;
+				AWorldGrid_Cell* newCell;
+				if (CellClasses.Num() > 0)
+				{
+					WorldLocation = UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y));
+					newCell = Cast<AWorldGrid_Cell>(World->SpawnActor(*CellClasses[0], &WorldLocation));
+				}
+				else // Default to base class when no derivatives exist
+				{
+					FRotator startRotation(0.0f);
+					WorldLocation = UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y));
+					newCell = Cast<AWorldGrid_Cell>(World->SpawnActor<AWorldGrid_Cell>(WorldLocation, startRotation));
+				}
+
+				if (newCell)
+				{
+					// Create Visual Representation
+					GridCellsMesh->AddInstanceWorldSpace(FTransform(FRotator(0.0f), WorldLocation, FVector(1.525f, 1.525f, 1.0f)));
+					newCell->Initialize(FGridCoordinate(x, y));
+					m_Grid[x][y] = newCell;
+					ServerOnly_LinkCell(newCell);
+					cellCount++;
+				}
+			}
 		}
-		AdvanceTurnBasedMechanics(true);
 	}
-}
 
-void AWorldGrid::EndTurnBasedMechanics()
-{
-	TurnSequence.clear();
-	for (auto& players : PlayerCollection)
+	if (cellCount == GridDimensions.X * GridDimensions.Y)
 	{
-		players.second->Server_SetPlayerState(TURN_BASED_STATE::FREE_ROAM);
-	}
-	ActivePlayerID = -1;
-}
-
-void AWorldGrid::AdvanceTurnBasedMechanics(bool startNew)
-{
-	if (startNew)
-	{
-		ActivePlayerID = TurnSequence.front();
-	}
-	else if (GetActivePlayerID() == -1)
-	{
-		return;
+		m_GridDimensions = GridDimensions;
+		OnRep_HasBeenConstructed();
+		UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Finished generating grid"));
 	}
 	else
 	{
-		TurnSequence.pop_front();
-		TurnSequence.push_back(GetActivePlayerID());
-		ActivePlayerID = TurnSequence.front();
-	}
-
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerStateChange>: ActivePlayerID is now %i"), GetActivePlayerID());
-	for (auto& players : PlayerCollection)
-	{
-		if (players.first == GetActivePlayerID())
-		{
-			players.second->Server_SetPlayerState(TURN_BASED_STATE::ACTIVE);
-		}
-		else
-		{
-			players.second->Server_SetPlayerState(TURN_BASED_STATE::STANDBY);
-		}
+		UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Failed to generate grid"));
 	}
 }
 
-bool AWorldGrid::MoveCharacter(const int PawnID, const FGridCoordinate& Destination)
+void AWorldGrid::ServerOnly_GenerateGrid(const FGridCoordinate & Dimensions)
 {
-	int OwnerID;
-	int PawnIndex;
-	GetPawnIDParams(PawnID, OwnerID, PawnIndex);
-	auto& Selected = PawnCollection[OwnerID][PawnIndex];
-	if (Selected)
+	ServerOnly_GenerateGrid(Dimensions, vector<vector<int>>());
+}
+
+void AWorldGrid::ServerOnly_ResetGrid()
+{
+	m_GridDimensions = FGridCoordinate(0, 0);
+	for (auto& obj : m_Visuals)
 	{
-		(*Selected)->SetDestination(Destination);
+		obj->Destroy();
 	}
-
-	return false;
-}
-
-void AWorldGrid::RegisterPlayerController(AConnectedPlayer* ConnectedPlayer)
-{
-	int OwnerID = ConnectedPlayer->GetPlayerID();
-	PlayerCollection[OwnerID] = ConnectedPlayer;
-	ConnectedPlayer->Server_SetPlayerState(TURN_BASED_STATE::FREE_ROAM);
-	ConnectedPlayer->Server_RegisterPlayer();
-}
-
-int AWorldGrid::AddCharacter(int OwnerID, bool OverrideLocation, FVector NewLocation, int ClassIndex)
-{
-	int PawnIndex = GenerateNewPawnIndex(OwnerID);
-	int PawnID = (OwnerID * 10) + PawnIndex;
-
-	if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])
+	for (auto& obj : m_MapPawns)
 	{
-		std::shared_ptr<FGridCoordinate> Location = (OverrideLocation) ? std::make_shared<FGridCoordinate>(NewLocation) : GetOpenSpawnLocation();
-		if (Location)
-		{
-			CellPtr Cell = At(*Location);
-			if (Cell)
-			{
-				AMapPawn* NewPawn = OnSpawnNewPawnRequest(ClassIndex, *Location);
-				if (NewPawn)
-				{
-					UE_LOG(LogNotice, Warning, TEXT("Added new MapPawn with ID= %i : Owner= %i"), PawnID, OwnerID);
-
-					NewPawn->SetOwnerID(OwnerID);
-					NewPawn->SetPawnID(PawnID);
-					Cell->SetOccupied(true);
-					PawnCollection[OwnerID][PawnIndex] = std::make_unique<AMapPawn*>(NewPawn);
-					NotifyConnectedPlayerOfNewPawn(OwnerID, PawnID);
-					return PawnID;
-				}
-				else
-				{
-					UE_LOG(LogNotice, Error, TEXT("Failed to create pawn for: Owner= %i"), OwnerID);
-				}
-			}
-			else
-			{
-				UE_LOG(LogNotice, Error, TEXT("Failed to find World while creating pawn: Owner= %i"), OwnerID);
-			}
-		}
-		else
-		{
-			UE_LOG(LogNotice, Error, TEXT("Failed find location while creating pawn: Owner= %i"), OwnerID);
-		}
+		obj->Destroy();
 	}
-	else
+	for (auto& obj : m_Spawns)
 	{
-		UE_LOG(LogNotice, Error, TEXT("Class Index is invalid while creating pawn: Owner= %i"), OwnerID);
+		obj->Destroy();
 	}
-
-	return 0;
-}
-
-bool AWorldGrid::FindPath(const FGridCoordinate & Start, const FGridCoordinate & End, TArray<FGridCoordinate>& OutPath)
-{
-	return UPathFinder::FindPath(this, Start, End, OutPath);
-}
-
-CellPtr AWorldGrid::At(const int X, const int Y) const
-{
-	CellPtr FoundCell = nullptr;
-
-	if (LogicalGrid.size() > X && X >= 0)
+	for (auto& row : m_Grid)
 	{
-		if (LogicalGrid[X].size() > Y && Y >= 0)
+		for (auto& cell : row)
 		{
-			FoundCell = LogicalGrid[X][Y];
+			cell->Destroy();
 		}
 	}
 
-	return FoundCell;
+	m_Visuals.clear();
+	m_MapPawns.clear();
+	m_Spawns.clear();
+	m_Grid.clear();
+	GridCellsMesh->ClearInstances();
 }
 
-CellPtr AWorldGrid::At(const FGridCoordinate& Location) const
+bool AWorldGrid::ServerOnly_AddVisual(int ClassIndex, const FGridCoordinate & Location)
 {
-	return At(Location.X, Location.Y);
-}
-
-bool AWorldGrid::AddBlockingSpace(const FGridCoordinate& Location)
-{
-	CellPtr BlockingSpace = At(Location);
-	if (BlockingSpace && !IsSpawnLocation(Location))
-	{
-		BlockingSpace->SetOccupied(true);
-	}
-	return false;
-}
-
-bool AWorldGrid::AddVisual(int ClassIndex, const FGridCoordinate & Location, bool makeMovableOverride)
-{
-	auto found = VisualGridRefrences.find(Location.toPair());
-	if (found == VisualGridRefrences.end())
+	if (ContainsCoordinate(Location.X, Location.Y))
 	{
 		if (ClassIndex >= 0 && ClassIndex < InteractableClasses.Num() && InteractableClasses[ClassIndex])
 		{
@@ -256,12 +151,10 @@ bool AWorldGrid::AddVisual(int ClassIndex, const FGridCoordinate & Location, boo
 				AInteractable* NewVisual = Cast<AInteractable>(World->SpawnActor(*InteractableClasses[ClassIndex], &WorldLocation));
 				if (NewVisual)
 				{
-					if (!makeMovableOverride)
-					{
-						AddBlockingSpace(Location);
-					}
-
-					VisualGridRefrences[Location.toPair()] = NewVisual;
+					int newIndex = FindEmptyIndex(m_Visuals);
+					m_Visuals[newIndex] = NewVisual;
+					NewVisual->ServerOnly_SetClassIndex(ClassIndex);
+					NewVisual->ServerOnly_SetObjectID(newIndex);
 					return true;
 				}
 			}
@@ -270,407 +163,317 @@ bool AWorldGrid::AddVisual(int ClassIndex, const FGridCoordinate & Location, boo
 	return false;
 }
 
-bool AWorldGrid::AddSpawnLocation(int ClassIndex, const FGridCoordinate & Location)
+bool AWorldGrid::ServerOnly_RemoveVisual(const FGridCoordinate& Location)
 {
-	CellPtr FoundCell = At(Location);
-	bool bExists = IsSpawnLocation(Location);
-	if (FoundCell && !FoundCell->bNonTraversable && !bExists)
+	if (ContainsCoordinate(Location.X, Location.Y))
 	{
-		int SpawnerClassNum = SpawnerClasses.Num();
-		if (ClassIndex >= 0 && ClassIndex < SpawnerClassNum)
+		int index = m_Grid[Location.X][Location.Y]->RemoveVisual();
+		if (index != -1)
+		{
+			m_Visuals[index]->Destroy();
+			m_Visuals[index] = nullptr;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool AWorldGrid::ServerOnly_AddBlockingObject(int ClassIndex, const FGridCoordinate & Location)
+{
+	if (ContainsCoordinate(Location.X, Location.Y))
+	{
+		if (ClassIndex >= 0 && ClassIndex < InteractableClasses.Num() && InteractableClasses[ClassIndex])
 		{
 			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-			UWorld* world = GetWorld();
-			if (world)
+			UWorld* World = GetWorld();
+			if (World)
 			{
-				ASpawner* NewSpawner = Cast<ASpawner>(world->SpawnActor(*SpawnerClasses[ClassIndex], &WorldLocation));
-
-				if (NewSpawner)
+				AInteractable* NewBlockingObject = Cast<AInteractable>(World->SpawnActor(*InteractableClasses[ClassIndex], &WorldLocation));
+				if (NewBlockingObject)
 				{
-					SpawnLocations[Location.toPair()] = NewSpawner;
+					int newIndex = FindEmptyIndex(m_Visuals);
+					m_Visuals[newIndex] = NewBlockingObject;
+					NewBlockingObject->ServerOnly_SetClassIndex(ClassIndex);
+					NewBlockingObject->ServerOnly_SetObjectID(newIndex);
 					return true;
 				}
-				else
+			}
+		}
+	}
+	return false;
+}
+
+bool AWorldGrid::ServerOnly_RemoveBlockingObject(const FGridCoordinate& Location)
+{
+	if (ContainsCoordinate(Location.X, Location.Y))
+	{
+		int index = m_Grid[Location.X][Location.Y]->RemoveBlockingObject();
+		if (index != -1)
+		{
+			m_Visuals[index]->Destroy();
+			m_Visuals[index] = nullptr;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool AWorldGrid::ServerOnly_AddSpawnLocation(int ClassIndex, const FGridCoordinate & Location)
+{
+	if (ContainsCoordinate(Location.X, Location.Y))
+	{
+		if (ClassIndex >= 0 && ClassIndex < SpawnerClasses.Num() && SpawnerClasses[ClassIndex])
+		{
+			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				ASpawner* NewSpawner = Cast<ASpawner>(World->SpawnActor(*SpawnerClasses[ClassIndex], &WorldLocation));
+				if (NewSpawner)
 				{
-					UE_LOG(LogNotice, Error, TEXT("Failed to create spawn class"));
+					int newIndex = FindEmptyIndex(m_Spawns);
+					m_Spawns[newIndex] = NewSpawner;
+					m_SpawnLocations.push_back(Location);
+					return true;
 				}
 			}
-			else
+		}
+	}
+	return false;
+}
+
+bool AWorldGrid::ServerOnly_RemoveSpawnLocation(const FGridCoordinate& Location)
+{
+	if (ContainsCoordinate(Location.X, Location.Y))
+	{
+		int index = m_Grid[Location.X][Location.Y]->RemoveSpawner();
+		if (index != -1)
+		{
+			//Remove spawnLocation from list
+			FGridCoordinate temp = m_SpawnLocations.back();
+			for (auto& loc : m_SpawnLocations)
 			{
-				UE_LOG(LogNotice, Error, TEXT("Could not pull world pointer while creating spawn location."));
-			}
-		}
-		else
-		{
-			UE_LOG(LogNotice, Error, TEXT("Ignored spawn creation, could not find index matching type %s"), *FString::FromInt(ClassIndex));
-		}
-	}
-	else
-	{
-		UE_LOG(LogNotice, Error, TEXT("Ignoring spawn creation, location already exists."));
-	}
-
-	return false;
-}
-
-bool AWorldGrid::AddSpawnLocations(int ClassIndex, const TArray<FGridCoordinate>& Locations)
-{
-	int index = 0;
-	for (const auto& Coordinate : Locations)
-	{
-		if (!AddSpawnLocation(ClassIndex, Coordinate))
-		{
-			UE_LOG(LogNotice, Error, TEXT("Failed to add Spawn location from list at index= %i."), index);
-			return false;
-		}
-
-		index++;
-	}
-	return true;
-}
-
-bool AWorldGrid::RemoveCharacter(int PawnID)
-{
-	int OwnerID;
-	int PawnIndex;
-	GetPawnIDParams(PawnID, OwnerID, PawnIndex);
-	auto& found = PawnCollection[OwnerID][PawnIndex];
-	if (found)
-	{
-		CellPtr CharacterLocation = At((*found)->GetActorLocation());
-		if (CharacterLocation)
-		{
-			CharacterLocation->SetOccupied(false);
-		}
-		(*found)->Destroy();
-		found = nullptr;
-
-		return true;
-	}
-
-	return false;
-}
-
-bool AWorldGrid::RemoveVisual(const FGridCoordinate & Location)
-{
-	auto found = VisualGridRefrences.find(Location.toPair());
-	if (found != VisualGridRefrences.end())
-	{
-		found->second->Destroy();
-		found = VisualGridRefrences.end();
-		VisualGridRefrences.erase(Location.toPair());
-		return true;
-	}
-	return false;
-}
-
-bool AWorldGrid::RemoveBlockingSpace(const FGridCoordinate & Location)
-{
-	CellPtr BlockingSpace = At(Location);
-	if (BlockingSpace)
-	{
-		BlockingSpace->SetOccupied(false);
-		return true;
-	}
-
-	return false;
-}
-
-bool AWorldGrid::RemoveSpawnLocation(const FGridCoordinate & Location)
-{
-	bool bExists = IsSpawnLocation(Location);
-	if (bExists)
-	{
-		SpawnLocations[Location.toPair()]->Destroy();
-		SpawnLocations.erase(Location.toPair());
-		return true;
-	}
-
-	return false;
-}
-
-void AWorldGrid::ClearCharacters()
-{
-	for (auto& character : PawnCollection)
-	{
-		for (auto& pawn : character.second)
-		{
-			if (pawn.second)
-			{
-				CellPtr CharacterLocation = At((*pawn.second)->GetActorLocation());
-				if (CharacterLocation)
+				if (loc == Location)
 				{
-					CharacterLocation->SetOccupied(false);
+					loc = temp;
+					m_SpawnLocations.pop_back();
+					break;
 				}
-				(*pawn.second)->Destroy();
-				pawn.second = nullptr;
 			}
+
+			m_Spawns[index]->Destroy();
+			m_Spawns[index] = nullptr;
+			return true;
 		}
 	}
 
-	PawnCollection.clear();
+	return false;
 }
 
-void AWorldGrid::ClearSpawnLocations()
+bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Location, int OwningPlayerID)
 {
-	for (const auto Location : SpawnLocations)
+	if (ContainsCoordinate(Location.X, Location.Y))
 	{
-		RemoveSpawnLocation(Location.first);
+		if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])
+		{
+			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				FTransform pawnTransform(FRotator(0, 180, 0), WorldLocation);
+				AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[ClassIndex], &pawnTransform));
+				if (NewPawn)
+				{
+					m_PlayerPawnCount[OwningPlayerID]++;
+					int pawnID = FindEmptyIndex(m_MapPawns);
+					m_MapPawns[pawnID] = NewPawn;
+					NewPawn->ServerOnly_SetPawnID(pawnID);
+					NewPawn->ServerOnly_SetClassIndex(ClassIndex);
+					return true;
+				}
+			}
+		}
 	}
+	return false; 
 }
 
-int AWorldGrid::GetActivePlayerID() const
+bool AWorldGrid::ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawnID)
 {
-	return ActivePlayerID;
-}
-
-int AWorldGrid::GetHostID() const
-{
-	return HostID;
-}
-
-AMapPawn* AWorldGrid::GetPawn(const int PlayerID, const int PawnID)
-{
-	int OwnerID;
-	int PawnIndex;
-	GetPawnIDParams(PawnID, OwnerID, PawnIndex);
-
-	if (PlayerID == OwnerID)
+	if (ContainsCoordinate(Location.X, Location.Y))
 	{
-		auto& Selected = PawnCollection[OwnerID][PawnIndex];
-		return (*Selected);
+		int index = m_Grid[Location.X][Location.Y]->RemovePawn(pawnID);
+		if (index != -1)
+		{
+			AMapPawn* replacement = nullptr;
+			if (m_MapPawns.size() > 1)
+			{
+				replacement = m_MapPawns.back();
+				replacement->ServerOnly_SetPawnID(pawnID);
+			}
+
+			m_MapPawns[index]->Destroy();
+			m_MapPawns[index] = replacement;
+			m_MapPawns.pop_back();
+			return true;
+		}
 	}
 
+	return false;
+}
+
+AMapPawn * AWorldGrid::ServerOnly_GetPawn(int pawnID)
+{
+	for (auto& pawn : m_MapPawns)
+	{
+		if (pawn)
+		{
+			if (pawn->GetPawnID() == pawnID)
+			{
+				return pawn;
+			}
+		}
+	}
 	return nullptr;
 }
 
-std::shared_ptr<FGridCoordinate> AWorldGrid::GetOpenSpawnLocation()
+TArray<AMapPawn*> AWorldGrid::ServerOnly_GetAllPawns(int pawnID)
 {
-	for (auto& spawn : SpawnLocations)
+	TArray<AMapPawn*> arr;
+	arr.Append(&m_MapPawns[0], m_MapPawns.size());
+	return arr;
+}
+
+bool AWorldGrid::ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath)
+{
+	bool startExists = ContainsCoordinate(Location.X, Location.Y);
+	bool endExists = ContainsCoordinate(Destination.X, Destination.Y);
+
+	if (startExists && endExists)
 	{
-		CellPtr SpawnLocation = At(spawn.first);
-		if (SpawnLocation && !SpawnLocation->IsOcupied())
+		return UPathFinder::FindPath(m_Grid[Location.X][Location.Y], m_Grid[Destination.X][Destination.Y], OutPath);
+	}
+
+	return false;
+}
+
+FGridCoordinate AWorldGrid::ServerOnly_GetOpenSpawnLocation()const
+{
+	for (const auto& loc : m_SpawnLocations)
+	{
+		auto cell = m_Grid[loc.X][loc.Y];
+		if (!cell->ContainsPawn())
 		{
-			return std::make_shared<FGridCoordinate>(spawn.first);
+			return loc;
+		}
+	}
+	return FGridCoordinate();
+}
+
+void AWorldGrid::GenerateEnvironment(const FGridCoordinate& GridDimensions)
+{
+	// Generate the visual for each cell
+	for (int x = 0; x < GridDimensions.X; x++)
+	{
+		for (int y = 0; y < GridDimensions.Y; y++)
+		{
+			FGridCoordinate cellCoordinate(x, y);
+			GridCellsMesh->AddInstanceWorldSpace(FTransform(FRotator(0.0f), UGridFunctions::GridToWorldLocation(cellCoordinate), FVector(1.525f, 1.525f, 1.0f)));
 		}
 	}
 
-	return nullptr;
+	// Generate the visual for the backdrop
+	GenerateBackdrop(GridDimensions);
 }
 
-void AWorldGrid::GenerateGrid()
+bool AWorldGrid::ContainsCoordinate(int x, int y)
 {
-	for (int Row = 0; Row < Dimensions.X; Row++)
+	if (m_Grid.size() > x && x >= 0)
 	{
-		//make a new row for this column
-		LogicalGrid.emplace_back();
-		for (int Column = 0; Column < Dimensions.Y; Column++)
+		if (m_Grid[x].size() > y && y >= 0)
 		{
-			//Create new cell
-			auto Current = MAKE_CELL(FGridCoordinate(Row, Column));
-			LogicalGrid[Row].push_back(Current);
+			return m_Grid[x][y];
 		}
 	}
 
-	for (const auto& XRow : LogicalGrid)
+	return false;
+}
+
+void AWorldGrid::ServerOnly_LinkCell(AWorldGrid_Cell * NewCell)
+{
+	FGridCoordinate center = NewCell->Location;
+	int top = center.Y - 1;
+	int left = center.X - 1;
+	int bottom = center.Y + 1;
+
+	bool topExists = ContainsCoordinate(center.X, top);
+	bool leftExists = ContainsCoordinate(left, center.Y);
+	bool bottomLeftExists = ContainsCoordinate(left, bottom);
+	bool topLeftExists = ContainsCoordinate(left, top);
+
+	if (bottomLeftExists)
 	{
-		for (const auto& YRow : XRow)
+		m_Grid[left][bottom]->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOPRIGHT) = NewCell;
+		NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOMLEFT) = m_Grid[left][bottom];
+	}
+	if (topLeftExists)
+	{
+		m_Grid[left][top]->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOMRIGHT) = NewCell;
+		NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOPLEFT) = m_Grid[left][top];
+	}
+	if (leftExists)
+	{
+		m_Grid[left][center.Y]->Neigbor(AWorldGrid_Cell::NEIGHBOR::RIGHT) = NewCell;
+		NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::LEFT) = m_Grid[left][center.Y];
+	} 
+	if (topExists)
+	{
+		m_Grid[center.X][top]->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOM) = NewCell;
+		NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOP) = m_Grid[center.X][top];
+	}
+}
+
+void AWorldGrid::GenerateBackdrop(const FGridCoordinate& GridDimensions)
+{
+	TArray<FRuntimeMeshVertexSimple> Vertices;
+	TArray<int32> Triangles;
+
+	float width = GeneratedAreaWidth;
+	float height = GeneratedAreaWidth;
+	float gridWidth = Conversions::Feet::ToCentimeters(GridDimensions.Y * 5.0f);
+	float gridHeight = Conversions::Feet::ToCentimeters(GridDimensions.X * 5.0f);
+	float totalWidth = width + gridWidth;
+	float totalHeight = height + gridHeight;
+
+	MeshLibrary::GenerateGrid(Vertices, Triangles, GeneratedAreaTesselation, GeneratedAreaTesselation, 
+		2.0f * width + gridWidth, 2.0f * height + gridHeight, -width - gridWidth, -height); // To
+
+	FVector center(gridWidth / -2.0f, gridHeight / 2.0f, 0.0f);
+	for (auto& v : Vertices)
+	{
+		FVector length = center - v.Position;
+		float posHeight = GetGeneratedHeightValue(FVector2D(v.Position.X / totalWidth, v.Position.Y / totalHeight));
+		float vecDist = FMath::Sqrt(length.X * length.X + length.Y * length.Y);
+		float acceptableRadius = (gridWidth > gridHeight) ? gridWidth : gridHeight;
+		acceptableRadius = sqrt(acceptableRadius * acceptableRadius + acceptableRadius * acceptableRadius + acceptableRadius * acceptableRadius);
+		float finalHeight = posHeight;
+
+		if (vecDist <= acceptableRadius)
 		{
-			int Row = YRow->Location.X;
-			int Column = YRow->Location.Y;
-
-			//Assign the nessesary neighbors
-			auto Top    = At(Row, Column - 1);
-			auto Bottom = At(Row, Column + 1);
-			auto Left   = At(Row - 1, Column);
-			auto Right  = At(Row + 1, Column);
-
-			auto TopRight    = At(Row + 1, Column - 1);
-			auto TopLeft     = At(Row - 1, Column - 1);
-			auto BottomRight = At(Row + 1, Column + 1);
-			auto BottomLeft  = At(Row - 1, Column + 1);
-
-			YRow->GetNeighbor(Cell::CELL_TOP) = Top;
-			YRow->GetNeighbor(Cell::CELL_BOTTOM) = Bottom;
-			YRow->GetNeighbor(Cell::CELL_LEFT) = Left;
-			YRow->GetNeighbor(Cell::CELL_RIGHT) = Right;
-
-			YRow->GetNeighbor(Cell::CELL_TOPRIGHT) = TopRight;
-			YRow->GetNeighbor(Cell::CELL_TOPLEFT) = TopLeft;
-			YRow->GetNeighbor(Cell::CELL_BOTTOMRIGHT) = BottomRight;
-			YRow->GetNeighbor(Cell::CELL_BOTTOMLEFT) = BottomLeft;
-		}
-	}
-}
-
-void AWorldGrid::SetupVisuals(const FGridCoordinate & GridDimensions)
-{
-	UStaticMeshComponent* PlaneMesh = Cast<UStaticMeshComponent>(RootComponent);
-	if (PlaneMesh)
-	{
-		float Length_Meters, Width_Meters;
-		float Length_Cm, Width_Cm;
-
-		GetGridDimensions(Length_Meters, Width_Meters, UNITS::METERS);
-		GetGridDimensions(Length_Cm, Width_Cm, UNITS::CENTIMETERS);
-
-		PlaneMesh->SetRelativeLocation(FVector(-Length_Cm * GridDimensions.X * 0.5f, Width_Cm * GridDimensions.Y * 0.5f, 0.0f));
-		PlaneMesh->SetWorldScale3D(FVector(Length_Meters * GridDimensions.X, Width_Meters * GridDimensions.Y, 1.0f));
-
-		UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(Material, this);
-		if (DynamicMaterial)
-		{
-			DynamicMaterial->SetVectorParameterValue(FName("Grid Dimensions"), FLinearColor((float)GridDimensions.X, (float)GridDimensions.Y, 0.0f, 0.0f));
-			PlaneMesh->SetMaterial(0, DynamicMaterial);
-		}
-	}
-}
-
-bool AWorldGrid::SetPosition(const FGridCoordinate & Location, const FGridCoordinate & Destination)
-{
-	bool moved = false;
-	if (Location != Destination)
-	{
-		CellPtr FoundLocation = At(Location);
-		CellPtr FoundDestination = At(Destination);
-		if (FoundLocation && FoundDestination && !FoundDestination->bNonTraversable)
-		{
-			FoundLocation->SetOccupied(false);
-			FoundDestination->SetOccupied(true);
-			moved = true;
+			finalHeight = -0.0001f;
 		}
 
+		v.Position.Z = finalHeight * GeneratedAreaHeightRange;
 	}
 
-	return moved;
+	// Create the mesh section
+	RuntimeMesh->CreateMeshSection(0, Vertices, Triangles);
+	RuntimeMesh->SetMaterial(0, GeneratedAreaMaterial);
 }
 
-int AWorldGrid::GenerateNewPawnIndex(const int OwnerID)
+void AWorldGrid::OnRep_HasBeenConstructed()
 {
-	int CharacterCount = PawnCollection[OwnerID].size();
-	PawnCollection[OwnerID][CharacterCount] = nullptr;
-	return CharacterCount;
-}
-
-void AWorldGrid::GetPawnIDParams(const int PawnID, int & OwnerID, int & PawnIndex) const
-{
-	PawnIndex = PawnID % 10;
-	OwnerID = PawnID / 10;
-}
-
-void AWorldGrid::NotifyConnectedPlayerOfNewPawn(int PlayerID, int PawnID)
-{
-	auto ConnectedPlayer = PlayerCollection[PlayerID];
-	if (ConnectedPlayer)
-	{
-		ConnectedPlayer->Server_AddNewCharacter(PawnID);
-	}
-}
-
-void AWorldGrid::OnGridDimensionRep()
-{
-	bInitialized = true;
-	if (!HasAuthority())
-	{
-		SetupVisuals(Dimensions);
-	}
-}
-
-//Cell Functions /////////////////////////////////////////////////
-
-Cell::Cell()
-{
-	H_Cost = 0;
-	G_Cost = 0;
-	objectCount = 0;
-	Parent = nullptr;
-	bNonTraversable = false;
-	Location = FGridCoordinate(-1, -1);
-
-	for (auto& n : Neighbors)
-		n = nullptr;
-}
-
-Cell::Cell(const FGridCoordinate& Location) :
-	Cell()
-{
-	this->Location = Location;
-}
-
-int Cell::F_Cost() const
-{
-	return H_Cost + G_Cost;
-}
-
-bool Cell::operator<(const Cell & b)
-{
-	if (F_Cost() == b.F_Cost())
-	{
-		return H_Cost <= b.H_Cost;
-	}
-
-	return F_Cost() < b.F_Cost();
-}
-
-bool Cell::IsOcupied() const
-{
-	return (bool)objectCount;
-}
-
-void Cell::SetOccupied(bool value)
-{
-	if (value)
-	{
-		objectCount++;
-	}
-	else if (objectCount > 0)
-	{
-		objectCount--;
-	}
-}
-
-CellPtr& Cell::operator[](const CELL_NEIGHBOR & position)
-{
-	return GetNeighbor(position);
-}
-
-CellPtr& Cell::GetNeighbor(const CELL_NEIGHBOR & position)
-{
-	switch (position)
-	{
-	case Cell::CELL_TOP:
-		return Neighbors[0];
-	case Cell::CELL_LEFT:
-		return Neighbors[1];
-	case Cell::CELL_RIGHT:
-		return Neighbors[2];
-	case Cell::CELL_BOTTOM:
-		return Neighbors[3];
-	case Cell::CELL_TOPLEFT:
-		return Neighbors[4];
-	case Cell::CELL_BOTTOMLEFT:
-		return Neighbors[5];
-	case Cell::CELL_TOPRIGHT:
-		return Neighbors[6];
-	case Cell::CELL_BOTTOMRIGHT:
-		return Neighbors[7];
-	}
-
-	return Neighbors[0];
-}
-
-std::list<CellPtr> Cell::GetEmptyNeighbors()
-{
-	std::list<CellPtr> list;
-
-	// 8 total possible neighbors
-	for (int x = 0; x < 8; x++)
-	{
-		if (Neighbors[x] && !Neighbors[x]->bNonTraversable)
-		{
-			list.push_back(Neighbors[x]);
-		}
-	}
-
-	return list;
+	GenerateEnvironment(m_GridDimensions);
+	bHasBeenConstructed = true;
 }

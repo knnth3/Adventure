@@ -33,7 +33,7 @@ protected:
 
 private:
 
-	FString MapName;
-	int Rows, Columns;
-	class AWorldGrid* WorldGrid;
+	FString m_MapName;
+	int m_Rows, m_Columns;
+	class AWorldGrid* m_WorldGrid;
 };

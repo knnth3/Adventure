@@ -3,6 +3,7 @@
 #include "Basics.h"
 #include "FileManager.h"
 #include "Paths.h"
+#include "RuntimeMeshComponent.h"
 
 #define CM_TO_M_FACTOR 100
 #define CM_TO_IN_FACTOR 2.54
@@ -276,4 +277,61 @@ EJoinSessionResults UBasicFunctions::ToBlueprintType(EOnJoinSessionCompleteResul
 	}
 
 	return State;
+}
+
+void MeshLibrary::GenerateGrid(TArray<struct FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles, 
+	int xDivisions, int yDivisions, float Width, float Height, float TopCornerX, float TopCornerY)
+{
+	if (Width * Height == 0)
+		return;
+
+	bool bFlipTangent = (Width * Height) > 0 ? true : false;
+	float deltaWidth = ((float)Width) / (xDivisions + 1);
+	float deltaHeight = ((float)Height) / (yDivisions + 1);
+
+	float xOffset = TopCornerX;
+	float yOffset = TopCornerY;
+
+	int indexOffset = Vertices.Num();
+	int maxYOffset = yDivisions + 1;
+
+	for (int x = 0; x <= (xDivisions + 1); x++)
+	{
+		for (int y = 0; y <= (yDivisions + 1); y++)
+		{
+			float u = xOffset / Width;
+			float v = yOffset / Width;
+			Vertices.Add(
+				FRuntimeMeshVertexSimple(
+					FVector(xOffset, yOffset, 0), 
+					FVector(0, 0, 1), 
+					FRuntimeMeshTangent(0, -1, 0, bFlipTangent), 
+					FColor::White, 
+					FVector2D(u, v)
+				)
+			);
+
+			yOffset += deltaHeight;
+
+			if (x != 0 && y != 0)
+			{
+				Triangles.Add(indexOffset + 0);
+				Triangles.Add(indexOffset + 1);
+				Triangles.Add(indexOffset + maxYOffset + 2);
+
+				Triangles.Add(indexOffset + 0);
+				Triangles.Add(indexOffset + maxYOffset + 2);
+				Triangles.Add(indexOffset + maxYOffset + 1);
+				indexOffset++;
+			}
+		}
+
+		yOffset = TopCornerY;
+		xOffset += deltaWidth;
+
+		if (x != 0)
+		{
+			indexOffset++;
+		}
+	}
 }

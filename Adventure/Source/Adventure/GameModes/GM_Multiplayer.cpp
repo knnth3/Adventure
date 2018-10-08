@@ -2,6 +2,7 @@
 #include "GM_Multiplayer.h"
 
 #include "../PlayerControllers/PC_Multiplayer.h"
+#include "PlayerStates/PS_Multiplayer.h"
 #include "GI_Adventure.h"
 #include "Adventure.h"
 #include "Grid/WorldGrid.h"
@@ -11,33 +12,37 @@
 #include "Saves/MapSaveFile.h"
 #include "Widgets/W_GameBuilderUI.h"
 
+AGM_Multiplayer::AGM_Multiplayer()
+{
+	m_PlayerIndexCount = 0;
+}
+
 FGridCoordinate AGM_Multiplayer::GetMapSize()const
 {
-	return FGridCoordinate(Rows, Columns);
+	return m_GridDimensions;
 }
 
 FString AGM_Multiplayer::GetMapName() const
 {
-	return CurrentMapName;
+	return m_CurrentMapName;
 }
 
 void AGM_Multiplayer::GetMapObjects(TArray<struct FGAMEBUILDER_OBJECT>& Objects) const
 {
-	Objects = MapDecorations;
+	Objects = m_MapDecorations;
 }
 
 int AGM_Multiplayer::GetHostID() const
 {
-	return ConnnectedPlayers.at(HostUsername);
+	return m_ConnnectedPlayers.at(m_HostUsername);
 }
 
 void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	this->Rows = 10;
-	this->Columns = 10;
-
+	m_GridDimensions.X = 10;
+	m_GridDimensions.Y = 10;
 	FVector Location(0.0f);
 	FString MapFileName = UGameplayStatics::ParseOption(Options, "SN");
 	UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UGameplayStatics::LoadGameFromSlot(MapFileName, 0));
@@ -48,47 +53,45 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 		UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
 		UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->Objects.Num());
 
-		this->Rows = MapSaveFile->MapSize.X;
-		this->Columns = MapSaveFile->MapSize.Y;
-		MapDecorations = MapSaveFile->Objects;
+		m_GridDimensions.X = MapSaveFile->MapSize.X;
+		m_GridDimensions.Y = MapSaveFile->MapSize.Y;
+		m_MapDecorations = MapSaveFile->Objects;
 	}
 }
 
-void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController*& NewPlayer)
+void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)
 {
-	Super::HandleSeamlessTravelPlayer(NewPlayer);
+	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
 
-	APC_Multiplayer* Player = Cast<APC_Multiplayer>(NewPlayer);
-	AConnectedPlayer* PlayerActor = Cast<AConnectedPlayer>(NewPlayer->GetPawn());
-	if (Player && PlayerActor)
+	APS_Multiplayer* currentPlayerState = Cast<APS_Multiplayer>(NewPlayer->PlayerState);
+	if (currentPlayerState)
 	{
-		std::string PlayerName = TCHAR_TO_UTF8(*Player->PlayerState->GetPlayerName());
+		std::string PlayerName = TCHAR_TO_UTF8(*currentPlayerState->GetPlayerName());
 
 		//Host should always connect first
-		if (HostUsername.empty())
+		if (m_HostUsername.empty())
 		{
-			HostUsername = PlayerName;
-			UE_LOG(LogNotice, Warning, TEXT("<ServerSetup>: Host registered as %s"), *FString(HostUsername.c_str()));
+			m_HostUsername = PlayerName;
+			UE_LOG(LogNotice, Warning, TEXT("<ServerSetup>: Host registered as %s"), *FString(m_HostUsername.c_str()));
 		}
 
 		// New player has joined
-		if (ConnnectedPlayers.find(PlayerName) == ConnnectedPlayers.end())
+		if (m_ConnnectedPlayers.find(PlayerName) == m_ConnnectedPlayers.end())
 		{
-			ConnnectedPlayers[PlayerName] = GeneratePlayerID();
-			Player->SetPlayerID(ConnnectedPlayers[PlayerName]);
-			PlayerActor->Server_SetPlayerID(ConnnectedPlayers[PlayerName]);
-			UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s: %i"), *FString(PlayerName.c_str()), PlayerActor->GetPlayerID());
+			m_ConnnectedPlayers[PlayerName] = GeneratePlayerID();
+			currentPlayerState->ServerOnly_SetGameID(m_ConnnectedPlayers[PlayerName]);
+
+			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s registered to id: %i"), *FString(PlayerName.c_str()), currentPlayerState->GetGameID());
 		}
 		else
 		{
-			UE_LOG(LogNotice, Warning, TEXT("<HandleSeamlessTravel>: %s has reconnected via seamless travel?"), *FString(PlayerName.c_str()));
+			currentPlayerState->ServerOnly_SetGameID(m_ConnnectedPlayers[PlayerName]);
+			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has reconnected."), *FString(PlayerName.c_str()));
 		}
-
-		PlayerActor->Server_AdjustCameraToMap(FGridCoordinate(Rows, Columns));
 	}
 }
 
 int AGM_Multiplayer::GeneratePlayerID()
 {
-	return PlayerIndexCount++;
+	return m_PlayerIndexCount++;
 }

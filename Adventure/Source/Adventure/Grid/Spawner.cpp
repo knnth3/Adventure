@@ -11,6 +11,16 @@ ASpawner::ASpawner()
 	bReplicates = true;
 }
 
+void ASpawner::Initialize(const FGridCoordinate & Location)
+{
+	m_Location = Location;
+}
+
+FGridCoordinate ASpawner::GetLocation() const
+{
+	return m_Location;
+}
+
 // Called when the game starts or when spawned
 void ASpawner::BeginPlay()
 {

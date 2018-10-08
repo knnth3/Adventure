@@ -19,6 +19,8 @@ class ADVENTURE_API AGM_Multiplayer : public AGameModeBase
 {
 	GENERATED_BODY()
 public:
+	AGM_Multiplayer();
+
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer")
 	FGridCoordinate GetMapSize()const;
 
@@ -32,18 +34,18 @@ public:
 
 protected:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	virtual void HandleSeamlessTravelPlayer(AController*& NewPlayer)override;
+	virtual void HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer) override;
 
 private:
 
-	int Rows, Columns;
-	int PlayerIndexCount;
-	FString CurrentMapName;
-	std::string HostUsername;
-	std::map<std::string, int> ConnnectedPlayers;
+	int m_PlayerIndexCount;
+	FString m_CurrentMapName;
+	std::string m_HostUsername;
+	FGridCoordinate m_GridDimensions;
+	std::map<std::string, int> m_ConnnectedPlayers;
 
 	// Temporary setup data
-	TArray<struct FGAMEBUILDER_OBJECT> MapDecorations;
+	TArray<struct FGAMEBUILDER_OBJECT> m_MapDecorations;
 
 	int GeneratePlayerID();
 };
