@@ -9,7 +9,9 @@ public class Adventure : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "UMG",
-            "OnlineSubsystem", "OnlineSubsystemSteam", "MoviePlayer", "ShaderCore", "RenderCore", "RHI", "RuntimeMeshComponent" });
+            "OnlineSubsystem", "OnlineSubsystemSteam", "MoviePlayer" });
+
+        PublicDependencyModuleNames.AddRange(new string[] { "ShaderCore", "RenderCore", "RHI", "RuntimeMeshComponent" });
 
         DynamicallyLoadedModuleNames.Add("OnlineSubsystemNull");
     }

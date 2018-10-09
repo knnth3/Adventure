@@ -7,7 +7,7 @@
 AWorldGrid_Cell::AWorldGrid_Cell()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	bTraversable = true;
 	bBlockingObject = false;
 	m_Visual = { -1, -1 };
@@ -26,13 +26,6 @@ void AWorldGrid_Cell::BeginPlay()
 {
 	Super::BeginPlay();
 	
-}
-
-// Called every frame
-void AWorldGrid_Cell::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
 }
 
 bool AWorldGrid_Cell::operator<(const AWorldGrid_Cell * b)

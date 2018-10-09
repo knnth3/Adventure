@@ -62,6 +62,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	FGridCoordinate ServerOnly_GetOpenSpawnLocation()const;
 
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	FVector GetCenterLocation()const;
+
 protected:
 
 	// Spawner Components
@@ -99,6 +102,9 @@ protected:
 	float GeneratedAreaPlayAreaRandomIntensity;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
+	float SmoothingRadius;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
 	bool bConfineCameraToPlayArea;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Out of bounds settings")
@@ -110,6 +116,7 @@ private:
 	bool ContainsCoordinate(int x, int y);
 	void ServerOnly_LinkCell(AWorldGrid_Cell* NewCell);
 	void GenerateBackdrop(const FGridCoordinate& GridDimensions);
+	float GetBaseWeight(float CurrentRadius, float MaxRadius);
 
 	UFUNCTION()
 	void OnRep_HasBeenConstructed();
@@ -126,6 +133,7 @@ private:
 	}
 
 	bool bHasBeenConstructed;
+	FVector m_CenterLocation;
 	std::map<int, int> m_PlayerPawnCount;
 	std::vector<FGridCoordinate> m_SpawnLocations;
 	std::vector<class AInteractable*> m_Visuals;

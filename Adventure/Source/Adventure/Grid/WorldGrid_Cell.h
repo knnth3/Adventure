@@ -42,7 +42,6 @@ public:
 	AWorldGrid_Cell();
 	void Initialize(const FGridCoordinate& newLocation);
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaTime) override;
 
 	bool operator<(const AWorldGrid_Cell* b);
 

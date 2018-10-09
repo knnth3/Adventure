@@ -31,16 +31,19 @@ AWorldGrid::AWorldGrid()
 
 void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const 
 {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
 	DOREPLIFETIME(AWorldGrid, m_GridDimensions);
 }
 
 void AWorldGrid::BeginPlay()
 {
-
+	Super::BeginPlay();
 }
 
 void AWorldGrid::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	Super::EndPlay(EndPlayReason);
 	ServerOnly_ResetGrid();
 }
 
@@ -93,6 +96,8 @@ void AWorldGrid::ServerOnly_GenerateGrid(const FGridCoordinate & GridDimensions,
 
 	if (cellCount == GridDimensions.X * GridDimensions.Y)
 	{
+		FVector BottomRight = UGridFunctions::GridToWorldLocation(GridDimensions);
+		m_CenterLocation = FVector(BottomRight.X * 0.5f, BottomRight.Y * 0.5f, 0.0f);
 		m_GridDimensions = GridDimensions;
 		OnRep_HasBeenConstructed();
 		UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Finished generating grid"));
@@ -371,6 +376,11 @@ FGridCoordinate AWorldGrid::ServerOnly_GetOpenSpawnLocation()const
 	return FGridCoordinate();
 }
 
+FVector AWorldGrid::GetCenterLocation() const
+{
+	return m_CenterLocation;
+}
+
 void AWorldGrid::GenerateEnvironment(const FGridCoordinate& GridDimensions)
 {
 	// Generate the visual for each cell
@@ -441,35 +451,47 @@ void AWorldGrid::GenerateBackdrop(const FGridCoordinate& GridDimensions)
 
 	float width = GeneratedAreaWidth;
 	float height = GeneratedAreaWidth;
-	float gridWidth = Conversions::Feet::ToCentimeters(GridDimensions.Y * 5.0f);
-	float gridHeight = Conversions::Feet::ToCentimeters(GridDimensions.X * 5.0f);
+	float gridWidth = abs(m_CenterLocation.X * 2.0f);
+	float gridHeight = abs(m_CenterLocation.Y * 2.0f);
 	float totalWidth = width + gridWidth;
 	float totalHeight = height + gridHeight;
 
 	MeshLibrary::GenerateGrid(Vertices, Triangles, GeneratedAreaTesselation, GeneratedAreaTesselation, 
-		2.0f * width + gridWidth, 2.0f * height + gridHeight, -width - gridWidth, -height); // To
+		totalWidth, totalHeight, 0.5 * (-totalWidth - gridWidth), 0.5 * (-totalHeight + gridHeight));
 
-	FVector center(gridWidth / -2.0f, gridHeight / 2.0f, 0.0f);
 	for (auto& v : Vertices)
 	{
-		FVector length = center - v.Position;
-		float posHeight = GetGeneratedHeightValue(FVector2D(v.Position.X / totalWidth, v.Position.Y / totalHeight));
-		float vecDist = FMath::Sqrt(length.X * length.X + length.Y * length.Y);
+		float vertexDistance = FVector::Dist2D(m_CenterLocation, v.Position);
 		float acceptableRadius = (gridWidth > gridHeight) ? gridWidth : gridHeight;
-		acceptableRadius = sqrt(acceptableRadius * acceptableRadius + acceptableRadius * acceptableRadius + acceptableRadius * acceptableRadius);
-		float finalHeight = posHeight;
 
-		if (vecDist <= acceptableRadius)
+		float generatedHeight = GetGeneratedHeightValue(FVector2D(v.Position.X / GeneratedAreaPlayAreaRandomIntensity, v.Position.Y / GeneratedAreaPlayAreaRandomIntensity));
+		float floorHeight = 0.0f;
+		float finalHeight = generatedHeight;
+
+		if (vertexDistance <= acceptableRadius)
 		{
-			finalHeight = -0.0001f;
+			finalHeight = floorHeight;
+		}
+		else
+		{
+			float weight = GetBaseWeight(vertexDistance - acceptableRadius, SmoothingRadius);
+			finalHeight = (generatedHeight * weight);
 		}
 
-		v.Position.Z = finalHeight * GeneratedAreaHeightRange;
+		v.Position.Z = finalHeight * GeneratedAreaHeightRange - 1.0f;
 	}
 
-	// Create the mesh section
-	RuntimeMesh->CreateMeshSection(0, Vertices, Triangles);
-	RuntimeMesh->SetMaterial(0, GeneratedAreaMaterial);
+	 // Create the mesh section
+	 RuntimeMesh->CreateMeshSection(0, Vertices, Triangles);
+	 RuntimeMesh->SetMaterial(0, GeneratedAreaMaterial);
+}
+
+float AWorldGrid::GetBaseWeight(float CurrentRadius, float MaxRadius)
+{
+	float ratio = (CurrentRadius / MaxRadius);
+	float value = 1.0f / (1.0f + pow(EULERS_NUMBER, (-10.0f * ratio) + 5.0f));
+
+	return value;
 }
 
 void AWorldGrid::OnRep_HasBeenConstructed()
