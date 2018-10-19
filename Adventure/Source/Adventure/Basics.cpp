@@ -4,11 +4,152 @@
 #include "FileManager.h"
 #include "Paths.h"
 #include "RuntimeMeshComponent.h"
+#include "GameFramework/SaveGame.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/CustomVersion.h"
+#include "Serialization/ObjectAndNameAsStringProxyArchive.h"
+#include "Serialization/MemoryReader.h"
+#include "SaveGameSystem.h"
+#include "PlatformFeatures.h"
 
 #define CM_TO_M_FACTOR 100
 #define CM_TO_IN_FACTOR 2.54
 #define IN_TO_YD_FACTOR 36
 #define IN_TO_FT_FACTOR 12
+
+static const int UE4_SAVEGAME_FILE_TYPE_TAG = 0x53415647;		// "sAvG"
+
+struct FSaveGameFileVersion
+{
+	enum Type
+	{
+		InitialVersion = 1,
+		// serializing custom versions into the savegame data to handle that type of versioning
+		AddedCustomVersions = 2,
+
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+};
+
+struct FSaveGameHeader
+{
+	FSaveGameHeader();
+	FSaveGameHeader(TSubclassOf<USaveGame> ObjectType);
+
+	void Empty();
+	bool IsEmpty() const;
+
+	void Read(FMemoryReader& MemoryReader);
+	void Write(FMemoryWriter& MemoryWriter);
+
+	int32 FileTypeTag;
+	int32 SaveGameFileVersion;
+	int32 PackageFileUE4Version;
+	FEngineVersion SavedEngineVersion;
+	int32 CustomVersionFormat;
+	FCustomVersionContainer CustomVersions;
+	FString SaveGameClassName;
+};
+
+FSaveGameHeader::FSaveGameHeader()
+	: FileTypeTag(0)
+	, SaveGameFileVersion(0)
+	, PackageFileUE4Version(0)
+	, CustomVersionFormat(static_cast<int32>(ECustomVersionSerializationFormat::Unknown))
+{}
+
+FSaveGameHeader::FSaveGameHeader(TSubclassOf<USaveGame> ObjectType)
+	: FileTypeTag(UE4_SAVEGAME_FILE_TYPE_TAG)
+	, SaveGameFileVersion(FSaveGameFileVersion::LatestVersion)
+	, PackageFileUE4Version(GPackageFileUE4Version)
+	, SavedEngineVersion(FEngineVersion::Current())
+	, CustomVersionFormat(static_cast<int32>(ECustomVersionSerializationFormat::Latest))
+	, CustomVersions(FCustomVersionContainer::GetRegistered())
+	, SaveGameClassName(ObjectType->GetPathName())
+{}
+
+void FSaveGameHeader::Empty()
+{
+	FileTypeTag = 0;
+	SaveGameFileVersion = 0;
+	PackageFileUE4Version = 0;
+	SavedEngineVersion.Empty();
+	CustomVersionFormat = (int32)ECustomVersionSerializationFormat::Unknown;
+	CustomVersions.Empty();
+	SaveGameClassName.Empty();
+}
+
+bool FSaveGameHeader::IsEmpty() const
+{
+	return (FileTypeTag == 0);
+}
+
+void FSaveGameHeader::Read(FMemoryReader& MemoryReader)
+{
+	Empty();
+
+	MemoryReader << FileTypeTag;
+
+	if (FileTypeTag != UE4_SAVEGAME_FILE_TYPE_TAG)
+	{
+		// this is an old saved game, back up the file pointer to the beginning and assume version 1
+		MemoryReader.Seek(0);
+		SaveGameFileVersion = FSaveGameFileVersion::InitialVersion;
+
+		// Note for 4.8 and beyond: if you get a crash loading a pre-4.8 version of your savegame file and 
+		// you don't want to delete it, try uncommenting these lines and changing them to use the version 
+		// information from your previous build. Then load and resave your savegame file.
+		//MemoryReader.SetUE4Ver(MyPreviousUE4Version);				// @see GPackageFileUE4Version
+		//MemoryReader.SetEngineVer(MyPreviousEngineVersion);		// @see FEngineVersion::Current()
+	}
+	else
+	{
+		// Read version for this file format
+		MemoryReader << SaveGameFileVersion;
+
+		// Read engine and UE4 version information
+		MemoryReader << PackageFileUE4Version;
+
+		MemoryReader << SavedEngineVersion;
+
+		MemoryReader.SetUE4Ver(PackageFileUE4Version);
+		MemoryReader.SetEngineVer(SavedEngineVersion);
+
+		if (SaveGameFileVersion >= FSaveGameFileVersion::AddedCustomVersions)
+		{
+			MemoryReader << CustomVersionFormat;
+
+			CustomVersions.Serialize(MemoryReader, static_cast<ECustomVersionSerializationFormat::Type>(CustomVersionFormat));
+			MemoryReader.SetCustomVersions(CustomVersions);
+		}
+	}
+
+	// Get the class name
+	MemoryReader << SaveGameClassName;
+}
+
+void FSaveGameHeader::Write(FMemoryWriter& MemoryWriter)
+{
+	// write file type tag. identifies this file type and indicates it's using proper versioning
+	// since older UE4 versions did not version this data.
+	MemoryWriter << FileTypeTag;
+
+	// Write version for this file format
+	MemoryWriter << SaveGameFileVersion;
+
+	// Write out engine and UE4 version information
+	MemoryWriter << PackageFileUE4Version;
+	MemoryWriter << SavedEngineVersion;
+
+	// Write out custom version data
+	MemoryWriter << CustomVersionFormat;
+	CustomVersions.Serialize(MemoryWriter, static_cast<ECustomVersionSerializationFormat::Type>(CustomVersionFormat));
+
+	// Write the class name so we know what class to load to
+	MemoryWriter << SaveGameClassName;
+}
 
 FGridCoordinate::FGridCoordinate()
 {
@@ -45,6 +186,16 @@ bool FGridCoordinate::operator!=(const FGridCoordinate & b)const
 	return !operator==(b);
 }
 
+FGridCoordinate FGridCoordinate::operator+(const FGridCoordinate & b) const
+{
+	return FGridCoordinate(X + b.X, Y + b.Y);
+}
+
+FGridCoordinate FGridCoordinate::operator*(const int32 & s) const
+{
+	return FGridCoordinate(X * s, Y * s);
+}
+
 CoordinatePair FGridCoordinate::toPair()const
 {
 	return CoordinatePair(X, Y);
@@ -74,10 +225,21 @@ FGridCoordinate UGridFunctions::WorldToGridLocation(const FVector& Location)
 	float CELL_LENGTH, CELL_WIDTH;
 	GetGridDimensions(CELL_LENGTH, CELL_WIDTH, UNITS::CENTIMETERS);
 
-	return FGridCoordinate(
+
+	FGridCoordinate newLocation = FGridCoordinate(
 		-FMath::TruncToInt(Location.X / CELL_LENGTH),
-		FMath::TruncToInt(Location.Y / CELL_WIDTH)
-	);
+		FMath::TruncToInt(Location.Y / CELL_WIDTH));
+
+	if (newLocation.X < 0)
+	{
+		newLocation.X -= 1;
+	}
+	if (newLocation.Y < 0)
+	{
+		newLocation.Y -= 1;
+	}
+
+	return newLocation;
 }
 
 //Centimeters//////////////////////////////////////////////////////////////
@@ -188,13 +350,13 @@ float Conversions::Feet::ToMeters(const float & Units)
 
 bool UBasicFunctions::GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ext)
 {
-	FString RootFolderFullPath = FPaths::ProjectSavedDir() + "/SaveGames/";
+	FString RootFolderFullPath = FPaths::ProjectUserDir() + "maps/";
 
 	if (RootFolderFullPath.Len() < 1) return false;
 
 	FPaths::NormalizeDirectoryName(RootFolderFullPath);
 
-	UE_LOG(LogNotice, Warning, TEXT("Attempting to locate all filed in folderpath: %s"), *RootFolderFullPath);
+	UE_LOG(LogNotice, Warning, TEXT("Attempting to locate all files in folderpath: %s"), *RootFolderFullPath);
 
 	IFileManager& FileManager = IFileManager::Get();
 
@@ -210,6 +372,68 @@ bool UBasicFunctions::GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ex
 	FString FinalPath = RootFolderFullPath + "/" + Ext;
 	FileManager.FindFiles(Array, *FinalPath, true, false);
 	return true;
+}
+
+bool UBasicFunctions::SaveFile(USaveGame * SaveGameObject, const FString & SlotName)
+{
+	ISaveGameSystem* SaveSystem = IPlatformFeaturesModule::Get().GetSaveGameSystem();
+	// If we have a system and an object to save and a save name...
+	if (SaveSystem && SaveGameObject && (SlotName.Len() > 0))
+	{
+		TArray<uint8> ObjectBytes;
+		FMemoryWriter MemoryWriter(ObjectBytes, true);
+
+		FSaveGameHeader SaveHeader(SaveGameObject->GetClass());
+		SaveHeader.Write(MemoryWriter);
+
+		// Then save the object state, replacing object refs and names with strings
+		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+		SaveGameObject->Serialize(Ar);
+
+		// Stuff that data into the save system with the desired file name
+		return FFileHelper::SaveArrayToFile(ObjectBytes, *SlotName);
+	}
+
+	return false;
+}
+
+USaveGame * UBasicFunctions::LoadFile(const FString & SlotName)
+{
+	USaveGame* OutSaveGameObject = NULL;
+
+	ISaveGameSystem* SaveSystem = IPlatformFeaturesModule::Get().GetSaveGameSystem();
+	// If we have a save system and a valid name..
+	if (SaveSystem && (SlotName.Len() > 0))
+	{
+		// Load raw data from slot
+		TArray<uint8> ObjectBytes;
+		bool bSuccess = FFileHelper::LoadFileToArray(ObjectBytes, *SlotName);
+		if (bSuccess)
+		{
+			FMemoryReader MemoryReader(ObjectBytes, true);
+
+			FSaveGameHeader SaveHeader;
+			SaveHeader.Read(MemoryReader);
+
+			// Try and find it, and failing that, load it
+			UClass* SaveGameClass = FindObject<UClass>(ANY_PACKAGE, *SaveHeader.SaveGameClassName);
+			if (SaveGameClass == NULL)
+			{
+				SaveGameClass = LoadObject<UClass>(NULL, *SaveHeader.SaveGameClassName);
+			}
+
+			// If we have a class, try and load it.
+			if (SaveGameClass != NULL)
+			{
+				OutSaveGameObject = NewObject<USaveGame>(GetTransientPackage(), SaveGameClass);
+
+				FObjectAndNameAsStringProxyArchive Ar(MemoryReader, true);
+				OutSaveGameObject->Serialize(Ar);
+			}
+		}
+	}
+
+	return OutSaveGameObject;
 }
 
 ESessionState UBasicFunctions::ToBlueprintType(EOnlineSessionState::Type Type)
@@ -299,8 +523,8 @@ void MeshLibrary::GenerateGrid(TArray<struct FRuntimeMeshVertexSimple>& Vertices
 	{
 		for (int y = 0; y <= (yDivisions + 1); y++)
 		{
-			float u = xOffset / Width;
-			float v = yOffset / Width;
+			float u = (float)x / (xDivisions + 1);
+			float v = (float)y / (yDivisions + 1);
 			Vertices.Add(
 				FRuntimeMeshVertexSimple(
 					FVector(xOffset, yOffset, 0), 

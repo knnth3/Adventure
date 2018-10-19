@@ -233,6 +233,9 @@ struct ADVENTURE_API FGridCoordinate
 
 	bool operator==(const FGridCoordinate& b)const;
 	bool operator!=(const FGridCoordinate& b)const;
+	FGridCoordinate operator+(const FGridCoordinate& b)const;
+	FGridCoordinate operator*(const int32& s)const;
+
 	CoordinatePair toPair()const;
 	bool IsZero()const;
 
@@ -266,6 +269,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
 	static bool GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ext);
+
+	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
+	static bool SaveFile(class USaveGame* SaveGameObject, const FString& SlotName);
+
+	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
+	static USaveGame* LoadFile(const FString& SlotName);
 
 	static ESessionState ToBlueprintType(EOnlineSessionState::Type Type);
 	static EJoinSessionResults ToBlueprintType(EOnJoinSessionCompleteResult::Type Type);

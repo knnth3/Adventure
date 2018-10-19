@@ -33,7 +33,7 @@ bool UPathFinder::FindPath(AWorldGrid_Cell* start, AWorldGrid_Cell* end, TArray<
 			return true;
 		}
 
-		for (const auto& neighbor : current->GetTraversableNeighbors())
+		for (const auto& neighbor : current->GetNeighbors())
 		{
 			if (closedSet.find(neighbor->Location.toPair()) != closedSet.end())
 			{

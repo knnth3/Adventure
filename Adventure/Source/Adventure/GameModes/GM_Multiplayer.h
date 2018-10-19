@@ -27,9 +27,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer")
 	FString GetMapName()const;
 
-	UFUNCTION(BlueprintCallable, Category = "Multiplayer")
-	void GetMapObjects(TArray<struct FGAMEBUILDER_OBJECT>& Objects)const;
-
 	int GetHostID()const;
 
 protected:
@@ -43,9 +40,6 @@ private:
 	std::string m_HostUsername;
 	FGridCoordinate m_GridDimensions;
 	std::map<std::string, int> m_ConnnectedPlayers;
-
-	// Temporary setup data
-	TArray<struct FGAMEBUILDER_OBJECT> m_MapDecorations;
 
 	int GeneratePlayerID();
 };

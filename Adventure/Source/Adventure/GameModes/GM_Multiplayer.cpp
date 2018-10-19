@@ -15,6 +15,7 @@
 AGM_Multiplayer::AGM_Multiplayer()
 {
 	m_PlayerIndexCount = 0;
+	m_GridDimensions = { 10, 10 };
 }
 
 FGridCoordinate AGM_Multiplayer::GetMapSize()const
@@ -27,11 +28,6 @@ FString AGM_Multiplayer::GetMapName() const
 	return m_CurrentMapName;
 }
 
-void AGM_Multiplayer::GetMapObjects(TArray<struct FGAMEBUILDER_OBJECT>& Objects) const
-{
-	Objects = m_MapDecorations;
-}
-
 int AGM_Multiplayer::GetHostID() const
 {
 	return m_ConnnectedPlayers.at(m_HostUsername);
@@ -41,22 +37,7 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	m_GridDimensions.X = 10;
-	m_GridDimensions.Y = 10;
-	FVector Location(0.0f);
-	FString MapFileName = UGameplayStatics::ParseOption(Options, "SN");
-	UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UGameplayStatics::LoadGameFromSlot(MapFileName, 0));
-	if (MapSaveFile)
-	{
-		UE_LOG(LogNotice, Warning, TEXT("Map Loaded!"));
-		UE_LOG(LogNotice, Warning, TEXT("Name: %s"), *MapSaveFile->MapName);
-		UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
-		UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->Objects.Num());
-
-		m_GridDimensions.X = MapSaveFile->MapSize.X;
-		m_GridDimensions.Y = MapSaveFile->MapSize.Y;
-		m_MapDecorations = MapSaveFile->Objects;
-	}
+	m_CurrentMapName = UGameplayStatics::ParseOption(Options, "SN");
 }
 
 void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)

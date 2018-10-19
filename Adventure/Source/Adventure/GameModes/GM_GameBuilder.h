@@ -18,8 +18,6 @@ class ADVENTURE_API AGM_GameBuilder : public AGameModeBase
 public:
 	
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	virtual void InitGameState()override;
-	virtual void StartPlay()override;
 
 	UFUNCTION(BlueprintCallable, Category = "GameBuilder")
 	bool IsNewMap()const;
@@ -34,6 +32,5 @@ private:
 
 	bool m_bNewMap;
 	FString m_MapName;
-	int m_Rows, m_Columns;
-	TArray<struct FGAMEBUILDER_OBJECT> m_PendingObjects;
+	FGridCoordinate m_GridDimensions;
 };

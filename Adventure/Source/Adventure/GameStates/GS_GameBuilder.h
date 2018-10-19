@@ -16,24 +16,11 @@ class ADVENTURE_API AGS_GameBuilder : public AGameStateBase
 	GENERATED_BODY()
 	
 public: 
-
-	void Initialize(FString MapName, int Rows, int Columns);
 	virtual void HandleBeginPlay()override;
-
-	UFUNCTION(BlueprintCallable, Category = "GameBuilder")
-	FGridCoordinate GetMapSize()const;
-
-	UFUNCTION(BlueprintCallable, Category = "GameBuilder")
-	FString GetMapName()const;
-	
-protected:
-
-	UPROPERTY(EditAnywhere, Category = "Spawnables")
-	TSubclassOf<class AWorldGrid> GridClass;
 
 private:
 
 	FString m_MapName;
-	int m_Rows, m_Columns;
+	FGridCoordinate m_GridDimensions;
 	class AWorldGrid* m_WorldGrid;
 };

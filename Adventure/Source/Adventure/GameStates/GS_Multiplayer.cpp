@@ -24,44 +24,22 @@ void AGS_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Out
 void AGS_Multiplayer::HandleBeginPlay()
 {
 	Super::HandleBeginPlay();
+	SetActivePlayer(-1);
 
 	if (HasAuthority())
 	{
 		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
-		FGridCoordinate MapDimensions = Gamemode->GetMapSize();
 		TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
-		if (WorldGridItr)
+		if (Gamemode && WorldGridItr)
 		{
-			WorldGridItr->ServerOnly_GenerateGrid(MapDimensions);
-
-			TArray<struct FGAMEBUILDER_OBJECT> Objects;
-			Gamemode->GetMapObjects(Objects);
-
-			for (auto& object : Objects)
+			if (!WorldGridItr->ServerOnly_LoadGrid(Gamemode->GetMapName()))
 			{
-				switch (object.Type)
+				if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), Gamemode->GetMapSize()))
 				{
-				case GAMEBUILDER_OBJECT_TYPE::ANY:
-					break;
-				case GAMEBUILDER_OBJECT_TYPE::INTERACTABLE:
-					WorldGridItr->ServerOnly_AddBlockingObject(object.ModelIndex, object.Location);
-					break;
-				case GAMEBUILDER_OBJECT_TYPE::SPAWN:
-					WorldGridItr->ServerOnly_AddSpawnLocation(object.ModelIndex, object.Location);
-					break;
-				case GAMEBUILDER_OBJECT_TYPE::NPC:
-					break;
-				default:
-					break;
+					UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));
 				}
 			}
-
-			// Spawn actors
-			FGridCoordinate SpawnLocation = WorldGridItr->ServerOnly_GetOpenSpawnLocation();
-			WorldGridItr->ServerOnly_AddPawn(0, SpawnLocation, 0);
 		}
-
-		SetActivePlayer(-1);
 	}
 }
 

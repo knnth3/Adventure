@@ -41,8 +41,6 @@ private:
 
 	bool m_bFreeRoamActive;
 	int m_CurrentActivePlayer;
-	FString m_MapName;
-	FGridCoordinate m_GridDimensions;
 	class AWorldGrid* m_WorldGrid;
 	std::deque<int> m_TurnSequence;
 };

@@ -98,6 +98,7 @@ void AMapPawn::BeginPlay()
 		FRandomStream rand;
 		rand.GenerateNewSeed();
 		m_StatSheet.Name = m_StatSheet.Name + FString::FromInt(rand.FRandRange(0, 100));
+		GetNewID();
 	}
 }
 
@@ -140,11 +141,6 @@ void AMapPawn::Tick(float DeltaTime)
 void AMapPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-}
-
-void AMapPawn::ServerOnly_SetPawnID(int newID)
-{
-	m_PawnID = newID;
 }
 
 int AMapPawn::GetPawnID() const
@@ -338,6 +334,13 @@ void AMapPawn::MovePawn(float DeltaTime)
 			}
 		}
 	}
+}
+
+int AMapPawn::GetNewID()
+{
+	static int PawnIDCount = 0;
+
+	return PawnIDCount++;
 }
 
 void AMapPawn::Multicast_SetActiveDestination_Implementation(const FVector& Location)

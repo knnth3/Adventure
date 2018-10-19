@@ -4,20 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Basics.h"
+#include "Saves/MapSaveFile.h"
 #include "GameFramework/Actor.h"
 #include "WorldGrid_Cell.generated.h"
-
-USTRUCT(BlueprintType)
-struct FCellObject
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")
-	int ObjectID;
-
-	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")
-	int ClassIndex;
-};
 
 UCLASS()
 class ADVENTURE_API AWorldGrid_Cell : public AActor
@@ -41,44 +30,35 @@ public:
 public:
 	AWorldGrid_Cell();
 	void Initialize(const FGridCoordinate& newLocation);
-	virtual void BeginPlay() override;
+	void SetParent(class AWorldGrid* parent);
 
 	bool operator<(const AWorldGrid_Cell* b);
 
 	int GetFCost()const;
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
+	bool IsEmpty() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
 	bool IsOcupied() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool SetTraversable(bool value);
+	bool HasPawn() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool IsTraversable() const;
+	GRID_OBJECT_TYPE GetObjectType() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool AddVisual(FCellObject object);
+	bool AddObject(GRID_OBJECT_TYPE type, AActor* actor);
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	int RemoveVisual();
+	bool AddPawn(AActor* actor);
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool AddBlockingObject(FCellObject object);
+	AActor* RemoveObject();
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	int RemoveBlockingObject();
-
-	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool AddPawn(FCellObject object);
-
-	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	int RemovePawn(int pawnID);
-
-	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool AddSpawner(FCellObject object);
-
-	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	int RemoveSpawner();
+	AActor* RemovePawn(int pawnID = -1);
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
 	void AddBlockingSpace();
@@ -87,39 +67,33 @@ public:
 	void RemoveBlockingSpace();
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool ContainsPawn()const;
+	AActor* GetObject();
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool ContainsVisuals()const;
+	void GetPawns(TArray<AActor*>& pawns);
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool ContainsBlockingObject()const;
-
-	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
-	bool ContainsSpawner()const;
+	void ClearCell(TArray<AActor*>& contents);
 
 	AWorldGrid_Cell*& Neigbor(const NEIGHBOR& Location);
-	std::list<AWorldGrid_Cell*> GetTraversableNeighbors();
+	std::list<AWorldGrid_Cell*> GetNeighbors();
 
 	FGridCoordinate Location;
 	AWorldGrid_Cell* Parent;
 	int H_Cost;
 	int G_Cost;
 
+protected:
+
+	UPROPERTY(BlueprintReadWrite, Category = "Visual Settings")
+	class AWorldGrid* ParentGrid;
+
 private:
 
-	int RemoveElement(int index, std::vector<FCellObject>& list);
-	int GetPawnIndex(int pawnID, std::vector<FCellObject>& list);
-
-	bool bTraversable;
-	bool bBlockingObject;
+	AActor* m_Object;
 	int m_BlockingSpaceCount;
-	FCellObject m_Visual;
-	FCellObject m_BlockingObject;
-	FCellObject m_Spawner;
-	std::vector<FCellObject> m_Pawns;
+	GRID_OBJECT_TYPE m_ObjectType;
+	std::vector<AActor*> m_Pawns;
 	AWorldGrid_Cell* Neighbors[8];
-
-	
 	
 };

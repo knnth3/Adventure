@@ -1,50 +1,37 @@
 // By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
 #include "GS_GameBuilder.h"
 
+#include "GameModes/GM_GameBuilder.h"
 #include "Adventure.h"
 #include "Grid/WorldGrid.h"
-
-void AGS_GameBuilder::Initialize(FString MapName, int Rows, int Columns)
-{
-	this->m_MapName = MapName;
-	this->m_Rows = Rows;
-	this->m_Columns = Columns;
-}
 
 void AGS_GameBuilder::HandleBeginPlay()
 {
 	Super::HandleBeginPlay();
 
-	FVector Location(0.0f);
-	m_WorldGrid = Cast<AWorldGrid>(GetWorld()->SpawnActor(*GridClass, &Location));
-
-	UE_LOG(LogNotice, Warning, TEXT("GameState has begun play!"));
-
-	for (const auto& player : PlayerArray)
+	if (HasAuthority())
 	{
-		bool Auth = player->HasAuthority();
-		FString Name = player->GetPlayerName();
-		int PlayerID = player->PlayerId;
-
-		UE_LOG(LogNotice, Warning, TEXT("Found Playerstate: %s with id= %i. IsAuth= %i"), *Name, PlayerID, Auth);
-
-		if (Auth && m_WorldGrid)
+		AGM_GameBuilder* Gamemode = Cast<AGM_GameBuilder>(AuthorityGameMode);
+		TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+		if (Gamemode && WorldGridItr)
 		{
-			FGridCoordinate MapDimensions = FGridCoordinate(m_Rows, m_Columns);
-			UE_LOG(LogNotice, Warning, TEXT("Begin World Grid Init"));
-			m_WorldGrid->ServerOnly_GenerateGrid(MapDimensions);
-			return;
+			bool loaded = !Gamemode->IsNewMap();
+			if (loaded)
+			{
+				if (!WorldGridItr->ServerOnly_LoadGrid(Gamemode->GetMapName()))
+				{
+					UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to load grid"));
+					loaded = false;
+				}
+			}
+
+			if (!loaded)
+			{
+				if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), Gamemode->GetMapSize()))
+				{
+					UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));
+				}
+			}
 		}
 	}
-
-}
-
-FGridCoordinate AGS_GameBuilder::GetMapSize() const
-{
-	return FGridCoordinate(m_Rows, m_Columns);
-}
-
-FString AGS_GameBuilder::GetMapName() const
-{
-	return m_MapName;
 }

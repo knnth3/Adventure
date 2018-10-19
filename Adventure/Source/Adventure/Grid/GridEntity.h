@@ -9,12 +9,12 @@
 
 
 UENUM(BlueprintType)
-enum class GridEntityType : uint8
+enum class GRID_OBJECT_TYPE : uint8
 {
-	NON_BLOCKING,
-	BLOCKING,
-	SPAWNER,
-	CHARACTER,
+	NONE,
+	INTERACTABLE,
+	SPAWN,
+	PAWN,
 };
 
 // This class does not need to be modified.
@@ -47,7 +47,7 @@ public:
 	bool IsBlockingSpace() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Entity Info")
-	GridEntityType GetType() const;
+	GRID_OBJECT_TYPE GetType() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Entity Info")
 	FGridCoordinate GetLocationGridSpace() const;

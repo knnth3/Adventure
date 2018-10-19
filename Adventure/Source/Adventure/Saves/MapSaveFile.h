@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Basics.h"
+#include "Grid/GridEntity.h"
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "MapSaveFile.generated.h"
@@ -10,6 +11,25 @@
 /**
  * 
  */
+
+USTRUCT(BlueprintType)
+struct ADVENTURE_API FSAVE_OBJECT
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category = "GAMEBUILDER OBJECT")
+	int ModelIndex;
+
+	UPROPERTY(BlueprintReadWrite, Category = "GAMEBUILDER OBJECT")
+	FString OwnerName;
+
+	UPROPERTY(BlueprintReadWrite, Category = "GAMEBUILDER OBJECT")
+	FGridCoordinate Location;
+
+	UPROPERTY(BlueprintReadWrite, Category = "GAMEBUILDER OBJECT")
+	GRID_OBJECT_TYPE Type;
+};
+
 UCLASS()
 class ADVENTURE_API UMapSaveFile : public USaveGame
 {
@@ -25,6 +45,6 @@ public:
 	FGridCoordinate MapSize;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<struct FGAMEBUILDER_OBJECT> Objects;
+	TArray<FSAVE_OBJECT> GridSheet;
 
 };

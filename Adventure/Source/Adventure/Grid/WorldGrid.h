@@ -16,21 +16,19 @@ class ADVENTURE_API AWorldGrid : public AActor
 public:	
 
 	AWorldGrid();
-	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	void ServerOnly_GenerateGrid(const FGridCoordinate& Dimensions, std::vector<std::vector<int>> GridSheet);
+	bool ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& Dimensions, const TArray<FSAVE_OBJECT>* GridSheet);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	void ServerOnly_GenerateGrid(const FGridCoordinate& Dimensions);
+	bool ServerOnly_SaveMap();
+
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_LoadGrid(const FString& MapName);
+
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& Dimensions);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ServerOnly_ResetGrid();
-
-	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	bool ServerOnly_AddVisual(int ClassIndex, const FGridCoordinate & Location);
-
-	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	bool ServerOnly_RemoveVisual(const FGridCoordinate& Location);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_AddBlockingObject(int ClassIndex, const FGridCoordinate & Location);
@@ -54,9 +52,6 @@ public:
 	class AMapPawn* ServerOnly_GetPawn(int pawnID);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	TArray<class AMapPawn*> ServerOnly_GetAllPawns(int pawnID);
-
-	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
@@ -64,6 +59,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	FVector GetCenterLocation()const;
+
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	void ShowCollisions(bool value);
 
 protected:
 
@@ -83,6 +81,9 @@ protected:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Instanced Cells")
 	class UInstancedStaticMeshComponent* GridCellsMesh;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Instanced Cells")
+	class UInstancedStaticMeshComponent* BackgroundTreesMesh;
+
 	UPROPERTY(EditAnywhere, Category = "Out of bounds settings")
 	class URuntimeMeshComponent* RuntimeMesh;
 
@@ -90,7 +91,7 @@ protected:
 	UMaterialInterface* GeneratedAreaMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
-	float GeneratedAreaWidth;
+	int GeneratedAreaWidth;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
 	float GeneratedAreaTesselation;
@@ -110,9 +111,14 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Out of bounds settings")
 	float GetGeneratedHeightValue(const FVector2D& Location);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual Settings")
+	bool bShowCollisions;
+
 private:
 
+	bool LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet);
 	void GenerateEnvironment(const FGridCoordinate& GridDimensions);
+	bool ContainsCoordinate(const FGridCoordinate& coordintate);
 	bool ContainsCoordinate(int x, int y);
 	void ServerOnly_LinkCell(AWorldGrid_Cell* NewCell);
 	void GenerateBackdrop(const FGridCoordinate& GridDimensions);
@@ -133,11 +139,9 @@ private:
 	}
 
 	bool bHasBeenConstructed;
+	FString m_MapName;
 	FVector m_CenterLocation;
 	std::map<int, int> m_PlayerPawnCount;
 	std::vector<FGridCoordinate> m_SpawnLocations;
-	std::vector<class AInteractable*> m_Visuals;
-	std::vector<class AMapPawn*> m_MapPawns;
-	std::vector<class ASpawner*> m_Spawns;
 	std::vector<std::vector<AWorldGrid_Cell*>> m_Grid;
 };

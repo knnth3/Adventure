@@ -12,8 +12,7 @@ void AGM_GameBuilder::InitGame(const FString & MapName, const FString & Options,
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	this->m_Rows = 10;
-	this->m_Columns = 10;
+	m_GridDimensions = { 10, 10 };
 	m_bNewMap = true;
 
 	//Parse all command options
@@ -23,7 +22,7 @@ void AGM_GameBuilder::InitGame(const FString & MapName, const FString & Options,
 	FString NewMap  = ParseStringFor(Options, "NewMap=",  " ");
 
 	UE_LOG(LogNotice, Warning, TEXT("Map Name: %s"), *Name);
-	this->m_MapName = Name;
+	m_MapName = Name;
 
 	if (!NewMap.IsEmpty())
 	{
@@ -38,66 +37,10 @@ void AGM_GameBuilder::InitGame(const FString & MapName, const FString & Options,
 		{
 			UE_LOG(LogNotice, Warning, TEXT("Map Size: %s x %s"), *Rows, *Columns);
 
-			this->m_Rows = FCString::Atoi(*Rows);
-			this->m_Columns = FCString::Atoi(*Columns);
+			m_GridDimensions.X = FCString::Atoi(*Rows);
+			m_GridDimensions.Y = FCString::Atoi(*Columns);
 		}
 	}
-	else
-	{
-		UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UGameplayStatics::LoadGameFromSlot(Name, 0));
-		if (MapSaveFile)
-		{
-			UE_LOG(LogNotice, Warning, TEXT("Map Loaded!"));
-			UE_LOG(LogNotice, Warning, TEXT("Name: %s"), *MapSaveFile->MapName);
-			UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
-			UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->Objects.Num());
-
-			this->m_Rows = MapSaveFile->MapSize.X;
-			this->m_Columns = MapSaveFile->MapSize.Y;
-			m_PendingObjects = MapSaveFile->Objects;
-		}
-	}
-}
-
-void AGM_GameBuilder::InitGameState()
-{
-	Super::InitGameState();
-
-	AGS_GameBuilder* gameState = GetGameState<AGS_GameBuilder>();
-	if (gameState)
-	{
-		gameState->Initialize(m_MapName, m_Rows, m_Columns);
-	}
-}
-
-void AGM_GameBuilder::StartPlay()
-{
-	Super::StartPlay();
-
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	if (GridItr)
-	{
-		for (const auto& object : m_PendingObjects)
-		{
-			switch (object.Type)
-			{
-			case GAMEBUILDER_OBJECT_TYPE::ANY:
-				break;
-			case GAMEBUILDER_OBJECT_TYPE::INTERACTABLE:
-				GridItr->ServerOnly_AddBlockingObject(object.ModelIndex, object.Location);
-				break;
-			case GAMEBUILDER_OBJECT_TYPE::SPAWN:
-				GridItr->ServerOnly_AddSpawnLocation(object.ModelIndex, object.Location);
-				break;
-			case GAMEBUILDER_OBJECT_TYPE::NPC:
-				break;
-			default:
-				break;
-			}
-		}
-	}
-
-	m_PendingObjects.Empty();
 }
 
 bool AGM_GameBuilder::IsNewMap() const
@@ -107,7 +50,7 @@ bool AGM_GameBuilder::IsNewMap() const
 
 FGridCoordinate AGM_GameBuilder::GetMapSize() const
 {
-	return FGridCoordinate(m_Rows, m_Columns);
+	return m_GridDimensions;
 }
 
 FString AGM_GameBuilder::GetMapName() const

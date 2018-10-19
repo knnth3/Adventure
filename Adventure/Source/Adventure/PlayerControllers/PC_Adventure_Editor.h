@@ -19,12 +19,12 @@ class ADVENTURE_API APC_Adventure_Editor : public APlayerController
 protected:
 	//Sends request to WorldGrid
 	UFUNCTION(BlueprintCallable)
-	bool RequestSpawnInteractible(int Type, const FGridCoordinate& Location);
-
-	UFUNCTION(BlueprintCallable)
-	bool RequestDeleteObject(GAMEBUILDER_OBJECT_TYPE Type, const FGridCoordinate& Location);
+	bool RequestSpawnBlockingObject(int Type, const FGridCoordinate& Location);
 
 	UFUNCTION(BlueprintCallable)
 	bool RequestAddSpawnLocation(int Type, const FGridCoordinate& Location);
+
+	UFUNCTION(BlueprintCallable)
+	bool RequestDeleteObject(enum GRID_OBJECT_TYPE Type, const FGridCoordinate& Location, int ID = -1);
 	
 };

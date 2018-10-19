@@ -59,8 +59,6 @@ public:
 	void ServerOnly_SetOwnerID(const int ID);
 
 	// Owner Properties
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void ServerOnly_SetPawnID(int newID);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	int GetPawnID()const;
@@ -140,4 +138,6 @@ private:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_SetActiveDestination(const FVector& Location);
+
+	static int GetNewID();
 };

@@ -1,19 +1,17 @@
 // By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
 
 #include "WorldGrid_Cell.h"
-
+#include "Character/MapPawn.h"
 
 // Sets default values
 AWorldGrid_Cell::AWorldGrid_Cell()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
-	bTraversable = true;
-	bBlockingObject = false;
-	m_Visual = { -1, -1 };
-	m_BlockingObject = { -1,-1 };
-	m_Spawner = { -1,-1 };
 	m_BlockingSpaceCount = 0;
+
+	m_Object = nullptr;
+	m_ObjectType = GRID_OBJECT_TYPE::NONE;
 }
 
 void AWorldGrid_Cell::Initialize(const FGridCoordinate & newLocation)
@@ -21,11 +19,9 @@ void AWorldGrid_Cell::Initialize(const FGridCoordinate & newLocation)
 	Location = newLocation;
 }
 
-// Called when the game starts or when spawned
-void AWorldGrid_Cell::BeginPlay()
+void AWorldGrid_Cell::SetParent(AWorldGrid * parent)
 {
-	Super::BeginPlay();
-	
+	ParentGrid = parent;
 }
 
 bool AWorldGrid_Cell::operator<(const AWorldGrid_Cell * b)
@@ -48,118 +44,109 @@ int AWorldGrid_Cell::GetFCost() const
 	return H_Cost + G_Cost;
 }
 
+bool AWorldGrid_Cell::IsEmpty()const
+{
+	return m_ObjectType == GRID_OBJECT_TYPE::NONE && m_Pawns.empty();
+}
+
 bool AWorldGrid_Cell::IsOcupied() const
 {
 	bool hasBlockingSpaces = m_BlockingSpaceCount > 0;
-	bool hasPawn = ContainsPawn();
-	bool hasBlockingObject = ContainsBlockingObject();
-	return hasBlockingSpaces || hasPawn || hasBlockingObject || !bTraversable;
+
+	return hasBlockingSpaces || !m_Pawns.empty() || m_Object;
 }
 
-bool AWorldGrid_Cell::SetTraversable(bool value)
+bool AWorldGrid_Cell::HasPawn() const
 {
-	if (value)
+	return !m_Pawns.empty();
+}
+
+GRID_OBJECT_TYPE AWorldGrid_Cell::GetObjectType() const
+{
+	if (m_ObjectType == GRID_OBJECT_TYPE::NONE && !m_Pawns.empty())
+		return GRID_OBJECT_TYPE::PAWN;
+
+	return m_ObjectType;
+}
+
+bool AWorldGrid_Cell::AddObject(GRID_OBJECT_TYPE type, AActor* actor)
+{
+	if (m_Object || !actor)
 	{
-		bTraversable = true;
-		return true;
+		return false;
 	}
-	else if (!value && !ContainsPawn())
+
+	switch (type)
 	{
-		bTraversable = false;
+	case GRID_OBJECT_TYPE::INTERACTABLE:
+		m_Object = actor;
+		break;
+
+	case GRID_OBJECT_TYPE::SPAWN:
+		m_Object = actor;
+		break;
+
+	default:
+		return false;
+	}
+
+	m_ObjectType = type;
+	return true;
+}
+
+bool AWorldGrid_Cell::AddPawn(AActor * actor)
+{
+	if (!actor)
+	{
+		return false;
+	}
+
+	if (Cast<AMapPawn>(actor))
+	{
+		m_Pawns.push_back(actor);
 		return true;
 	}
 
 	return false;
 }
 
-bool AWorldGrid_Cell::IsTraversable() const
+AActor * AWorldGrid_Cell::RemoveObject()
 {
-	return bTraversable;
+	AActor* removed = m_Object;
+	m_Object = nullptr;
+	m_ObjectType = GRID_OBJECT_TYPE::NONE;
+
+	return removed;
 }
 
-bool AWorldGrid_Cell::AddVisual(FCellObject object)
+AActor * AWorldGrid_Cell::RemovePawn(int pawnID)
 {
-	if (!ContainsSpawner() && !ContainsVisuals() && !ContainsBlockingObject())
+	AActor* removed = nullptr;
+	if (!m_Pawns.empty())
 	{
-		m_Visual = object;
-		return true;
-	}
-	return false;
-}
+		//Remove the top pawn
+		if (pawnID == -1)
+		{
+			removed = m_Pawns.back();
+			m_Pawns.pop_back();
+		}
+		else
+		{
+			// Linear search for correct pawnID
+			for (int x = 0; x < m_Pawns.size(); x++)
+			{
+				AMapPawn* pawn = Cast<AMapPawn>(m_Pawns[x]);
+				if (pawn && pawn->GetPawnID() == pawnID)
+				{
+					removed = m_Pawns[x];
+					m_Pawns[x] = m_Pawns.back();
+					m_Pawns.pop_back();
 
-int AWorldGrid_Cell::RemoveVisual()
-{
-	if (ContainsVisuals())
-	{
-		int index = m_Visual.ObjectID;
-		m_Visual = { -1,-1 };
-		return index;
+				}
+			}
+		}
 	}
-	return -1;
-}
-
-bool AWorldGrid_Cell::AddBlockingObject(FCellObject object)
-{
-	if (!ContainsSpawner() && !ContainsVisuals() && !ContainsBlockingObject())
-	{
-		m_BlockingObject = object;
-		bBlockingObject = true;
-		return true;
-	}
-	return false;
-}
-
-int AWorldGrid_Cell::RemoveBlockingObject()
-{
-	if (ContainsBlockingObject())
-	{
-		int index = m_BlockingObject.ObjectID;
-		m_BlockingObject = { -1,-1 };
-		bBlockingObject = false;
-		return index;
-	}
-	return -1;
-}
-
-bool AWorldGrid_Cell::AddPawn(FCellObject object)
-{
-	if (!ContainsBlockingObject() && bTraversable)
-	{
-		m_Pawns.push_back(object);
-		return true;
-	}
-	return false;
-}
-
-int AWorldGrid_Cell::RemovePawn(int pawnID)
-{
-	if (ContainsPawn())
-	{
-		int index = GetPawnIndex(pawnID, m_Pawns);
-		return RemoveElement(index, m_Pawns);
-	}
-	return -1;
-}
-
-bool AWorldGrid_Cell::AddSpawner(FCellObject object)
-{
-	if (!ContainsSpawner() && !ContainsVisuals() && !ContainsBlockingObject() && bTraversable)
-	{
-		m_Spawner = object;
-		return true;
-	}
-	return false;
-}
-
-int AWorldGrid_Cell::RemoveSpawner()
-{
-	if (ContainsSpawner())
-	{
-		int index = m_Spawner.ObjectID;
-		m_Spawner = { -1,-1 };
-		return index;
-	}
-	return -1;
+	return removed;
 }
 
 void AWorldGrid_Cell::AddBlockingSpace()
@@ -175,24 +162,31 @@ void AWorldGrid_Cell::RemoveBlockingSpace()
 	}
 }
 
-bool AWorldGrid_Cell::ContainsPawn() const
+AActor* AWorldGrid_Cell::GetObject()
 {
-	return !m_Pawns.empty();
+	return m_Object;
 }
 
-bool AWorldGrid_Cell::ContainsVisuals() const
+void AWorldGrid_Cell::GetPawns(TArray<AActor*>& pawns)
 {
-	return m_Visual.ObjectID != -1;
+	for (const auto& pawn : m_Pawns)
+	{
+		pawns.Push(pawn);
+	}
 }
 
-bool AWorldGrid_Cell::ContainsBlockingObject() const
+void AWorldGrid_Cell::ClearCell(TArray<AActor*>& contents)
 {
-	return bBlockingObject;
-}
+	for (auto& pawn : m_Pawns)
+	{
+		contents.Push(pawn);
+	}
 
-bool AWorldGrid_Cell::ContainsSpawner() const
-{
-	return m_Spawner.ObjectID != -1;
+	contents.Push(m_Object);
+
+	m_Object = nullptr;
+	m_Pawns.clear();
+	m_ObjectType = GRID_OBJECT_TYPE::NONE;
 }
 
 AWorldGrid_Cell*& AWorldGrid_Cell::Neigbor(const NEIGHBOR & location)
@@ -220,52 +214,15 @@ AWorldGrid_Cell*& AWorldGrid_Cell::Neigbor(const NEIGHBOR & location)
 	}
 }
 
-std::list<AWorldGrid_Cell*> AWorldGrid_Cell::GetTraversableNeighbors()
+std::list<AWorldGrid_Cell*> AWorldGrid_Cell::GetNeighbors()
 {
 	std::list<AWorldGrid_Cell*> traversableCells;
 	for (int index = 0; index < 8; index++)
 	{
-		if (Neighbors[index] && Neighbors[index]->IsTraversable())
+		if (Neighbors[index])
 		{
 			traversableCells.push_back(Neighbors[index]);
 		}
 	}
 	return traversableCells;
-}
-
-int AWorldGrid_Cell::RemoveElement(int index, std::vector<FCellObject>& list)
-{
-	if (index == -1)
-	{
-		return index;
-	}
-
-	if (list.size() == 1)
-	{
-		FCellObject removing = list[index];
-		list.clear();
-		return removing.ObjectID;
-	}
-	else if (list.size() > 1 && list.size() > index && index >= 0)
-	{
-		FCellObject removing = list[index];
-		FCellObject replacement = list.back();
-		list[index] = replacement;
-		list.pop_back();
-		return removing.ObjectID;
-	}
-
-	return -1;
-}
-
-int AWorldGrid_Cell::GetPawnIndex(int PawnID, std::vector<FCellObject>& list)
-{
-	for (int index = 0; index < list.size(); index++)
-	{
-		if (list[index].ObjectID == PawnID)
-		{
-			return index;
-		}
-	}
-	return -1;
 }
