@@ -7,7 +7,6 @@
 #include "Spawner.h"
 #include "PathFinder.h"
 #include "Components/InstancedStaticMeshComponent.h"
-#include "RuntimeMeshComponent.h"
 
 using namespace std;
 
@@ -18,6 +17,7 @@ AWorldGrid::AWorldGrid()
 	bAlwaysRelevant = true;
 	bReplicateMovement = false;
 	bHasBeenConstructed = false;
+	bGenerateBackDrop = true;
 	GeneratedAreaWidth = 1000.0f;
 	GeneratedAreaHeightRange = 1000.0f;
 	GeneratedAreaPlayAreaRandomIntensity = 1.0f;
@@ -30,10 +30,6 @@ AWorldGrid::AWorldGrid()
 	BackgroundTreesMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("Trees"));
 	BackgroundTreesMesh->SetIsReplicated(true);
 	BackgroundTreesMesh->SetupAttachment(RootComponent);
-
-	RuntimeMesh = CreateDefaultSubobject<URuntimeMeshComponent>(TEXT("Surrounding"));
-	RuntimeMesh->SetIsReplicated(true);
-	RuntimeMesh->SetupAttachment(RootComponent);
 }
 
 void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const 
@@ -346,8 +342,14 @@ bool AWorldGrid::ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawn
 	return false;
 }
 
-AMapPawn * AWorldGrid::ServerOnly_GetPawn(int pawnID)
+AMapPawn * AWorldGrid::ServerOnly_GetPawn(const FVector& Location, int pawnID)
 {
+	FGridCoordinate GridLocation = Location;
+	if (ContainsCoordinate(GridLocation.X, GridLocation.Y))
+	{
+		return m_Grid[GridLocation.X][GridLocation.Y]->GetPawn(pawnID);
+	}
+
 	return nullptr;
 }
 
@@ -486,68 +488,55 @@ void AWorldGrid::ServerOnly_LinkCell(AWorldGrid_Cell * NewCell)
 
 void AWorldGrid::GenerateBackdrop(const FGridCoordinate& GridDimensions)
 {
-	TArray<FRuntimeMeshVertexSimple> Vertices;
-	TArray<int32> Triangles;
-
-	float width = (float)GeneratedAreaWidth;
-	float height = (float)GeneratedAreaWidth;
-	float gridWidth = abs(m_CenterLocation.X * 2.0f);
-	float gridHeight = abs(m_CenterLocation.Y * 2.0f);
-	float totalWidth = width + gridWidth;
-	float totalHeight = height + gridHeight;
-
-	FGridCoordinate gridDimensions = m_GridDimensions;
-	FGridCoordinate landscapeDimensions(GeneratedAreaWidth, GeneratedAreaWidth);
-	FGridCoordinate total = gridDimensions + (landscapeDimensions * 2);
-
-	FVector LandscapeDims = UGridFunctions::GridToWorldLocation({ 0, 0 }) * FVector(-total.X, total.Y, 0.0f) * 2.0f;
-	FVector PositionOffset = UGridFunctions::GridToWorldLocation({ 0, 0 }) * FVector(width + gridDimensions.X, -height, 0) * 2.0f;
-
-	if (GeneratedAreaWidth)
+	if (bGenerateBackDrop)
 	{
-		MeshLibrary::GenerateGrid(Vertices, Triangles, GeneratedAreaTesselation, GeneratedAreaTesselation,
-			LandscapeDims.X, LandscapeDims.Y, PositionOffset.X, PositionOffset.Y);
+		FProceduralMeshInfo Vertices;
+		TArray<int32> Triangles;
 
-		for (auto& v : Vertices)
+		float width = (float)GeneratedAreaWidth;
+		float height = (float)GeneratedAreaWidth;
+		float gridWidth = abs(m_CenterLocation.X * 2.0f);
+		float gridHeight = abs(m_CenterLocation.Y * 2.0f);
+		float totalWidth = width + gridWidth;
+		float totalHeight = height + gridHeight;
+
+		FGridCoordinate gridDimensions = m_GridDimensions;
+		FGridCoordinate landscapeDimensions(GeneratedAreaWidth, GeneratedAreaWidth);
+		FGridCoordinate total = gridDimensions + (landscapeDimensions * 2);
+
+		FVector LandscapeDims = UGridFunctions::GridToWorldLocation({ 0, 0 }) * FVector(-total.X, total.Y, 0.0f) * 2.0f;
+		FVector PositionOffset = UGridFunctions::GridToWorldLocation({ 0, 0 }) * FVector(width + gridDimensions.X, -height, 0) * 2.0f;
+
+		if (GeneratedAreaWidth)
 		{
-			float vertexDistance = FVector::Dist2D(m_CenterLocation, v.Position);
-			float acceptableRadius = (gridWidth > gridHeight) ? gridWidth : gridHeight;
+			MeshLibrary::GenerateGrid(Vertices, Triangles, GeneratedAreaTesselation, GeneratedAreaTesselation,
+				LandscapeDims.X, LandscapeDims.Y, PositionOffset.X, PositionOffset.Y);
 
-			float generatedHeight = GetGeneratedHeightValue(FVector2D(v.Position.X / GeneratedAreaPlayAreaRandomIntensity, v.Position.Y / GeneratedAreaPlayAreaRandomIntensity));
-			float floorHeight = 0.0f;
-			float finalHeight = generatedHeight;
-
-			if (vertexDistance <= acceptableRadius)
+			for (auto& Position : Vertices.Positions)
 			{
-				finalHeight = floorHeight;
+				float vertexDistance = FVector::Dist2D(m_CenterLocation, Position);
+				float acceptableRadius = (gridWidth > gridHeight) ? gridWidth : gridHeight;
+
+				float generatedHeight = GetGeneratedHeightValue(FVector2D(Position.X / GeneratedAreaPlayAreaRandomIntensity, Position.Y / GeneratedAreaPlayAreaRandomIntensity));
+				float floorHeight = 0.0f;
+				float finalHeight = generatedHeight;
+
+				if (vertexDistance <= acceptableRadius)
+				{
+					finalHeight = floorHeight;
+				}
+				else
+				{
+					float weight = GetBaseWeight(vertexDistance - acceptableRadius, SmoothingRadius);
+					finalHeight = (generatedHeight * weight);
+				}
+
+				Position.Z = finalHeight * GeneratedAreaHeightRange - 1.0f;
 			}
-			else
-			{
-				float weight = GetBaseWeight(vertexDistance - acceptableRadius, SmoothingRadius);
-				finalHeight = (generatedHeight * weight);
-			}
 
-			v.Position.Z = finalHeight * GeneratedAreaHeightRange - 1.0f;
-
-			// Add random tree on vertex;
-			//float random = FMath::RandRange(0, 100);
-			//bool bNotInPlayArea = !ContainsCoordinate(UGridFunctions::WorldToGridLocation(v.Position));
-			//if (bNotInPlayArea && random < 1)
-			//{
-			//	float rotation = FMath::RandRange(0, 360);
-			//	float scale = FMath::RandRange(0.5f, 2.5f);
-			//	FVector Position = v.Position;
-			//	Position.X += FMath::RandRange(-10, 10);
-			//	Position.Y += FMath::RandRange(-10, 10);
-
-			//	BackgroundTreesMesh->AddInstanceWorldSpace(FTransform(FRotator(0.0f, rotation, 0.0f), Position, FVector(scale)));
-			//}
+			// Create the mesh section
+			GenerateBackdropMeshSection(Vertices, Triangles, total);
 		}
-
-		// Create the mesh section
-		RuntimeMesh->CreateMeshSection(0, Vertices, Triangles);
-		RuntimeMesh->SetMaterial(0, GeneratedAreaMaterial);
-		RuntimeMesh->SetVectorParameterValueOnMaterials("Grid Dimensions", FVector(total.X, total.Y, 0.0f));
 	}
 }
 

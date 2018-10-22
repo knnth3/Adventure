@@ -3,7 +3,6 @@
 #include "Basics.h"
 #include "FileManager.h"
 #include "Paths.h"
-#include "RuntimeMeshComponent.h"
 #include "GameFramework/SaveGame.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/CustomVersion.h"
@@ -503,7 +502,7 @@ EJoinSessionResults UBasicFunctions::ToBlueprintType(EOnJoinSessionCompleteResul
 	return State;
 }
 
-void MeshLibrary::GenerateGrid(TArray<struct FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles, 
+void MeshLibrary::GenerateGrid(FProceduralMeshInfo& Vertices, TArray<int32>& Triangles,
 	int xDivisions, int yDivisions, float Width, float Height, float TopCornerX, float TopCornerY)
 {
 	if (Width * Height == 0)
@@ -526,13 +525,10 @@ void MeshLibrary::GenerateGrid(TArray<struct FRuntimeMeshVertexSimple>& Vertices
 			float u = (float)x / (xDivisions + 1);
 			float v = (float)y / (yDivisions + 1);
 			Vertices.Add(
-				FRuntimeMeshVertexSimple(
-					FVector(xOffset, yOffset, 0), 
-					FVector(0, 0, 1), 
-					FRuntimeMeshTangent(0, -1, 0, bFlipTangent), 
-					FColor::White, 
-					FVector2D(u, v)
-				)
+				FVector(xOffset, yOffset, 0),
+				FVector(0, 0, 1),
+				FVector2D(u, v),
+				FColor::White
 			);
 
 			yOffset += deltaHeight;

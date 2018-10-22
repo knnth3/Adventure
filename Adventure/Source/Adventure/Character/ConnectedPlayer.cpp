@@ -151,7 +151,8 @@ void AConnectedPlayer::MovePlayer(const FVector & Location)
 {
 	if (m_SelectedPawn)
 	{
-		Server_MovePlayer(m_SelectedPawn->GetPawnID(), Location);
+		UE_LOG(LogNotice, Warning, TEXT("<Pawn #%i>: Moving Pawn..."), m_SelectedPawn->GetPawnID());
+		Server_MovePlayer(m_SelectedPawn->GetPawnID(), m_SelectedPawn->GetActorLocation(), Location);
 	}
 }
 
@@ -225,21 +226,21 @@ void AConnectedPlayer::SetCameraToCharacter()
 
 //////////////////////// Private Server Functions ////////////////////////
 
-void AConnectedPlayer::Server_MovePlayer_Implementation(const int PawnID, const FVector& Location)
+void AConnectedPlayer::Server_MovePlayer_Implementation(const int PawnID, const FVector& Location, const FVector& Destination)
 {
 	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{
-		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(PawnID);
+		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(Location, PawnID);
 		if (pawn && state && (state->GetGameID() == 0 || state->GetGameID() == pawn->GetOwnerID()))
 		{
-			pawn->ServerOnly_SetDestination(Location);
+			pawn->ServerOnly_SetDestination(Destination);
 		}
 	}
 }
 
-bool AConnectedPlayer::Server_MovePlayer_Validate(const int PawnID, const FVector& Location)
+bool AConnectedPlayer::Server_MovePlayer_Validate(const int PawnID, const FVector& Location, const FVector& Destination)
 {
 	return true;
 }

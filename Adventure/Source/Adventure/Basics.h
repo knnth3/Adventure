@@ -220,6 +220,36 @@ inline FString GetStringOf(ENetRole Role)
 	}
 }
 
+USTRUCT(BlueprintType)
+struct FProceduralMeshInfo 
+{
+	GENERATED_BODY()
+	
+	int Num() const
+	{
+		return Positions.Num();
+	}
+	
+	void Add(const FVector& Position, const FVector& Normal, const FVector2D& uv, const FLinearColor& Color)
+	{
+		Positions.Push(Position);
+		Normals.Push(Normal);
+		UV.Push(uv);
+		Colors.Push(Color);
+	}
+	
+	UPROPERTY(BlueprintReadWrite, Category = "Vertex Info")
+	TArray<FVector> Positions;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Vertex Info")
+	TArray<FVector> Normals;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Vertex Info")
+	TArray<FVector2D> UV;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Vertex Info")
+	TArray<FLinearColor> Colors;
+};
 
 USTRUCT(BlueprintType)
 struct ADVENTURE_API FGridCoordinate
@@ -285,6 +315,6 @@ class MeshLibrary
 {
 public:
 
-	static void GenerateGrid(TArray<struct FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles,
+	static void GenerateGrid(FProceduralMeshInfo& Vertices, TArray<int32>& Triangles,
 		int xDivisions, int yDivisions, float Width, float Height, float TopCornerX, float TopCornerY);
 };

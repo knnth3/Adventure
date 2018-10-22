@@ -11,8 +11,6 @@ public class Adventure : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "UMG",
             "OnlineSubsystem", "OnlineSubsystemSteam", "MoviePlayer" });
 
-        PublicDependencyModuleNames.AddRange(new string[] { "ShaderCore", "RenderCore", "RHI", "RuntimeMeshComponent" });
-
         DynamicallyLoadedModuleNames.Add("OnlineSubsystemNull");
     }
 }

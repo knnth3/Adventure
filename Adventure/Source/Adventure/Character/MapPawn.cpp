@@ -98,7 +98,7 @@ void AMapPawn::BeginPlay()
 		FRandomStream rand;
 		rand.GenerateNewSeed();
 		m_StatSheet.Name = m_StatSheet.Name + FString::FromInt(rand.FRandRange(0, 100));
-		GetNewID();
+		m_PawnID = GetNewID();
 	}
 }
 

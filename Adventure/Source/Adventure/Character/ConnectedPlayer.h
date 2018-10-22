@@ -105,7 +105,7 @@ private:
 	int SpectatingPawnID;
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_MovePlayer(const int PawnID, const FVector& Location);
+	void Server_MovePlayer(const int PawnID, const FVector& Location, const FVector& Destination);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SetPawnTargetLocation(const int PawnID, const FVector& Location);

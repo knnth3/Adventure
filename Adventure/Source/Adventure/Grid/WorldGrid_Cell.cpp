@@ -167,6 +167,20 @@ AActor* AWorldGrid_Cell::GetObject()
 	return m_Object;
 }
 
+AMapPawn * AWorldGrid_Cell::GetPawn(int PawnID)
+{
+	for (const auto& pawn : m_Pawns)
+	{
+		AMapPawn* PAWN = Cast<AMapPawn>(pawn);
+		if (PAWN && PAWN->GetPawnID() == PawnID)
+		{
+			return PAWN;
+		}
+	}
+
+	return nullptr;
+}
+
 void AWorldGrid_Cell::GetPawns(TArray<AActor*>& pawns)
 {
 	for (const auto& pawn : m_Pawns)

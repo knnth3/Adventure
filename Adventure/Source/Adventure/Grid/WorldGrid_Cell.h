@@ -70,6 +70,9 @@ public:
 	AActor* GetObject();
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
+	class AMapPawn* GetPawn(int PawnID);
+
+	UFUNCTION(BlueprintCallable, Category = "Grid Cell")
 	void GetPawns(TArray<AActor*>& pawns);
 
 	UFUNCTION(BlueprintCallable, Category = "Grid Cell")

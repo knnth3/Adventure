@@ -49,7 +49,7 @@ public:
 	bool ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawnID);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	class AMapPawn* ServerOnly_GetPawn(int pawnID);
+	class AMapPawn* ServerOnly_GetPawn(const FVector& Location, int pawnID);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath);
@@ -84,11 +84,8 @@ protected:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Instanced Cells")
 	class UInstancedStaticMeshComponent* BackgroundTreesMesh;
 
-	UPROPERTY(EditAnywhere, Category = "Out of bounds settings")
-	class URuntimeMeshComponent* RuntimeMesh;
-
-	UPROPERTY(EditAnywhere, Category = "Out of bounds settings")
-	UMaterialInterface* GeneratedAreaMaterial;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
+	bool bGenerateBackDrop;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
 	int GeneratedAreaWidth;
@@ -110,6 +107,9 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Out of bounds settings")
 	float GetGeneratedHeightValue(const FVector2D& Location);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Out of bounds settings")
+	void GenerateBackdropMeshSection(const struct FProceduralMeshInfo& Info, const TArray<int32>& Triangles, const FGridCoordinate& TotalDimensions);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual Settings")
 	bool bShowCollisions;
