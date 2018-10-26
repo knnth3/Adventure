@@ -52,7 +52,7 @@ public:
 	class AMapPawn* ServerOnly_GetPawn(const FVector& Location, int pawnID);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	bool ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath);
+	bool ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath, int PawnID);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	FGridCoordinate ServerOnly_GetOpenSpawnLocation()const;

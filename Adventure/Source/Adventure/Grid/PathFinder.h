@@ -22,11 +22,11 @@ class ADVENTURE_API UPathFinder : public UBlueprintFunctionLibrary
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Path Finder")
-	static bool FindPath(AWorldGrid_Cell* begin, AWorldGrid_Cell* end, TArray<FGridCoordinate>& OutPath);
+	static bool FindPath(AWorldGrid_Cell* begin, AWorldGrid_Cell* end, TArray<FGridCoordinate>& OutPath, int PawnID);
 
 private:
 
 	static TArray<FGridCoordinate> TraceParentOwnership(AWorldGrid_Cell* begin, AWorldGrid_Cell* end);
-	static int GetDistance(const AWorldGrid_Cell* begin, const AWorldGrid_Cell* end);
+	static int GetDistance(const AWorldGrid_Cell* begin, const AWorldGrid_Cell* end, int PawnID);
 
 };

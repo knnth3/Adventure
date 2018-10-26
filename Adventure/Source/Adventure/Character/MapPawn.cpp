@@ -47,11 +47,6 @@ AMapPawn::AMapPawn()
 	PawnBody->SetupAttachment(Scene);
 	PawnBody->ComponentTags.Add(FName("Outline"));
 
-	PawnHead = CreateDefaultSubobject<UMapPawnComponent_Head>(TEXT("Pawn_Head"));
-	PawnHead->SetupAttachment(PawnBody);
-	PawnHead->ComponentTags.Add(FName("Outline"));
-	PawnHead->SetupAttachment(PawnBody, TEXT("biped_mr_Neck_jnt"));
-
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetRelativeTransform(FTransform(FVector(0,0,200)));
@@ -215,7 +210,7 @@ void AMapPawn::ServerOnly_SetDestination(const FGridCoordinate & Destination)
 			if (WorldGridItr)
 			{
 				TArray<FGridCoordinate> Path;
-				if (WorldGridItr->ServerOnly_GetPath(CurrentLocation, Destination, Path))
+				if (WorldGridItr->ServerOnly_GetPath(CurrentLocation, Destination, Path, GetPawnID()))
 				{
 					m_MoveQueue.clear();
 					for (auto& step : Path)
@@ -254,20 +249,13 @@ FVector AMapPawn::ServerOnly_GetDesiredForwardVector() const
 	return m_ForwardVector;
 }
 
-void AMapPawn::SetFocusToPawn(FVector CurrentCameraLocation, float TransitionAcceleration)
+void AMapPawn::SetFocusToPawn(float TransitionTime)
 {
 	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
 	if (PlayerController)
 	{
-		// Get Distance between the two cameras
-		FVector StartLocation = CurrentCameraLocation;
-		FVector EndLocation = FollowCamera->GetComponentLocation();
-		float Distance = FVector::Distance(StartLocation, EndLocation);
-
 		// Calculate Time
-		float Time = FMath::Sqrt(2 * Distance / TransitionAcceleration);
-
-		PlayerController->SetViewTargetWithBlend(this, Time, VTBlend_Cubic, 0.0f, true);
+		PlayerController->SetViewTargetWithBlend(this, TransitionTime, VTBlend_Cubic, 0.0f, true);
 	}
 }
 

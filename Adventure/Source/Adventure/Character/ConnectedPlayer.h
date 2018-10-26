@@ -31,6 +31,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	bool GetPawnLocation(FVector& Location) const;
 
+	UFUNCTION(BlueprintCallable, Category = "Connected Player")
+	class AMapPawn* GetSelectedPawn() const;
+
 protected:
 
 	// Player Components

@@ -240,7 +240,6 @@ FGridCoordinate UGridFunctions::WorldToGridLocation(const FVector& Location)
 
 	return newLocation;
 }
-
 //Centimeters//////////////////////////////////////////////////////////////
 
 float Conversions::Centimeters::ToInches(const float & Units)

@@ -45,7 +45,9 @@ void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController *
 	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
 
 	APS_Multiplayer* currentPlayerState = Cast<APS_Multiplayer>(NewPlayer->PlayerState);
-	if (currentPlayerState)
+	AGS_Multiplayer* gameState = Cast<AGS_Multiplayer>(GameState);
+
+	if (currentPlayerState && gameState)
 	{
 		std::string PlayerName = TCHAR_TO_UTF8(*currentPlayerState->GetPlayerName());
 
@@ -61,6 +63,7 @@ void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController *
 		{
 			m_ConnnectedPlayers[PlayerName] = GeneratePlayerID();
 			currentPlayerState->ServerOnly_SetGameID(m_ConnnectedPlayers[PlayerName]);
+			gameState->AddNewPlayer(m_ConnnectedPlayers[PlayerName], currentPlayerState->GetPlayerName());
 
 			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s registered to id: %i"), *FString(PlayerName.c_str()), currentPlayerState->GetGameID());
 		}

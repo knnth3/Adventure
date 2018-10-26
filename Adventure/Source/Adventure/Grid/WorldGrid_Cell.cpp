@@ -167,7 +167,7 @@ AActor* AWorldGrid_Cell::GetObject()
 	return m_Object;
 }
 
-AMapPawn * AWorldGrid_Cell::GetPawn(int PawnID)
+AMapPawn * AWorldGrid_Cell::GetPawn(int PawnID) const
 {
 	for (const auto& pawn : m_Pawns)
 	{

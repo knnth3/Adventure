@@ -17,7 +17,7 @@ AWorldGrid::AWorldGrid()
 	bAlwaysRelevant = true;
 	bReplicateMovement = false;
 	bHasBeenConstructed = false;
-	bGenerateBackDrop = true;
+	bGenerateBackDrop = false;
 	GeneratedAreaWidth = 1000.0f;
 	GeneratedAreaHeightRange = 1000.0f;
 	GeneratedAreaPlayAreaRandomIntensity = 1.0f;
@@ -117,67 +117,68 @@ bool AWorldGrid::ServerOnly_LoadGrid(const FString& MapName)
 bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& GridDimensions, const TArray<FSAVE_OBJECT>* GridSheet)
 {
 
-	if (bHasBeenConstructed)
+	if (!bHasBeenConstructed)
 	{
-		ServerOnly_ResetGrid();
-	}
-
-	int cellCount = 0;
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		m_Grid.resize(GridDimensions.X);
-
-		for (int x = 0; x < GridDimensions.X; x++)
+		int cellCount = 0;
+		UWorld* World = GetWorld();
+		if (World)
 		{
-			m_Grid[x].resize(GridDimensions.Y, nullptr);
+			m_Grid.resize(GridDimensions.X);
 
-			for (int y = 0; y < GridDimensions.Y; y++)
+			for (int x = 0; x < GridDimensions.X; x++)
 			{
-				FVector WorldLocation;
-				AWorldGrid_Cell* newCell;
-				if (CellClasses.Num() > 0)
-				{
-					WorldLocation = UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y));
-					newCell = Cast<AWorldGrid_Cell>(World->SpawnActor(*CellClasses[0], &WorldLocation));
-				}
-				else // Default to base class when no derivatives exist
-				{
-					FRotator startRotation(0.0f);
-					WorldLocation = UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y));
-					newCell = Cast<AWorldGrid_Cell>(World->SpawnActor<AWorldGrid_Cell>(WorldLocation, startRotation));
-				}
+				m_Grid[x].resize(GridDimensions.Y, nullptr);
 
-				if (newCell)
+				for (int y = 0; y < GridDimensions.Y; y++)
 				{
-					newCell->Initialize(FGridCoordinate(x, y));
-					newCell->SetParent(this);
-					m_Grid[x][y] = newCell;
-					ServerOnly_LinkCell(newCell);
-					cellCount++;
+					FVector WorldLocation;
+					AWorldGrid_Cell* newCell = nullptr;
+					if (CellClasses.Num() > 0)
+					{
+						WorldLocation = UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y));
+						newCell = Cast<AWorldGrid_Cell>(World->SpawnActor(*CellClasses[0], &WorldLocation));
+					}
+					else // Default to base class when no derivatives exist
+					{
+						FRotator startRotation(0.0f);
+						WorldLocation = UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y));
+						newCell = Cast<AWorldGrid_Cell>(World->SpawnActor<AWorldGrid_Cell>(WorldLocation, startRotation));
+					}
+
+					if (newCell)
+					{
+						newCell->Initialize(FGridCoordinate(x, y));
+						newCell->SetParent(this);
+						m_Grid[x][y] = newCell;
+						ServerOnly_LinkCell(newCell);
+						cellCount++;
+					}
+
 				}
 			}
 		}
+
+		if (cellCount == GridDimensions.X * GridDimensions.Y)
+		{
+			m_MapName = MapName;
+			LoadMapObjects(GridSheet);
+			FVector BottomRight = UGridFunctions::GridToWorldLocation(GridDimensions);
+			m_CenterLocation = FVector(BottomRight.X * 0.5f, BottomRight.Y * 0.5f, 0.0f);
+			m_GridDimensions = GridDimensions;
+			OnRep_HasBeenConstructed();
+			UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Finished generating grid"));
+
+			return true;
+		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Failed to generate grid"));
+
+			return false;
+		}
 	}
 
-	if (cellCount == GridDimensions.X * GridDimensions.Y)
-	{
-		m_MapName = MapName;
-		LoadMapObjects(GridSheet);
-		FVector BottomRight = UGridFunctions::GridToWorldLocation(GridDimensions);
-		m_CenterLocation = FVector(BottomRight.X * 0.5f, BottomRight.Y * 0.5f, 0.0f);
-		m_GridDimensions = GridDimensions;
-		OnRep_HasBeenConstructed();
-		UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Finished generating grid"));
-
-		return true;
-	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Failed to generate grid"));
-
-		return false;
-	}
+	return false;
 }
 
 bool AWorldGrid::ServerOnly_GenerateGrid(const FString & MapName, const FGridCoordinate & Dimensions)
@@ -353,14 +354,14 @@ AMapPawn * AWorldGrid::ServerOnly_GetPawn(const FVector& Location, int pawnID)
 	return nullptr;
 }
 
-bool AWorldGrid::ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath)
+bool AWorldGrid::ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath, int PawnID)
 {
 	bool startExists = ContainsCoordinate(Location.X, Location.Y);
 	bool endExists = ContainsCoordinate(Destination.X, Destination.Y);
 
 	if (startExists && endExists)
 	{
-		return UPathFinder::FindPath(m_Grid[Location.X][Location.Y], m_Grid[Destination.X][Destination.Y], OutPath);
+		return UPathFinder::FindPath(m_Grid[Location.X][Location.Y], m_Grid[Destination.X][Destination.Y], OutPath, PawnID);
 	}
 
 	return false;
@@ -537,7 +538,7 @@ void AWorldGrid::GenerateBackdrop(const FGridCoordinate& GridDimensions)
 			// Create the mesh section
 			GenerateBackdropMeshSection(Vertices, Triangles, total);
 		}
-	}
+	} 
 }
 
 float AWorldGrid::GetBaseWeight(float CurrentRadius, float MaxRadius)

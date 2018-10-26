@@ -5,7 +5,7 @@
 
 #define OCCUPIED_CELL_COST 400
 
-bool UPathFinder::FindPath(AWorldGrid_Cell* start, AWorldGrid_Cell* end, TArray<FGridCoordinate>& OutPath)
+bool UPathFinder::FindPath(AWorldGrid_Cell* start, AWorldGrid_Cell* end, TArray<FGridCoordinate>& OutPath, int PawnID)
 {
 	if (!start || !end)
 		return false;
@@ -40,7 +40,7 @@ bool UPathFinder::FindPath(AWorldGrid_Cell* start, AWorldGrid_Cell* end, TArray<
 				continue;
 			}
 
-			int newG_Cost = current->G_Cost + GetDistance(current, neighbor);
+			int newG_Cost = current->G_Cost + GetDistance(current, neighbor, PawnID);
 
 			bool bInOpenSet = false;
 			if (openSet.find(neighbor->Location.toPair()) != openSet.end())
@@ -51,7 +51,7 @@ bool UPathFinder::FindPath(AWorldGrid_Cell* start, AWorldGrid_Cell* end, TArray<
 			if (newG_Cost < neighbor->G_Cost || !bInOpenSet)
 			{
 				neighbor->G_Cost = newG_Cost;
-				neighbor->H_Cost = GetDistance(neighbor, end);
+				neighbor->H_Cost = GetDistance(neighbor, end, PawnID);
 				neighbor->Parent = current;
 
 				if (!bInOpenSet)
@@ -82,13 +82,13 @@ TArray<FGridCoordinate> UPathFinder::TraceParentOwnership(AWorldGrid_Cell* begin
 	return Path;
 }
 
-int UPathFinder::GetDistance(const AWorldGrid_Cell* begin, const AWorldGrid_Cell* end)
+int UPathFinder::GetDistance(const AWorldGrid_Cell* begin, const AWorldGrid_Cell* end, int PawnID)
 {
 	if (begin && end)
 	{
 		int xDistance = abs(begin->Location.X - end->Location.X);
 		int yDistance = abs(begin->Location.Y - end->Location.Y);
-		int extraCost = (end->IsOcupied()) ? OCCUPIED_CELL_COST : 0;
+		int extraCost = (end->IsOcupied() && !end->GetPawn(PawnID)) ? OCCUPIED_CELL_COST : 0;
 
 		if (xDistance > yDistance)
 			return (14 * yDistance) + 10 * (xDistance - yDistance) + extraCost;

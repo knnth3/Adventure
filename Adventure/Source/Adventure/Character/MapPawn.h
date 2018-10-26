@@ -56,9 +56,11 @@ public:
 	virtual int GetObjectID_Implementation() const override;
 
 	void ServerOnly_SetClassIndex(const int Index);
-	void ServerOnly_SetOwnerID(const int ID);
 
 	// Owner Properties
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void ServerOnly_SetOwnerID(const int ID);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	int GetPawnID()const;
@@ -89,7 +91,7 @@ public:
 	FVector ServerOnly_GetDesiredForwardVector() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void SetFocusToPawn(FVector CurrentCameraLocation, float TransitionAcceleration);
+	void SetFocusToPawn(float TransitionTime);
 
 protected:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
@@ -106,9 +108,6 @@ protected:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
 	class USkeletalMeshComponent* PawnBody;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
-	class UMapPawnComponent_Head* PawnHead;
 
 private:
 

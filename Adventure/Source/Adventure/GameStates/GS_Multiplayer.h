@@ -2,7 +2,7 @@
 
 #pragma once
 
-
+#include <map>
 #include <deque>
 #include "Grid/WorldGrid.h"
 #include "CoreMinimal.h"
@@ -21,12 +21,19 @@ class ADVENTURE_API AGS_Multiplayer : public AGameStateBase
 public:
 	AGS_Multiplayer();
 	virtual void HandleBeginPlay()override;
+	void AddNewPlayer(int PlayerID, FString PlayerName);
 
 	UFUNCTION(BlueprintCallable, Category = "Turn-Based Mechanics")
 	void SetActivePlayer(const int ID);
 
 	UFUNCTION(BlueprintCallable, Category = "Turn-Based Mechanics")
 	FString GetActivePlayerName() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Turn-Based Mechanics")
+	FString GetPlayerName(int PlayerID) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Turn-Based Mechanics")
+	int GetPlayerID(FString PlayerName)const;
 
 protected:
 
@@ -38,6 +45,9 @@ private:
 
 	UPROPERTY(Replicated)
 	FString m_ActivePlayerName;
+
+	UPROPERTY(Replicated)
+	TArray<FString> m_PlayerNameArray;
 
 	bool m_bFreeRoamActive;
 	int m_CurrentActivePlayer;

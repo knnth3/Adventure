@@ -74,6 +74,11 @@ bool AConnectedPlayer::GetPawnLocation(FVector & Location) const
 	return false;
 }
 
+AMapPawn * AConnectedPlayer::GetSelectedPawn() const
+{
+	return m_SelectedPawn;
+}
+
 void AConnectedPlayer::SwapCameraView()
 {
 	switch (m_CameraType)
@@ -151,7 +156,6 @@ void AConnectedPlayer::MovePlayer(const FVector & Location)
 {
 	if (m_SelectedPawn)
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<Pawn #%i>: Moving Pawn..."), m_SelectedPawn->GetPawnID());
 		Server_MovePlayer(m_SelectedPawn->GetPawnID(), m_SelectedPawn->GetActorLocation(), Location);
 	}
 }
@@ -168,14 +172,18 @@ void AConnectedPlayer::ClearPawnTargetLocation()
 
 void AConnectedPlayer::SetSpectatingPawn(const int PawnID)
 {
-	for (TActorIterator<AMapPawn> MapPawnIter(GetWorld()); MapPawnIter; ++MapPawnIter)
+	if (PawnID == -1)
 	{
-		if (MapPawnIter->GetPawnID() == PawnID)
+		SetCameraToOverview();
+		m_SelectedPawn = nullptr;
+	}
+	else
+	{
+		for (TActorIterator<AMapPawn> MapPawnIter(GetWorld()); MapPawnIter; ++MapPawnIter)
 		{
-			m_SelectedPawn = *MapPawnIter;
-
-			if (m_CameraType == CONNECTED_PLAYER_CAMERA::CHARACTER)
+			if (MapPawnIter->GetPawnID() == PawnID)
 			{
+				m_SelectedPawn = *MapPawnIter;
 				SetCameraToCharacter();
 			}
 		}
@@ -199,13 +207,8 @@ void AConnectedPlayer::SetCameraToOverview()
 	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
 	if (PlayerController && m_SelectedPawn)
 	{
-		// Get Distance between the two cameras
-		FVector StartLocation = m_SelectedPawn->GetActorLocation();
-		FVector EndLocation = FollowCamera->GetComponentLocation();
-		float Distance = FVector::Distance(StartLocation, EndLocation);
-
 		// Calculate Time
-		float Time = FMath::Sqrt(2 * Distance / m_CameraTransitionAcceleration);
+		float Time = 0.8f;
 
 		PlayerController->SetViewTargetWithBlend(this, Time, VTBlend_Cubic, 0.0f, true);
 		m_CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
@@ -217,7 +220,7 @@ void AConnectedPlayer::SetCameraToCharacter()
 {
 	if (m_SelectedPawn)
 	{
-		m_SelectedPawn->SetFocusToPawn(FollowCamera->GetComponentLocation(), m_CameraTransitionAcceleration);
+		m_SelectedPawn->SetFocusToPawn(0.8f);
 		m_CameraType = CONNECTED_PLAYER_CAMERA::CHARACTER;
 		OnCameraTypeChanged(m_CameraType);
 	}

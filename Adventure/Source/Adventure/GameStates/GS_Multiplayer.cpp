@@ -19,6 +19,7 @@ void AGS_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AGS_Multiplayer, m_ActivePlayerName);
+	DOREPLIFETIME(AGS_Multiplayer, m_PlayerNameArray);
 }
 
 void AGS_Multiplayer::HandleBeginPlay()
@@ -40,6 +41,15 @@ void AGS_Multiplayer::HandleBeginPlay()
 				}
 			}
 		}
+	}
+}
+
+void AGS_Multiplayer::AddNewPlayer(int PlayerID, FString PlayerName)
+{
+	// Validity check
+	if (m_PlayerNameArray.Num() == PlayerID)
+	{
+		m_PlayerNameArray.Push(PlayerName);
 	}
 }
 
@@ -90,4 +100,28 @@ void AGS_Multiplayer::SetActivePlayer(const int ID)
 FString AGS_Multiplayer::GetActivePlayerName() const
 {
 	return m_ActivePlayerName;
+}
+
+FString AGS_Multiplayer::GetPlayerName(int PlayerID) const
+{
+	if (m_PlayerNameArray.Num() > PlayerID)
+	{
+		return m_PlayerNameArray[PlayerID];
+	}
+
+	return "None";
+}
+
+int AGS_Multiplayer::GetPlayerID(FString PlayerName) const
+{
+	int ID = -1;
+	for (int x = 0; x < m_PlayerNameArray.Num(); x++)
+	{
+		if (m_PlayerNameArray[x] == PlayerName)
+		{
+			ID = x;
+		}
+	}
+
+	return ID;
 }
