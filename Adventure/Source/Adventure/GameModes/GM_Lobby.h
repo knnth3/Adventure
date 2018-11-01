@@ -32,8 +32,6 @@ public:
 	TSubclassOf<class UW_Lobby> DefaultLobbyUIClass;
 
 protected:
-
-	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Lobby Gamemode")
@@ -43,5 +41,4 @@ private:
 
 	uint32_t m_playerCount;
 	FString m_MapSaveName;
-	class UW_Lobby* m_LobbyMenu;
 };

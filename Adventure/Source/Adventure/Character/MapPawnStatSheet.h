@@ -61,22 +61,26 @@ struct ADVENTURE_API FMapPawnStatSheet
 
 	// Ability Stats
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	int Strength;
+	int Strength = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	int Dexterity;
+	int Dexterity = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	int Constitution;
+	int Constitution = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	int Intelligence;
+	int Intelligence = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	int Wisdom;
+	int Wisdom = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
-	int Charisma;
+	int Charisma = 0;
+
+	// Current Status
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
+	int StatusEffect = 0;
 };
 
 UCLASS()

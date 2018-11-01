@@ -14,6 +14,7 @@ AMapPawn::AMapPawn()
 	bMovePawn = false;
 	bRotatePawn = false;
 	bHasTarget = false;
+	bIsFrozen = false;
 	m_PawnID = -1;
 
 	FAttachmentTransformRules rules(
@@ -41,11 +42,6 @@ AMapPawn::AMapPawn()
 	//Create a static mesh component
 	Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Focus"));
 	RootComponent = Scene;
-
-	//Create a component for the pawns body
-	PawnBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Pawn_Body"));
-	PawnBody->SetupAttachment(Scene);
-	PawnBody->ComponentTags.Add(FName("Outline"));
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -201,7 +197,7 @@ void AMapPawn::ZoomCamera(const float & AxisValue, const float & DeltaTime)
 
 void AMapPawn::ServerOnly_SetDestination(const FGridCoordinate & Destination)
 {
-	if (HasAuthority())
+	if (HasAuthority() && !bIsFrozen)
 	{
 		FGridCoordinate CurrentLocation = UGridFunctions::WorldToGridLocation(GetActorLocation());
 		if (CurrentLocation != Destination)
@@ -244,6 +240,12 @@ void AMapPawn::ServerOnly_SetTargetLocation(const FVector& Location)
 	}
 }
 
+void AMapPawn::ServerOnly_SetStatusEffect(int EffectID)
+{
+	m_StatSheet.StatusEffect = EffectID;
+	Multicast_ApplyNewStatus(EffectID);
+}
+
 FVector AMapPawn::ServerOnly_GetDesiredForwardVector() const
 {
 	return m_ForwardVector;
@@ -261,7 +263,7 @@ void AMapPawn::SetFocusToPawn(float TransitionTime)
 
 void AMapPawn::RotatePawn(float DeltaTime)
 {
-	if (bRotatePawn)
+	if (bRotatePawn && !bIsFrozen)
 	{
 		// Rotate towards path
 		FVector currentForward = GetActorForwardVector();
@@ -292,7 +294,14 @@ void AMapPawn::RotatePawn(float DeltaTime)
 
 void AMapPawn::MovePawn(float DeltaTime)
 {
-	if (bMovePawn)
+	if (bIsFrozen)
+	{
+		if (!m_MoveQueue.empty())
+		{
+			m_MoveQueue.clear();
+		}
+	}
+	else if (bMovePawn)
 	{
 		FVector currentLocation = GetActorLocation();
 		FVector finalLocation = m_Destination;
@@ -322,6 +331,11 @@ void AMapPawn::MovePawn(float DeltaTime)
 			}
 		}
 	}
+}
+
+void AMapPawn::Multicast_ApplyNewStatus_Implementation(int StatusID)
+{
+	OnStatusChanged(StatusID);
 }
 
 int AMapPawn::GetNewID()

@@ -88,12 +88,18 @@ public:
 	void ServerOnly_SetTargetLocation(const FVector& Location);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void ServerOnly_SetStatusEffect(int EffectID);
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	FVector ServerOnly_GetDesiredForwardVector() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void SetFocusToPawn(float TransitionTime);
 
 protected:
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
+	bool bIsFrozen;
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
 	UHoverArrowComponent* ArrowComponent;
 
@@ -106,8 +112,8 @@ protected:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
 	class USceneComponent* Scene;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
-	class USkeletalMeshComponent* PawnBody;
+	UFUNCTION(BlueprintImplementableEvent, Category = "Status Changed")
+	void OnStatusChanged(int StatusID);
 
 private:
 
@@ -137,6 +143,9 @@ private:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_SetActiveDestination(const FVector& Location);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ApplyNewStatus(int StatusID);
 
 	static int GetNewID();
 };
