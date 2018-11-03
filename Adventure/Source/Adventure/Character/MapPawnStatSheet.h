@@ -29,6 +29,15 @@ enum class ATTACK_ELEMENT_TYPE : uint8
 	WATER
 };
 
+UENUM(BlueprintType)
+enum class WEAPON_TYPE : uint8
+{
+	UNARMED,
+	HAMMER_1H,
+	STAFF_1H,
+	SWORD_1H,
+	CROSSBOW,
+};
 
 USTRUCT(BlueprintType)
 struct ADVENTURE_API FMapPawnStatSheet
@@ -81,27 +90,7 @@ struct ADVENTURE_API FMapPawnStatSheet
 	// Current Status
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
 	int StatusEffect = 0;
-};
 
-UCLASS()
-class AMapPawnAttack : public AActor
-{
-	GENERATED_BODY()
-public:
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-	ATTACK_ELEMENT_TYPE ElementType;
-
-	UFUNCTION(BlueprintNativeEvent)
-	void Attack(const FMapPawnStatSheet& Stats, const FVector& StartLocation, const FVector& EndLocation) const;
-	virtual void Attack_Implementation(const FMapPawnStatSheet& Stats, const FVector& StartLocation, const FVector& EndLocation) const;
-};
-
-UCLASS()
-class AMapPawnAttack_Basic : public AMapPawnAttack
-{
-	GENERATED_BODY()
-	
-public:
-	virtual void Attack_Implementation(const FMapPawnStatSheet& Stats, const FVector& StartLocation, const FVector& EndLocation) const override;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat Sheet")
+	WEAPON_TYPE EquipedWeaponType = WEAPON_TYPE::UNARMED;
 };

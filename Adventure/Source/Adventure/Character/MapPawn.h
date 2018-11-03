@@ -58,6 +58,11 @@ public:
 	void ServerOnly_SetClassIndex(const int Index);
 
 	// Owner Properties
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void OnCelebrationAnimEnd();
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void OnAttackAnimEnd();
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void ServerOnly_SetOwnerID(const int ID);
@@ -74,6 +79,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	bool IsMoving()const;
 
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	bool IsCelebrating()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	bool IsAttacking()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	bool IsDead()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void Celebrate(int AnimationIndex);
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void Attack(int AttackIndex, const FVector& TargetLocation);
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void KillPawn();
+
 	// Camera Controlls
 	const FVector GetCameraLocation() const;
 	void RotateCameraPitch(const float& AxisValue, const float& DeltaTime);
@@ -89,6 +112,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void ServerOnly_SetStatusEffect(int EffectID);
+
+	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
+	void ServerOnly_SetEquipedWeaponType(WEAPON_TYPE type);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	FVector ServerOnly_GetDesiredForwardVector() const;
@@ -115,12 +141,23 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Status Changed")
 	void OnStatusChanged(int StatusID);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Status Changed")
+	void OnAttackInitiated(int AttackIndex, const FVector& TargetLocation);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Status Changed")
+	void OnPawnKilled();
+
 private:
 
 	bool bMovePawn;
 	bool bRotatePawn;
 	bool bHasTarget;
+	bool bAttacking;
+	bool bPlayCelebrationAnim;
+	bool bIsDead;
 	int m_ClassIndex;
+	int m_CelebrationAnimIndex;
+	int m_AttackAnimIndex;
 
 	FVector m_ForwardVector;
 	FVector m_Destination;
@@ -146,6 +183,15 @@ private:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_ApplyNewStatus(int StatusID);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_Celebrate(int AnimationIndex);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_Attack(int AttackIndex, const FVector& TargetLocation);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_KillPawn();
 
 	static int GetNewID();
 };

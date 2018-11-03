@@ -27,6 +27,8 @@ class ADVENTURE_API APS_Multiplayer : public APlayerState
 public:
 	APS_Multiplayer();
 	void ServerOnly_SetGameID(const int ID);
+
+	UFUNCTION(BlueprintCallable, Category = "Player State")
 	int GetGameID() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Player State")

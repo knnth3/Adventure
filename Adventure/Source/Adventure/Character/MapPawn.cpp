@@ -11,11 +11,15 @@ AMapPawn::AMapPawn()
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicateMovement = false;
+	bPlayCelebrationAnim = false;
+	bAttacking = false;
 	bMovePawn = false;
 	bRotatePawn = false;
 	bHasTarget = false;
 	bIsFrozen = false;
 	m_PawnID = -1;
+	m_CelebrationAnimIndex = 0;
+	m_AttackAnimIndex = 0;
 
 	FAttachmentTransformRules rules(
 		EAttachmentRule::SnapToTarget,
@@ -108,6 +112,16 @@ void AMapPawn::ServerOnly_SetClassIndex(const int Index)
 	m_ClassIndex = Index;
 }
 
+void AMapPawn::OnCelebrationAnimEnd()
+{
+	bPlayCelebrationAnim = false;
+}
+
+void AMapPawn::OnAttackAnimEnd()
+{
+	bAttacking = false;
+}
+
 void AMapPawn::ServerOnly_SetOwnerID(const int ID)
 {
 	m_OwnerID = ID;
@@ -159,6 +173,42 @@ bool AMapPawn::IsMoving() const
 	return bMovePawn;
 }
 
+bool AMapPawn::IsCelebrating() const
+{
+	return bPlayCelebrationAnim;
+}
+
+bool AMapPawn::IsAttacking() const
+{
+	return bAttacking;
+}
+
+bool AMapPawn::IsDead() const
+{
+	return bIsDead;
+}
+
+void AMapPawn::Celebrate(int AnimationIndex)
+{
+	if (!IsMoving() && !bIsFrozen && !bPlayCelebrationAnim && !bAttacking)
+	{
+		Multicast_Celebrate(AnimationIndex);
+	}
+}
+
+void AMapPawn::Attack(int AttackIndex, const FVector& TargetLocation)
+{
+	if (!IsMoving() && !bIsFrozen && !bPlayCelebrationAnim && !bAttacking)
+	{
+		Multicast_Attack(AttackIndex, TargetLocation);
+	}
+}
+
+void AMapPawn::KillPawn()
+{
+	Multicast_KillPawn();
+}
+
 void AMapPawn::RotateCameraPitch(const float & AxisValue, const float & DeltaTime)
 {
 	if (AxisValue)
@@ -197,7 +247,7 @@ void AMapPawn::ZoomCamera(const float & AxisValue, const float & DeltaTime)
 
 void AMapPawn::ServerOnly_SetDestination(const FGridCoordinate & Destination)
 {
-	if (HasAuthority() && !bIsFrozen)
+	if (HasAuthority() && !bIsDead && !bIsFrozen && !bAttacking && !bPlayCelebrationAnim)
 	{
 		FGridCoordinate CurrentLocation = UGridFunctions::WorldToGridLocation(GetActorLocation());
 		if (CurrentLocation != Destination)
@@ -244,6 +294,11 @@ void AMapPawn::ServerOnly_SetStatusEffect(int EffectID)
 {
 	m_StatSheet.StatusEffect = EffectID;
 	Multicast_ApplyNewStatus(EffectID);
+}
+
+void AMapPawn::ServerOnly_SetEquipedWeaponType(WEAPON_TYPE type)
+{
+	m_StatSheet.EquipedWeaponType = type;
 }
 
 FVector AMapPawn::ServerOnly_GetDesiredForwardVector() const
@@ -294,7 +349,15 @@ void AMapPawn::RotatePawn(float DeltaTime)
 
 void AMapPawn::MovePawn(float DeltaTime)
 {
-	if (bIsFrozen)
+	if (bIsDead)
+	{
+		if (m_Destination != GetActorLocation())
+		{
+			m_MoveQueue.clear();
+			m_Destination = GetActorLocation();
+		}
+	}
+	else if (bIsFrozen)
 	{
 		if (!m_MoveQueue.empty())
 		{
@@ -336,6 +399,25 @@ void AMapPawn::MovePawn(float DeltaTime)
 void AMapPawn::Multicast_ApplyNewStatus_Implementation(int StatusID)
 {
 	OnStatusChanged(StatusID);
+}
+
+void AMapPawn::Multicast_Celebrate_Implementation(int AnimationIndex)
+{
+	bPlayCelebrationAnim = true;
+	m_CelebrationAnimIndex = AnimationIndex;
+}
+
+void AMapPawn::Multicast_Attack_Implementation(int AttackIndex, const FVector& TargetLocation)
+{
+	bAttacking = true;
+	m_AttackAnimIndex = AttackIndex;
+	OnAttackInitiated(AttackIndex, TargetLocation);
+}
+
+void AMapPawn::Multicast_KillPawn_Implementation()
+{
+	bIsDead = true;
+	OnPawnKilled();
 }
 
 int AMapPawn::GetNewID()

@@ -125,6 +125,30 @@ CONNECTED_PLAYER_CAMERA AConnectedPlayer::GetCameraType() const
 	return m_CameraType;
 }
 
+void AConnectedPlayer::PlayPawnCelebrationAnimation(int AnimationIndex)
+{
+	if (m_SelectedPawn)
+	{
+		Server_PlayPawnCelebrationAnimation(AnimationIndex, m_SelectedPawn->GetPawnID(), m_SelectedPawn->GetActorLocation());
+	}
+}
+
+void AConnectedPlayer::PawnAttack(const FVector& TargetLocation, int AttackIndex)
+{
+	if (m_SelectedPawn)
+	{
+		Server_PawnAttack(AttackIndex, m_SelectedPawn->GetPawnID(), m_SelectedPawn->GetActorLocation(), TargetLocation);
+	}
+}
+
+void AConnectedPlayer::KillPawn()
+{
+	if (m_SelectedPawn)
+	{
+		Server_KillPawn(m_SelectedPawn->GetPawnID(), m_SelectedPawn->GetActorLocation());
+	}
+}
+
 bool AConnectedPlayer::GetSelectedActorLocation(FVector& Location) const
 {
 	if (m_SelectedPawn)
@@ -229,6 +253,44 @@ void AConnectedPlayer::SetCameraToCharacter()
 
 //////////////////////// Private Server Functions ////////////////////////
 
+void AConnectedPlayer::Server_KillPawn_Implementation(const int PawnID, const FVector & PawnLocation)
+{
+	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(PawnLocation, PawnID);
+		if (pawn && state && (state->GetGameID() == 0 || state->GetGameID() == pawn->GetOwnerID()))
+		{
+			pawn->KillPawn();
+		}
+	}
+}
+
+bool AConnectedPlayer::Server_KillPawn_Validate(const int PawnID, const FVector & PawnLocation)
+{
+	return true;
+}
+
+void AConnectedPlayer::Server_PawnAttack_Implementation(int AttackIndex, const int PawnID, const FVector & PawnLocation, const FVector& TargetLocation)
+{
+	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(PawnLocation, PawnID);
+		if (pawn && state && (state->GetGameID() == 0 || state->GetGameID() == pawn->GetOwnerID()))
+		{
+			pawn->Attack(AttackIndex, TargetLocation);
+		}
+	}
+}
+
+bool AConnectedPlayer::Server_PawnAttack_Validate(int AttackIndex, const int PawnID, const FVector & PawnLocation, const FVector& TargetLocation)
+{
+	return true;
+}
+
 void AConnectedPlayer::Server_MovePlayer_Implementation(const int PawnID, const FVector& Location, const FVector& Destination)
 {
 	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
@@ -262,6 +324,25 @@ void AConnectedPlayer::Server_ClearPawnTargetLocation_Implementation()
 }
 
 bool AConnectedPlayer::Server_ClearPawnTargetLocation_Validate()
+{
+	return true;
+}
+
+void AConnectedPlayer::Server_PlayPawnCelebrationAnimation_Implementation(int AnimationIndex, const int PawnID, const FVector& PawnLocation)
+{
+	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(PawnLocation, PawnID);
+		if (pawn && state && (state->GetGameID() == 0 || state->GetGameID() == pawn->GetOwnerID()))
+		{
+			pawn->Celebrate(AnimationIndex);
+		}
+	}
+}
+
+bool AConnectedPlayer::Server_PlayPawnCelebrationAnimation_Validate(int AnimationIndex, const int PawnID, const FVector& PawnLocation)
 {
 	return true;
 }

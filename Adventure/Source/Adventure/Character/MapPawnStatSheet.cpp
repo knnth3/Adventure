@@ -2,12 +2,3 @@
 #include "MapPawnStatSheet.h"
 
 #include "Adventure.h"
-
-void AMapPawnAttack::Attack_Implementation(const FMapPawnStatSheet& Stats, const FVector& StartLocation, const FVector& EndLocation) const
-{
-}
-
-void AMapPawnAttack_Basic::Attack_Implementation(const FMapPawnStatSheet& Stats, const FVector& StartLocation, const FVector& EndLocation) const
-{
-	UE_LOG(LogNotice, Warning, TEXT("Move used: Basic Attack!"));
-}
