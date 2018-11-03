@@ -91,6 +91,7 @@ protected:
 	UPROPERTY(BlueprintReadWrite, Category = "Visual Settings")
 	class AWorldGrid* ParentGrid;
 
+
 private:
 
 	AActor* m_Object;

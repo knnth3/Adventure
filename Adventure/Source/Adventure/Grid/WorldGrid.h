@@ -144,4 +144,5 @@ private:
 	std::map<int, int> m_PlayerPawnCount;
 	std::vector<FGridCoordinate> m_SpawnLocations;
 	std::vector<std::vector<AWorldGrid_Cell*>> m_Grid;
+	std::map<CoordinatePair, AWorldGrid_Cell*> m_HighlightedCells;
 };
