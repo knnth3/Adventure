@@ -18,7 +18,7 @@
 
 static const int UE4_SAVEGAME_FILE_TYPE_TAG = 0x53415647;		// "sAvG"
 
-struct FSaveGameFileVersion
+struct FSaveGameFileVersionCopy
 {
 	enum Type
 	{
@@ -32,10 +32,10 @@ struct FSaveGameFileVersion
 	};
 };
 
-struct FSaveGameHeader
+struct FSaveGameHeaderCopy
 {
-	FSaveGameHeader();
-	FSaveGameHeader(TSubclassOf<USaveGame> ObjectType);
+	FSaveGameHeaderCopy();
+	FSaveGameHeaderCopy(TSubclassOf<USaveGame> ObjectType);
 
 	void Empty();
 	bool IsEmpty() const;
@@ -52,16 +52,16 @@ struct FSaveGameHeader
 	FString SaveGameClassName;
 };
 
-FSaveGameHeader::FSaveGameHeader()
+FSaveGameHeaderCopy::FSaveGameHeaderCopy()
 	: FileTypeTag(0)
 	, SaveGameFileVersion(0)
 	, PackageFileUE4Version(0)
 	, CustomVersionFormat(static_cast<int32>(ECustomVersionSerializationFormat::Unknown))
 {}
 
-FSaveGameHeader::FSaveGameHeader(TSubclassOf<USaveGame> ObjectType)
+FSaveGameHeaderCopy::FSaveGameHeaderCopy(TSubclassOf<USaveGame> ObjectType)
 	: FileTypeTag(UE4_SAVEGAME_FILE_TYPE_TAG)
-	, SaveGameFileVersion(FSaveGameFileVersion::LatestVersion)
+	, SaveGameFileVersion(FSaveGameFileVersionCopy::LatestVersion)
 	, PackageFileUE4Version(GPackageFileUE4Version)
 	, SavedEngineVersion(FEngineVersion::Current())
 	, CustomVersionFormat(static_cast<int32>(ECustomVersionSerializationFormat::Latest))
@@ -69,7 +69,7 @@ FSaveGameHeader::FSaveGameHeader(TSubclassOf<USaveGame> ObjectType)
 	, SaveGameClassName(ObjectType->GetPathName())
 {}
 
-void FSaveGameHeader::Empty()
+void FSaveGameHeaderCopy::Empty()
 {
 	FileTypeTag = 0;
 	SaveGameFileVersion = 0;
@@ -80,12 +80,12 @@ void FSaveGameHeader::Empty()
 	SaveGameClassName.Empty();
 }
 
-bool FSaveGameHeader::IsEmpty() const
+bool FSaveGameHeaderCopy::IsEmpty() const
 {
 	return (FileTypeTag == 0);
 }
 
-void FSaveGameHeader::Read(FMemoryReader& MemoryReader)
+void FSaveGameHeaderCopy::Read(FMemoryReader& MemoryReader)
 {
 	Empty();
 
@@ -95,7 +95,7 @@ void FSaveGameHeader::Read(FMemoryReader& MemoryReader)
 	{
 		// this is an old saved game, back up the file pointer to the beginning and assume version 1
 		MemoryReader.Seek(0);
-		SaveGameFileVersion = FSaveGameFileVersion::InitialVersion;
+		SaveGameFileVersion = FSaveGameFileVersionCopy::InitialVersion;
 
 		// Note for 4.8 and beyond: if you get a crash loading a pre-4.8 version of your savegame file and 
 		// you don't want to delete it, try uncommenting these lines and changing them to use the version 
@@ -116,7 +116,7 @@ void FSaveGameHeader::Read(FMemoryReader& MemoryReader)
 		MemoryReader.SetUE4Ver(PackageFileUE4Version);
 		MemoryReader.SetEngineVer(SavedEngineVersion);
 
-		if (SaveGameFileVersion >= FSaveGameFileVersion::AddedCustomVersions)
+		if (SaveGameFileVersion >= FSaveGameFileVersionCopy::AddedCustomVersions)
 		{
 			MemoryReader << CustomVersionFormat;
 
@@ -129,7 +129,7 @@ void FSaveGameHeader::Read(FMemoryReader& MemoryReader)
 	MemoryReader << SaveGameClassName;
 }
 
-void FSaveGameHeader::Write(FMemoryWriter& MemoryWriter)
+void FSaveGameHeaderCopy::Write(FMemoryWriter& MemoryWriter)
 {
 	// write file type tag. identifies this file type and indicates it's using proper versioning
 	// since older UE4 versions did not version this data.
@@ -381,7 +381,7 @@ bool UBasicFunctions::SaveFile(USaveGame * SaveGameObject, const FString & SlotN
 		TArray<uint8> ObjectBytes;
 		FMemoryWriter MemoryWriter(ObjectBytes, true);
 
-		FSaveGameHeader SaveHeader(SaveGameObject->GetClass());
+		FSaveGameHeaderCopy SaveHeader(SaveGameObject->GetClass());
 		SaveHeader.Write(MemoryWriter);
 
 		// Then save the object state, replacing object refs and names with strings
@@ -410,7 +410,7 @@ USaveGame * UBasicFunctions::LoadFile(const FString & SlotName)
 		{
 			FMemoryReader MemoryReader(ObjectBytes, true);
 
-			FSaveGameHeader SaveHeader;
+			FSaveGameHeaderCopy SaveHeader;
 			SaveHeader.Read(MemoryReader);
 
 			// Try and find it, and failing that, load it
