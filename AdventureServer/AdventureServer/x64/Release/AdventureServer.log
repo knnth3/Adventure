@@ -1,0 +1,13 @@
+﻿  AdventureServer.cpp
+  Generating code
+  1 of 48 functions ( 2.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+aws-cpp-sdk-gamelift-server.lib(GameLiftCommonState.obj) : warning LNK4099: PDB 'aws-cpp-sdk-gamelift-server.pdb' was not found with 'aws-cpp-sdk-gamelift-server.lib(GameLiftCommonState.obj)' or at 'C:\Users\Kenneth\Github\Adventure\AdventureServer\x64\Release\aws-cpp-sdk-gamelift-server.pdb'; linking object as if no debug info
+aws-cpp-sdk-gamelift-server.lib(AuxProxyMessageSender.obj) : warning LNK4099: PDB 'aws-cpp-sdk-gamelift-server.pdb' was not found with 'aws-cpp-sdk-gamelift-server.lib(AuxProxyMessageSender.obj)' or at 'C:\Users\Kenneth\Github\Adventure\AdventureServer\x64\Release\aws-cpp-sdk-gamelift-server.pdb'; linking object as if no debug info
+aws-cpp-sdk-gamelift-server.lib(GameLiftServerAPI.obj) : warning LNK4099: PDB 'aws-cpp-sdk-gamelift-server.pdb' was not found with 'aws-cpp-sdk-gamelift-server.lib(GameLiftServerAPI.obj)' or at 'C:\Users\Kenneth\Github\Adventure\AdventureServer\x64\Release\aws-cpp-sdk-gamelift-server.pdb'; linking object as if no debug info
+aws-cpp-sdk-gamelift-server.lib(GameLiftServerState.obj) : warning LNK4099: PDB 'aws-cpp-sdk-gamelift-server.pdb' was not found with 'aws-cpp-sdk-gamelift-server.lib(GameLiftServerState.obj)' or at 'C:\Users\Kenneth\Github\Adventure\AdventureServer\x64\Release\aws-cpp-sdk-gamelift-server.pdb'; linking object as if no debug info
+aws-cpp-sdk-gamelift-server.lib(Network.obj) : warning LNK4099: PDB 'aws-cpp-sdk-gamelift-server.pdb' was not found with 'aws-cpp-sdk-gamelift-server.lib(Network.obj)' or at 'C:\Users\Kenneth\Github\Adventure\AdventureServer\x64\Release\aws-cpp-sdk-gamelift-server.pdb'; linking object as if no debug info
+aws-cpp-sdk-gamelift-server.lib(sdk.pb.obj) : warning LNK4099: PDB 'aws-cpp-sdk-gamelift-server.pdb' was not found with 'aws-cpp-sdk-gamelift-server.lib(sdk.pb.obj)' or at 'C:\Users\Kenneth\Github\Adventure\AdventureServer\x64\Release\aws-cpp-sdk-gamelift-server.pdb'; linking object as if no debug info
+  AdventureServer.vcxproj -> C:\Users\Kenneth\Github\Adventure\AdventureServer\x64\Release\AdventureServer.exe

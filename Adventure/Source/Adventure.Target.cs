@@ -7,7 +7,7 @@ public class AdventureTarget : TargetRules
 {
 	public AdventureTarget(TargetInfo Target) : base(Target)
 	{
-		Type = TargetType.Game;
+        Type = TargetType.Game;
 		ExtraModuleNames.Add("Adventure");
 	}
 }

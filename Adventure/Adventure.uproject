@@ -27,6 +27,10 @@
 		{
 			"Name": "SmoothZoom",
 			"Enabled": false
+		},
+		{
+			"Name": "GameLiftClientSDK",
+			"Enabled": true
 		}
 	]
 }
