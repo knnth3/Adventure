@@ -40,11 +40,27 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 	m_CurrentMapName = UGameplayStatics::ParseOption(Options, "SN");
 }
 
-void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)
-{
-	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
+//void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)
+//{
+//	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
+//	LoginPlayer(NewPlayer);
+//}
 
-	APS_Multiplayer* currentPlayerState = Cast<APS_Multiplayer>(NewPlayer->PlayerState);
+void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController *& C)
+{
+	Super::HandleSeamlessTravelPlayer(C);
+	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has joined via seamless travel."), *C->PlayerState->GetPlayerName());
+	LoginPlayer(C);
+}
+
+int AGM_Multiplayer::GeneratePlayerID()
+{
+	return m_PlayerIndexCount++;
+}
+
+void AGM_Multiplayer::LoginPlayer(AController *& Player)
+{
+	APS_Multiplayer* currentPlayerState = Cast<APS_Multiplayer>(Player->PlayerState);
 	AGS_Multiplayer* gameState = Cast<AGS_Multiplayer>(GameState);
 
 	if (currentPlayerState && gameState)
@@ -73,9 +89,4 @@ void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController *
 			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has reconnected."), *FString(PlayerName.c_str()));
 		}
 	}
-}
-
-int AGM_Multiplayer::GeneratePlayerID()
-{
-	return m_PlayerIndexCount++;
 }

@@ -1,3 +1,0 @@
-﻿  AdventureServer.cpp
-AdventureServer.obj : error LNK2019: unresolved external symbol "class Aws::GameLift::Outcome<class Aws::GameLift::Internal::GameLiftServerState *,class Aws::GameLift::GameLiftError> __cdecl Aws::GameLift::Server::InitSDK(void)" (?InitSDK@Server@GameLift@Aws@@YA?AV?$Outcome@PAVGameLiftServerState@Internal@GameLift@Aws@@VGameLiftError@34@@23@XZ) referenced in function _main
-C:\Users\Kenneth\Github\Adventure\AdventureServer\Debug\AdventureServer.exe : fatal error LNK1120: 1 unresolved externals

@@ -31,15 +31,17 @@ public:
 
 protected:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	virtual void HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer) override;
+	// virtual void HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer) override;
+	virtual void HandleSeamlessTravelPlayer(AController *& C) override;
 
 private:
+
+	int GeneratePlayerID();
+	void LoginPlayer(AController *& Player);
 
 	int m_PlayerIndexCount;
 	FString m_CurrentMapName;
 	std::string m_HostUsername;
 	FGridCoordinate m_GridDimensions;
 	std::map<std::string, int> m_ConnnectedPlayers;
-
-	int GeneratePlayerID();
 };

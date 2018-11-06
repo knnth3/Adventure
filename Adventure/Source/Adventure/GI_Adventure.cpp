@@ -148,7 +148,7 @@ void UGI_Adventure::FindSessions(FSESSION_SEARCH_SETTINGS settings)
 				SessionSearch = MakeShareable(new FOnlineSessionSearch());
 
 				SessionSearch->bIsLanQuery = false;
-				SessionSearch->MaxSearchResults = 1000;
+				SessionSearch->MaxSearchResults = 1000000;
 				//SessionSearch->PingBucketSize = 50;
 
 				// We only want to set this Query Setting if "bIsPresence" is true
@@ -159,7 +159,7 @@ void UGI_Adventure::FindSessions(FSESSION_SEARCH_SETTINGS settings)
 
 				TSharedRef<FOnlineSessionSearch> SearchSettingsRef = SessionSearch.ToSharedRef();
 				FString IsLan = SessionSearch->bIsLanQuery ? "True" : "False";
-				UE_LOG(LogAdventureNet, Log, TEXT("Begin find sessions: LAN= %s, MaxResults= %i."), *IsLan, SessionSearch->MaxSearchResults);
+				UE_LOG(LogAdventureNet, Warning, TEXT("Begin find sessions: LAN= %s, MaxResults= %i."), *IsLan, SessionSearch->MaxSearchResults);
 
 				// Finally call the SessionInterface function. The Delegate gets called once this is finished
 				Sessions->FindSessions(0, SearchSettingsRef);
@@ -244,7 +244,16 @@ void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSu
 		{
 			if (bWasSuccessful)
 			{
-				UE_LOG(LogAdventureNet, Log, TEXT("Create session success for '%s'. Starting Lobby..."), *SessionName.ToString());
+				FString MapName;
+				if (SessionSettings->Get(SETTING_MAPNAME, MapName))
+				{
+					UE_LOG(LogAdventureNet, Warning, TEXT("Online Session was successfully created. MapName= %s"), *MapName);
+				}
+				else
+				{
+					UE_LOG(LogAdventureNet, Error, TEXT("Online Session was created successfully but the map header lacks map information."));
+				}
+
 				UGameplayStatics::OpenLevel(GetWorld(), MAP_LOBBY, true, "listen");
 			}
 			else
@@ -308,7 +317,7 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 					}
 					else
 					{
-						UE_LOG(LogAdventureNet, Warning, TEXT("Session found but no info is presented."));
+						UE_LOG(LogAdventureNet, Error, TEXT("A session was found but it was missing map information."));
 					}
 				}
 			}
@@ -501,8 +510,8 @@ void UGI_Adventure::LoadNextMap()
 				*/
 				SessionSettings = MakeShareable(new FOnlineSessionSettings());
 
-				SessionSettings->bIsLANMatch = HostGameSettings.IsLan;
-				SessionSettings->bUsesPresence = !HostGameSettings.IsLan;
+				SessionSettings->bIsLANMatch = false;
+				SessionSettings->bUsesPresence = true;
 				SessionSettings->NumPublicConnections = 10;
 				SessionSettings->NumPrivateConnections = 10;
 				SessionSettings->bAllowInvites = true;

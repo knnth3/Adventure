@@ -23,14 +23,6 @@
 		{
 			"Name": "WebBrowserWidget",
 			"Enabled": true
-		},
-		{
-			"Name": "SmoothZoom",
-			"Enabled": false
-		},
-		{
-			"Name": "GameLiftClientSDK",
-			"Enabled": true
 		}
 	]
 }
