@@ -6,22 +6,20 @@
 #include "FileManager.h"
 #include "Paths.h"
 
-void UW_MainMenu_Child::ConnectTo(UW_MainMenu* MainMenu)
+void UW_MainMenu_Child::ConnectTo(UW_MainMenu* mainMenu)
 {
-	this->MainMenu = MainMenu;
+	this->MainMenu = mainMenu;
 }
 
 void UW_MainMenu_Child::RequestHostGame(FHOSTGAME_SETTINGS settings)
 {
-	if (MainMenu && !settings.SessionName.IsEmpty() && !settings.MapName.IsEmpty())
+	if (!settings.SessionName.IsEmpty())
 	{
 		MainMenu->HostGame(settings);
 	}
 	else
 	{
-		FString HasMainMenu = (MainMenu != 0) ? "True" : "False";
-		UE_LOG(LogNotice, Warning, TEXT("Request to host game failed: Main Menu Loaded= '%s', Session Name= '%s', Map Name: '%s'"),
-			*HasMainMenu, *settings.SessionName, *settings.MapName);
+		UE_LOG(LogNotice, Warning, TEXT("<HostSessionRequest>: Failed to host session. Session name was NULL."));
 	}
 }
 

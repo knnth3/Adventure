@@ -26,7 +26,19 @@ void AGS_Multiplayer::HandleBeginPlay()
 {
 	Super::HandleBeginPlay();
 	SetActivePlayer(-1);
+}
 
+void AGS_Multiplayer::AddNewPlayer(int PlayerID, FString PlayerName)
+{
+	// Validity check
+	if (m_PlayerNameArray.Num() == PlayerID)
+	{
+		m_PlayerNameArray.Push(PlayerName);
+	}
+}
+
+void AGS_Multiplayer::GenerateGrid()
+{
 	if (HasAuthority())
 	{
 		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
@@ -41,15 +53,6 @@ void AGS_Multiplayer::HandleBeginPlay()
 				}
 			}
 		}
-	}
-}
-
-void AGS_Multiplayer::AddNewPlayer(int PlayerID, FString PlayerName)
-{
-	// Validity check
-	if (m_PlayerNameArray.Num() == PlayerID)
-	{
-		m_PlayerNameArray.Push(PlayerName);
 	}
 }
 
@@ -115,6 +118,7 @@ FString AGS_Multiplayer::GetPlayerName(int PlayerID) const
 int AGS_Multiplayer::GetPlayerID(FString PlayerName) const
 {
 	int ID = -1;
+
 	for (int x = 0; x < m_PlayerNameArray.Num(); x++)
 	{
 		if (m_PlayerNameArray[x] == PlayerName)

@@ -49,16 +49,10 @@ struct FHOSTGAME_SETTINGS
 	int32 MaxPlayers = 10;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host Game Settings")
-	FString MapName = "NONE";
+	FString SessionName = "ADVENTURE_LOBBY1";
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host Game Settings")
-	FString SessionName = "GAME_MULTIPLAYER";
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host Game Settings")
-	bool IsLan = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host Game Settings")
-	bool IsPresence = true;
+	bool bJoinViaInviteOnly = false;
 };
 
 USTRUCT(BlueprintType)

@@ -298,9 +298,13 @@ void AConnectedPlayer::Server_MovePlayer_Implementation(const int PawnID, const 
 	if (WorldGrid)
 	{
 		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(Location, PawnID);
-		if (pawn && state && (state->GetGameID() == 0 || state->GetGameID() == pawn->GetOwnerID()))
+		if (pawn && state)
 		{
-			pawn->ServerOnly_SetDestination(Destination);
+			UE_LOG(LogNotice, Warning, TEXT("<ConnectedPlayer%i>: Attempting to move pawn with owner ID: %i"), state->GetGameID(), pawn->GetOwnerID());
+			if (state->GetGameID() == 0 || (state->GetGameID() == pawn->GetOwnerID()))
+			{
+				pawn->ServerOnly_SetDestination(Destination);
+			}
 		}
 	}
 }

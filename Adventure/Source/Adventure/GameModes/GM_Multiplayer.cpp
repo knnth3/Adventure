@@ -14,6 +14,7 @@
 
 AGM_Multiplayer::AGM_Multiplayer()
 {
+	bUseSeamlessTravel = true;
 	m_PlayerIndexCount = 0;
 	m_GridDimensions = { 10, 10 };
 }
@@ -30,27 +31,41 @@ FString AGM_Multiplayer::GetMapName() const
 
 int AGM_Multiplayer::GetHostID() const
 {
-	return m_ConnnectedPlayers.at(m_HostUsername);
+	return m_ConnnectedPlayers.at(TCHAR_TO_UTF8(*m_HostUsername));
 }
 
 void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	m_CurrentMapName = UGameplayStatics::ParseOption(Options, "SN");
+	m_CurrentMapName = "Default";
 }
 
-//void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)
-//{
-//	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
-//	LoginPlayer(NewPlayer);
-//}
+void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)
+{
+	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
+
+	LoginConnectedPlayer(NewPlayer);
+}
 
 void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController *& C)
 {
 	Super::HandleSeamlessTravelPlayer(C);
+
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has joined via seamless travel."), *C->PlayerState->GetPlayerName());
-	LoginPlayer(C);
+	// LoginConnectedPlayer(C);
+}
+
+void AGM_Multiplayer::PostSeamlessTravel()
+{
+	Super::PostSeamlessTravel();
+
+	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: All players from previous level have joined."));
+	AGS_Multiplayer* gs = Cast<AGS_Multiplayer>(GameState);
+	if (gs)
+	{
+		gs->GenerateGrid();
+	}
 }
 
 int AGM_Multiplayer::GeneratePlayerID()
@@ -58,7 +73,7 @@ int AGM_Multiplayer::GeneratePlayerID()
 	return m_PlayerIndexCount++;
 }
 
-void AGM_Multiplayer::LoginPlayer(AController *& Player)
+void AGM_Multiplayer::LoginConnectedPlayer(APlayerController *& Player)
 {
 	APS_Multiplayer* currentPlayerState = Cast<APS_Multiplayer>(Player->PlayerState);
 	AGS_Multiplayer* gameState = Cast<AGS_Multiplayer>(GameState);
@@ -67,11 +82,11 @@ void AGM_Multiplayer::LoginPlayer(AController *& Player)
 	{
 		std::string PlayerName = TCHAR_TO_UTF8(*currentPlayerState->GetPlayerName());
 
-		//Host should always connect first
-		if (m_HostUsername.empty())
+		//First to connect will be the owner
+		if (m_ConnnectedPlayers.empty())
 		{
-			m_HostUsername = PlayerName;
-			UE_LOG(LogNotice, Warning, TEXT("<ServerSetup>: Host registered as %s"), *FString(m_HostUsername.c_str()));
+			m_HostUsername = FString(PlayerName.c_str());
+			UE_LOG(LogNotice, Warning, TEXT("<ServerSetup>: Host registered as %s"), *m_HostUsername);
 		}
 
 		// New player has joined
@@ -81,7 +96,7 @@ void AGM_Multiplayer::LoginPlayer(AController *& Player)
 			currentPlayerState->ServerOnly_SetGameID(m_ConnnectedPlayers[PlayerName]);
 			gameState->AddNewPlayer(m_ConnnectedPlayers[PlayerName], currentPlayerState->GetPlayerName());
 
-			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s registered to id: %i"), *FString(PlayerName.c_str()), currentPlayerState->GetGameID());
+			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has connected. Player was assigned to GameID: %i"), *FString(PlayerName.c_str()), currentPlayerState->GetGameID());
 		}
 		else
 		{

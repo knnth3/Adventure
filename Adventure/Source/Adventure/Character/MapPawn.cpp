@@ -124,6 +124,8 @@ void AMapPawn::OnAttackAnimEnd()
 
 void AMapPawn::ServerOnly_SetOwnerID(const int ID)
 {
+	UE_LOG(LogNotice, Warning, TEXT("<Pawn_%i>: New owner ID set to %i"), GetPawnID(), ID);
+
 	m_OwnerID = ID;
 }
 

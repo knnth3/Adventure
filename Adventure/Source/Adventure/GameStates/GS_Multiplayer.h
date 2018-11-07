@@ -22,6 +22,7 @@ public:
 	AGS_Multiplayer();
 	virtual void HandleBeginPlay()override;
 	void AddNewPlayer(int PlayerID, FString PlayerName);
+	void GenerateGrid();
 
 	UFUNCTION(BlueprintCallable, Category = "Turn-Based Mechanics")
 	void SetActivePlayer(const int ID);

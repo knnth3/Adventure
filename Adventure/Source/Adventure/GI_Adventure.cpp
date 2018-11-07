@@ -11,9 +11,9 @@
 #include "basics.h"
 
 #define SESSION_NAME EName::NAME_GameSession
-#define SETTING_SESSION FName(TEXT("SESSION_ID"))
+#define SETTING_SESSIONID FName(TEXT("SESSION_ID"))
 
-const static FName MAP_LOBBY = "/Game/Maps/Multiplayer/Lobby/Level_Lobby";
+const static FName MAP_MULTIPLAYER = "/Game/Maps/Multiplayer/Level_Multiplayer";
 const static FName MAP_MAIN_MENU = "/Game/Maps/MainMenu/Level_MainMenu";
 const static FName MAP_GAMEBUILDER = "/Game/Maps/GameBuilder/Level_GameBuilder";
 
@@ -244,17 +244,8 @@ void UGI_Adventure::OnCreateOnlineSessionComplete(FName SessionName, bool bWasSu
 		{
 			if (bWasSuccessful)
 			{
-				FString MapName;
-				if (SessionSettings->Get(SETTING_MAPNAME, MapName))
-				{
-					UE_LOG(LogAdventureNet, Warning, TEXT("Online Session was successfully created. MapName= %s"), *MapName);
-				}
-				else
-				{
-					UE_LOG(LogAdventureNet, Error, TEXT("Online Session was created successfully but the map header lacks map information."));
-				}
-
-				UGameplayStatics::OpenLevel(GetWorld(), MAP_LOBBY, true, "listen");
+				UE_LOG(LogAdventureNet, Warning, TEXT("Online Session was successfully created! Starting lobby..."));
+				OnLoadMultiplayerMap();
 			}
 			else
 			{
@@ -302,38 +293,37 @@ void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
 				// "SessionSearch->SearchResults" is an Array that contains all the information. You can access the Session in this and get a lot of information.
 				// This can be customized later on with your own classes to add more information that can be set and displayed
 				SessionSearchResults.Empty();
+				UE_LOG(LogAdventureNet, Warning, TEXT("<FindOnlineSession>: Found %i valid sessions."), SessionSearch->SearchResults.Num());
+
 				for (int32 SearchIdx = 0; SearchIdx < SessionSearch->SearchResults.Num(); SearchIdx++)
 				{
-					FString MapName;
-					FString SessionID;
+					FString SessionName;
 					auto settings = SessionSearch->SearchResults[SearchIdx].Session.SessionSettings;
-					if (settings.Get(SETTING_MAPNAME, MapName) && settings.Get(SETTING_SESSION, SessionID))
+					if (settings.Get(SETTING_SESSIONID, SessionName))
 					{
-						UE_LOG(LogAdventureNet, Log, TEXT("Session Number: %d | SessionID: %s | Session Name: %s"), SearchIdx + 1, *SessionID, *MapName);
-
 						//ID of online service session if needed
 						//SessionSearch->SearchResults[SearchIdx].GetSessionIdStr()
-						SessionSearchResults.Push(SessionID + "'s game: " + MapName);
+						SessionSearchResults.Push(SessionName);
 					}
 					else
 					{
-						UE_LOG(LogAdventureNet, Error, TEXT("A session was found but it was missing map information."));
+						UE_LOG(LogAdventureNet, Error, TEXT("<FindOnlineSession>: A session was found but it was missing map information."));
 					}
 				}
 			}
 			else
 			{
-				UE_LOG(LogAdventureNet, Warning, TEXT("No sessions were found on search."));
+				UE_LOG(LogAdventureNet, Warning, TEXT("<FindOnlineSession>: No sessions were found on search."));
 			}
 		}
 		else
-		{
-			UE_LOG(LogAdventureNet, Error, TEXT("Find sessions failed: Session is invalid."));
+		{ 
+			UE_LOG(LogAdventureNet, Error, TEXT("<FindOnlineSession>: Find sessions failed. Current online session is invalid"));
 		}
 	}
 	else
 	{
-		UE_LOG(LogAdventureNet, Error, TEXT("Find session failed: Online Subsystem not detected."));
+		UE_LOG(LogAdventureNet, Error, TEXT("<FindOnlineSession>: Find session failed. Online Subsystem not detected."));
 	}
 }
 
@@ -508,20 +498,19 @@ void UGI_Adventure::LoadNextMap()
 				There are more with SessionSettings.Set(...);
 				For example the Map or the GameMode/Type.
 				*/
+
 				SessionSettings = MakeShareable(new FOnlineSessionSettings());
 
 				SessionSettings->bIsLANMatch = false;
 				SessionSettings->bUsesPresence = true;
-				SessionSettings->NumPublicConnections = 10;
-				SessionSettings->NumPrivateConnections = 10;
+				SessionSettings->NumPublicConnections = 12;
+				SessionSettings->NumPrivateConnections = 12;
 				SessionSettings->bAllowInvites = true;
 				SessionSettings->bAllowJoinInProgress = true;
-				SessionSettings->bShouldAdvertise = true;
+				SessionSettings->bShouldAdvertise = HostGameSettings.bJoinViaInviteOnly;
 				SessionSettings->bAllowJoinViaPresence = true;
-				SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;     
-
-				SessionSettings->Set(SETTING_MAPNAME, HostGameSettings.MapName, EOnlineDataAdvertisementType::ViaOnlineService);
-				SessionSettings->Set(SETTING_SESSION, HostGameSettings.SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
+				SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
+				SessionSettings->Set(SETTING_SESSIONID, HostGameSettings.SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
 
 				// Our delegate should get called when this is complete (doesn't need to be successful!)
 				Sessions->CreateSession(0, SESSION_NAME, *SessionSettings);

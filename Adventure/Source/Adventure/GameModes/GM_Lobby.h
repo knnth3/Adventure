@@ -31,11 +31,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lobby Gamemode")
 	TSubclassOf<class UW_Lobby> DefaultLobbyUIClass;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Multiplayer")
+	void OnServerTravelRequested(const FString& MapName);
+
 protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Lobby Gamemode")
-	void OnGameStart();
 	
 private:
 

@@ -320,12 +320,13 @@ bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Loca
 				{
 					m_PlayerPawnCount[OwningPlayerID]++;
 					NewPawn->ServerOnly_SetClassIndex(ClassIndex);
+					NewPawn->ServerOnly_SetOwnerID(OwningPlayerID);
 					return true;
 				}
 			}
 		}
 	}
-	return false; 
+	return false;
 }
 
 bool AWorldGrid::ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawnID)

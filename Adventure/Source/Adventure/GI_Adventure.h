@@ -72,6 +72,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FHOSTGAME_SETTINGS GetHostGameSettings();
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Multiplayer")
+	void OnLoadMultiplayerMap();
+
 	void LoadNextMap();
 
 protected:
