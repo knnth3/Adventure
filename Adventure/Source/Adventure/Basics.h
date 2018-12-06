@@ -257,7 +257,7 @@ struct ADVENTURE_API FGridCoordinate
 	GENERATED_BODY()
 
 	FGridCoordinate();
-	FGridCoordinate(int32 x, int32 y);
+	FGridCoordinate(int32 x, int32 y, int32 z = 0);
 	FGridCoordinate(FVector Location3D);
 	FGridCoordinate(CoordinatePair Location);
 
@@ -274,6 +274,9 @@ struct ADVENTURE_API FGridCoordinate
 
 	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")
 	int32 Y;
+
+	UPROPERTY(BlueprintReadWrite, Category = "GridCoordinate")
+	int32 Z;
 
 };
 

@@ -41,18 +41,18 @@ void AGS_Multiplayer::GenerateGrid()
 {
 	if (HasAuthority())
 	{
-		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
-		TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
-		if (Gamemode && WorldGridItr)
-		{
-			if (!WorldGridItr->ServerOnly_LoadGrid(Gamemode->GetMapName()))
+			AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
+			TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
+			if (Gamemode && WorldGridItr)
 			{
-				if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), Gamemode->GetMapSize()))
+				if (!WorldGridItr->ServerOnly_LoadGrid(Gamemode->GetMapName()))
 				{
-					UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));
+					if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName()))
+					{
+						UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));
+					}
 				}
 			}
-		}
 	}
 }
 

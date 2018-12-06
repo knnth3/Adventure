@@ -8,6 +8,17 @@
 #include "GameFramework/Actor.h"
 #include "WorldGrid.generated.h"
 
+USTRUCT(BlueprintType)
+struct FCellEditInstruction
+{
+	GENERATED_BODY()
+	
+public:
+	
+	UPROPERTY(BlueprintReadWrite, Category = "Properties")
+	int Height;
+};
+
 UCLASS()
 class ADVENTURE_API AWorldGrid : public AActor
 {
@@ -16,7 +27,7 @@ class ADVENTURE_API AWorldGrid : public AActor
 public:	
 
 	AWorldGrid();
-	bool ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& Dimensions, const TArray<FSAVE_OBJECT>* GridSheet);
+	bool ServerOnly_GenerateGrid(const FString& MapName, const TArray<FSAVE_OBJECT>* GridSheet);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_SaveMap();
@@ -25,7 +36,7 @@ public:
 	bool ServerOnly_LoadGrid(const FString& MapName);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	bool ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& Dimensions);
+	bool ServerOnly_GenerateGrid(const FString& MapName);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ServerOnly_ResetGrid();
@@ -58,6 +69,9 @@ public:
 	FGridCoordinate ServerOnly_GetOpenSpawnLocation()const;
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	void ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, const FCellEditInstruction& instructions);
+
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	FVector GetCenterLocation()const;
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
@@ -77,12 +91,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Components")
 	TArray<TSubclassOf<class AWorldGrid_Cell>> CellClasses;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Instanced Cells")
-	class UInstancedStaticMeshComponent* GridCellsMesh;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Instanced Cells")
-	class UInstancedStaticMeshComponent* BackgroundTreesMesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
 	bool bGenerateBackDrop;
@@ -105,11 +113,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Out of bounds settings")
 	bool bConfineCameraToPlayArea;
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Out of bounds settings")
-	float GetGeneratedHeightValue(const FVector2D& Location);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Out of bounds settings")
-	void GenerateBackdropMeshSection(const struct FProceduralMeshInfo& Info, const TArray<int32>& Triangles, const FGridCoordinate& TotalDimensions);
+	UFUNCTION(BlueprintImplementableEvent, Category = "Cell Functions")
+	class UHierarchicalInstancedStaticMeshComponent* GetCellInstanceMesh(uint8 CellTypeIndex);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual Settings")
 	bool bShowCollisions;
@@ -121,8 +126,7 @@ private:
 	bool ContainsCoordinate(const FGridCoordinate& coordintate);
 	bool ContainsCoordinate(int x, int y);
 	void ServerOnly_LinkCell(AWorldGrid_Cell* NewCell);
-	void GenerateBackdrop(const FGridCoordinate& GridDimensions);
-	float GetBaseWeight(float CurrentRadius, float MaxRadius);
+	int8 GetIndexForCell(const FGridCoordinate& Location);
 
 	UFUNCTION()
 	void OnRep_HasBeenConstructed();
@@ -145,4 +149,5 @@ private:
 	std::vector<FGridCoordinate> m_SpawnLocations;
 	std::vector<std::vector<AWorldGrid_Cell*>> m_Grid;
 	std::map<CoordinatePair, AWorldGrid_Cell*> m_HighlightedCells;
+	std::vector<std::vector<int8>> m_CellIndices;
 };

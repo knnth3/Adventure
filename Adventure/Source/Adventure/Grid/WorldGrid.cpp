@@ -6,7 +6,7 @@
 #include "Grid/GridEntity.h"
 #include "Spawner.h"
 #include "PathFinder.h"
-#include "Components/InstancedStaticMeshComponent.h"
+#include "Components/HierarchicalInstancedStaticMeshComponent.h"
 
 using namespace std;
 
@@ -22,14 +22,7 @@ AWorldGrid::AWorldGrid()
 	GeneratedAreaHeightRange = 1000.0f;
 	GeneratedAreaPlayAreaRandomIntensity = 1.0f;
 	GeneratedAreaTesselation = 20;
-
-	GridCellsMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("Focus"));
-	GridCellsMesh->SetIsReplicated(true);
-	RootComponent = GridCellsMesh;
-
-	BackgroundTreesMesh = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("Trees"));
-	BackgroundTreesMesh->SetIsReplicated(true);
-	BackgroundTreesMesh->SetupAttachment(RootComponent);
+	m_GridDimensions = FGridCoordinate(100, 100);
 }
 
 void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const 
@@ -105,16 +98,13 @@ bool AWorldGrid::ServerOnly_LoadGrid(const FString& MapName)
 		UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
 		UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->GridSheet.Num());
 
-		m_GridDimensions.X = MapSaveFile->MapSize.X;
-		m_GridDimensions.Y = MapSaveFile->MapSize.Y;
-
-		return ServerOnly_GenerateGrid(MapName, MapSaveFile->MapSize, &MapSaveFile->GridSheet);
+		return ServerOnly_GenerateGrid(MapName, &MapSaveFile->GridSheet);
 	}
 
 	return false;
 }
 
-bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& GridDimensions, const TArray<FSAVE_OBJECT>* GridSheet)
+bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const TArray<FSAVE_OBJECT>* GridSheet)
 {
 
 	if (!bHasBeenConstructed)
@@ -123,13 +113,13 @@ bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const FGridCoor
 		UWorld* World = GetWorld();
 		if (World)
 		{
-			m_Grid.resize(GridDimensions.X);
+			m_Grid.resize(m_GridDimensions.X);
 
-			for (int x = 0; x < GridDimensions.X; x++)
+			for (int x = 0; x < m_GridDimensions.X; x++)
 			{
-				m_Grid[x].resize(GridDimensions.Y, nullptr);
+				m_Grid[x].resize(m_GridDimensions.Y, nullptr);
 
-				for (int y = 0; y < GridDimensions.Y; y++)
+				for (int y = 0; y < m_GridDimensions.Y; y++)
 				{
 					FVector WorldLocation;
 					AWorldGrid_Cell* newCell = nullptr;
@@ -158,13 +148,13 @@ bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const FGridCoor
 			}
 		}
 
-		if (cellCount == GridDimensions.X * GridDimensions.Y)
+		if (cellCount == m_GridDimensions.X * m_GridDimensions.Y)
 		{
 			m_MapName = MapName;
 			LoadMapObjects(GridSheet);
-			FVector BottomRight = UGridFunctions::GridToWorldLocation(GridDimensions);
+			FVector BottomRight = UGridFunctions::GridToWorldLocation(m_GridDimensions);
 			m_CenterLocation = FVector(BottomRight.X * 0.5f, BottomRight.Y * 0.5f, 0.0f);
-			m_GridDimensions = GridDimensions;
+			m_GridDimensions = m_GridDimensions;
 			OnRep_HasBeenConstructed();
 			UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Finished generating grid"));
 
@@ -181,9 +171,9 @@ bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const FGridCoor
 	return false;
 }
 
-bool AWorldGrid::ServerOnly_GenerateGrid(const FString & MapName, const FGridCoordinate & Dimensions)
+bool AWorldGrid::ServerOnly_GenerateGrid(const FString & MapName)
 {
-	return ServerOnly_GenerateGrid(MapName, Dimensions, nullptr);
+	return ServerOnly_GenerateGrid(MapName, nullptr);
 }
 
 void AWorldGrid::ServerOnly_ResetGrid()
@@ -207,7 +197,6 @@ void AWorldGrid::ServerOnly_ResetGrid()
 	}
 
 	m_Grid.clear();
-	GridCellsMesh->ClearInstances();
 }
 
 bool AWorldGrid::ServerOnly_AddBlockingObject(int ClassIndex, const FGridCoordinate & Location)
@@ -381,6 +370,30 @@ FGridCoordinate AWorldGrid::ServerOnly_GetOpenSpawnLocation()const
 	return FGridCoordinate();
 }
 
+void AWorldGrid::ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, const FCellEditInstruction& instructions)
+{
+	auto InstancedMesh = GetCellInstanceMesh(0);
+	if (InstancedMesh)
+	{
+		TArray<int32> indexArray = InstancedMesh->GetInstancesOverlappingBox(FBox(EditBoxVertices), true);
+
+		UE_LOG(LogNotice, Warning, TEXT("<World Grid>: Begin Edit - %i elements in query"), indexArray.Num());
+		for (const auto& index : indexArray)
+		{
+			FTransform cellTransform;
+			if (InstancedMesh->GetInstanceTransform(index, cellTransform, true))
+			{
+				cellTransform.AddToTranslation(FVector(0, 0, instructions.Height * 45.0f));
+
+				InstancedMesh->UpdateInstanceTransform(index, cellTransform, true);
+			}
+		}
+
+		InstancedMesh->MarkRenderStateDirty();
+		UE_LOG(LogNotice, Warning, TEXT("<World Grid>: End Edit"));
+	}
+}
+
 FVector AWorldGrid::GetCenterLocation() const
 {
 	return m_CenterLocation;
@@ -423,17 +436,23 @@ bool AWorldGrid::LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet)
 void AWorldGrid::GenerateEnvironment(const FGridCoordinate& GridDimensions)
 {
 	// Generate the visual for each cell
-	for (int x = 0; x < GridDimensions.X; x++)
+	auto InstancedMesh = GetCellInstanceMesh(0);
+	if (InstancedMesh)
 	{
-		for (int y = 0; y < GridDimensions.Y; y++)
+		m_CellIndices.resize(m_GridDimensions.X);
+		for (int x = 0; x < m_GridDimensions.X; x++)
 		{
-			FGridCoordinate cellCoordinate(x, y);
-			GridCellsMesh->AddInstanceWorldSpace(FTransform(FRotator(0.0f), UGridFunctions::GridToWorldLocation(cellCoordinate), FVector(1.525f, 1.525f, 1.0f)));
+			m_CellIndices[x].resize(m_GridDimensions.Y);
+			for (int y = 0; y < m_GridDimensions.Y; y++)
+			{
+				FTransform cellTransform;
+				cellTransform.SetTranslation(UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y)));
+				cellTransform.SetScale3D(FVector(1.524, 1.524, 1.524));
+
+				m_CellIndices[x][y] = InstancedMesh->AddInstanceWorldSpace(cellTransform);
+			}
 		}
 	}
-
-	 // Generate the visual for the backdrop
-	 GenerateBackdrop(GridDimensions);
 }
 
 bool AWorldGrid::ContainsCoordinate(const FGridCoordinate & coordintate)
@@ -488,66 +507,20 @@ void AWorldGrid::ServerOnly_LinkCell(AWorldGrid_Cell * NewCell)
 	}
 }
 
-void AWorldGrid::GenerateBackdrop(const FGridCoordinate& GridDimensions)
+int8 AWorldGrid::GetIndexForCell(const FGridCoordinate & Location)
 {
-	if (bGenerateBackDrop)
+	if(!m_CellIndices.empty())
+		UE_LOG(LogNotice, Warning, TEXT("<World Grid>: Index Size <%i, %i>"), m_CellIndices.size(), m_CellIndices[0].size());
+
+	if (m_CellIndices.size() > Location.X && Location.X >= 0)
 	{
-		FProceduralMeshInfo Vertices;
-		TArray<int32> Triangles;
-
-		float width = (float)GeneratedAreaWidth;
-		float height = (float)GeneratedAreaWidth;
-		float gridWidth = abs(m_CenterLocation.X * 2.0f);
-		float gridHeight = abs(m_CenterLocation.Y * 2.0f);
-		float totalWidth = width + gridWidth;
-		float totalHeight = height + gridHeight;
-
-		FGridCoordinate gridDimensions = m_GridDimensions;
-		FGridCoordinate landscapeDimensions(GeneratedAreaWidth, GeneratedAreaWidth);
-		FGridCoordinate total = gridDimensions + (landscapeDimensions * 2);
-
-		FVector LandscapeDims = UGridFunctions::GridToWorldLocation({ 0, 0 }) * FVector(-total.X, total.Y, 0.0f) * 2.0f;
-		FVector PositionOffset = UGridFunctions::GridToWorldLocation({ 0, 0 }) * FVector(width + gridDimensions.X, -height, 0) * 2.0f;
-
-		if (GeneratedAreaWidth)
+		if (m_CellIndices[Location.X].size() > Location.Y && Location.Y >= 0)
 		{
-			MeshLibrary::GenerateGrid(Vertices, Triangles, GeneratedAreaTesselation, GeneratedAreaTesselation,
-				LandscapeDims.X, LandscapeDims.Y, PositionOffset.X, PositionOffset.Y);
-
-			for (auto& Position : Vertices.Positions)
-			{
-				float vertexDistance = FVector::Dist2D(m_CenterLocation, Position);
-				float acceptableRadius = (gridWidth > gridHeight) ? gridWidth : gridHeight;
-
-				float generatedHeight = GetGeneratedHeightValue(FVector2D(Position.X / GeneratedAreaPlayAreaRandomIntensity, Position.Y / GeneratedAreaPlayAreaRandomIntensity));
-				float floorHeight = 0.0f;
-				float finalHeight = generatedHeight;
-
-				if (vertexDistance <= acceptableRadius)
-				{
-					finalHeight = floorHeight;
-				}
-				else
-				{
-					float weight = GetBaseWeight(vertexDistance - acceptableRadius, SmoothingRadius);
-					finalHeight = (generatedHeight * weight);
-				}
-
-				Position.Z = finalHeight * GeneratedAreaHeightRange - 1.0f;
-			}
-
-			// Create the mesh section
-			GenerateBackdropMeshSection(Vertices, Triangles, total);
+			return m_CellIndices[Location.X][Location.Y];
 		}
-	} 
-}
+	}
 
-float AWorldGrid::GetBaseWeight(float CurrentRadius, float MaxRadius)
-{
-	float ratio = (CurrentRadius / MaxRadius);
-	float value = 1.0f / (1.0f + pow(EULERS_NUMBER, (-10.0f * ratio) + 5.0f));
-
-	return value;
+	return -1;
 }
 
 void AWorldGrid::OnRep_HasBeenConstructed()

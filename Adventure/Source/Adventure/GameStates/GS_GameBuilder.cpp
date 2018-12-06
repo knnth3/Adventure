@@ -27,7 +27,7 @@ void AGS_GameBuilder::HandleBeginPlay()
 
 			if (!loaded)
 			{
-				if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), Gamemode->GetMapSize()))
+				if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName()))
 				{
 					UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));
 				}

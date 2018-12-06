@@ -42,7 +42,8 @@ void UHighlightComponent::HighlightObjects()
 {
 	for (auto& component : m_HighlightableComponents)
 	{
-		component->SetRenderCustomDepth(true);
+		if(component)
+			component->SetRenderCustomDepth(true);
 	}
 }
 
@@ -50,7 +51,8 @@ void UHighlightComponent::DimObjects()
 {
 	for (auto& component : m_HighlightableComponents)
 	{
-		component->SetRenderCustomDepth(false);
+		if(component)
+			component->SetRenderCustomDepth(false);
 	}
 }
 

@@ -154,12 +154,14 @@ FGridCoordinate::FGridCoordinate()
 {
 	X = 0;
 	Y = 0;
+	Z = 0;
 }
 
-FGridCoordinate::FGridCoordinate(int32 x, int32 y)
+FGridCoordinate::FGridCoordinate(int32 x, int32 y, int32 z)
 {
 	X = x;
 	Y = y;
+	Z = z;
 }
 
 FGridCoordinate::FGridCoordinate(FVector Location3D)
@@ -167,12 +169,14 @@ FGridCoordinate::FGridCoordinate(FVector Location3D)
 	FGridCoordinate temp = UGridFunctions::WorldToGridLocation(Location3D);
 	X = temp.X;
 	Y = temp.Y;
+	Z = temp.Z;
 }
 
 FGridCoordinate::FGridCoordinate(CoordinatePair Location)
 {
 	X = Location.first;
 	Y = Location.second;
+	Z = 0.0f;
 }
 
 bool FGridCoordinate::operator==(const FGridCoordinate & b)const
@@ -187,12 +191,12 @@ bool FGridCoordinate::operator!=(const FGridCoordinate & b)const
 
 FGridCoordinate FGridCoordinate::operator+(const FGridCoordinate & b) const
 {
-	return FGridCoordinate(X + b.X, Y + b.Y);
+	return FGridCoordinate(X + b.X, Y + b.Y, Z + b.Z);
 }
 
 FGridCoordinate FGridCoordinate::operator*(const int32 & s) const
 {
-	return FGridCoordinate(X * s, Y * s);
+	return FGridCoordinate(X * s, Y * s, Z * s);
 }
 
 CoordinatePair FGridCoordinate::toPair()const
@@ -211,11 +215,10 @@ FVector UGridFunctions::GridToWorldLocation(const FGridCoordinate& Location)
 	float CELL_LENGTH, CELL_WIDTH;
 	GetGridDimensions(CELL_LENGTH, CELL_WIDTH, UNITS::CENTIMETERS);
 
-	return FVector(
-		-(Location.X * CELL_LENGTH) - (CELL_LENGTH * 0.5f), 
-		(Location.Y * CELL_WIDTH) + (CELL_WIDTH * 0.5f),
-		0.0f
-	);
+	float finalX = (Location.X * CELL_LENGTH) + (CELL_LENGTH/ 2.0f);
+	float finalY = (Location.Y * CELL_WIDTH) + (CELL_WIDTH / 2.0f);
+
+	return FVector(finalX, finalY, Location.Z);
 }
 
 FGridCoordinate UGridFunctions::WorldToGridLocation(const FVector& Location)
@@ -224,21 +227,20 @@ FGridCoordinate UGridFunctions::WorldToGridLocation(const FVector& Location)
 	float CELL_LENGTH, CELL_WIDTH;
 	GetGridDimensions(CELL_LENGTH, CELL_WIDTH, UNITS::CENTIMETERS);
 
+	float finalX = ((Location.X) / CELL_LENGTH);
+	float finalY = ((Location.Y) / CELL_WIDTH);
 
-	FGridCoordinate newLocation = FGridCoordinate(
-		-FMath::TruncToInt(Location.X / CELL_LENGTH),
-		FMath::TruncToInt(Location.Y / CELL_WIDTH));
-
-	if (newLocation.X < 0)
+	if (Location.X < 0)
 	{
-		newLocation.X -= 1;
+		finalX--;
 	}
-	if (newLocation.Y < 0)
+	if (Location.Y < 0)
 	{
-		newLocation.Y -= 1;
+		finalY--;
 	}
 
-	return newLocation;
+
+	return FGridCoordinate(finalX, finalY, Location.Z);
 }
 //Centimeters//////////////////////////////////////////////////////////////
 
