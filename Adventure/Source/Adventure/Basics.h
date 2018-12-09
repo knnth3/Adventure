@@ -264,6 +264,7 @@ struct ADVENTURE_API FGridCoordinate
 	bool operator==(const FGridCoordinate& b)const;
 	bool operator!=(const FGridCoordinate& b)const;
 	FGridCoordinate operator+(const FGridCoordinate& b)const;
+	FGridCoordinate operator-(const FGridCoordinate& b)const;
 	FGridCoordinate operator*(const int32& s)const;
 
 	CoordinatePair toPair()const;
@@ -311,6 +312,8 @@ public:
 
 	static ESessionState ToBlueprintType(EOnlineSessionState::Type Type);
 	static EJoinSessionResults ToBlueprintType(EOnJoinSessionCompleteResult::Type Type);
+
+	static bool TraceLine(FVector Start, FVector End, UWorld* World, FHitResult* RV_Hit, bool bShowTrace = false, ETraceTypeQuery TraceChannel = ETraceTypeQuery::TraceTypeQuery1);
 };
 
 

@@ -4,6 +4,7 @@
 #include "Grid/WorldGrid.h"
 #include "Adventure.h"
 #include "MapPawnComponent_Head.h"
+#include "Grid/PathFinder.h"
 
 // Sets default values
 AMapPawn::AMapPawn()
@@ -247,33 +248,29 @@ void AMapPawn::ZoomCamera(const float & AxisValue, const float & DeltaTime)
 	}
 }
 
-void AMapPawn::ServerOnly_SetDestination(const FGridCoordinate & Destination)
+void AMapPawn::ServerOnly_SetDestination(const FVector & Destination)
 {
 	if (HasAuthority() && !bIsDead && !bIsFrozen && !bAttacking && !bPlayCelebrationAnim)
 	{
-		FGridCoordinate CurrentLocation = UGridFunctions::WorldToGridLocation(GetActorLocation());
+		FVector CurrentLocation = GetActorLocation();
 		if (CurrentLocation != Destination)
 		{
-			TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
-			if (WorldGridItr)
+			TArray<FVector> Directions;
+			if (UPathFinder::FindPath(this, Destination, Directions))
 			{
-				TArray<FGridCoordinate> Path;
-				if (WorldGridItr->ServerOnly_GetPath(CurrentLocation, Destination, Path, GetPawnID()))
+				m_MoveQueue.clear();
+				for (auto& step : Directions)
 				{
-					m_MoveQueue.clear();
-					for (auto& step : Path)
-					{
-						m_MoveQueue.push_back(step);
-					}
+					m_MoveQueue.push_back(step);
+				}
 
-					FVector newDestination = UGridFunctions::GridToWorldLocation(m_MoveQueue.front());
-					m_MoveQueue.pop_front();
-					Multicast_SetActiveDestination(newDestination);
-				}
-				else
-				{
-					UE_LOG(LogNotice, Warning, TEXT("<Pawn_%i Movement>: No path found to (%i, %i)"), GetPawnID(), Destination.X, Destination.Y);
-				}
+				FVector newDestination = m_MoveQueue.front();
+				m_MoveQueue.pop_front();
+				Multicast_SetActiveDestination(newDestination);
+			}
+			else
+			{
+				UE_LOG(LogNotice, Warning, TEXT("<Pawn_%i Movement>: No path found to (%i, %i, %i)"), GetPawnID(), Destination.X, Destination.Y, Destination.Z);
 			}
 		}
 	}

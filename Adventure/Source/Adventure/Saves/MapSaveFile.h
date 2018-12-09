@@ -45,6 +45,9 @@ public:
 	FGridCoordinate MapSize;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<FSAVE_OBJECT> GridSheet;
+	TArray<FSAVE_OBJECT> ObjectList;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<uint8> HeightMap;
 
 };

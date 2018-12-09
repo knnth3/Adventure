@@ -105,7 +105,7 @@ public:
 
 	// Server Only Functions
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
-	void ServerOnly_SetDestination(const FGridCoordinate& Destination);
+	void ServerOnly_SetDestination(const FVector & Destination);
 
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void ServerOnly_SetTargetLocation(const FVector& Location);
@@ -163,7 +163,7 @@ private:
 	FVector m_Destination;
 	FVector m_TargetedLocation;
 	FCameraSettings m_CameraSettings;
-	std::deque<FGridCoordinate> m_MoveQueue;
+	std::deque<FVector> m_MoveQueue;
 
 	// Server Property/Functions
 	UPROPERTY(Replicated)

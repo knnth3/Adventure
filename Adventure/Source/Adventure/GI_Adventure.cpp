@@ -445,10 +445,10 @@ void UGI_Adventure::LoadNextMap()
 	case ADVENTURE_STATE::GAMEBUILDER:
 	{
 		FString options =
-			"Name=" + GameBuilderSettings.MapName + " " +
-			"Columns=" + FString::FromInt(GameBuilderSettings.Colums) + " " +
-			"Rows=" + FString::FromInt(GameBuilderSettings.Rows) + " " +
-			"NewMap=" + (GameBuilderSettings.bNewMap ? "True" : "False");
+			"?MN=" + GameBuilderSettings.MapName +
+			"?CC=" + FString::FromInt(GameBuilderSettings.Colums) +
+			"?RC=" + FString::FromInt(GameBuilderSettings.Rows) +
+			"?NEW=" + (GameBuilderSettings.bNewMap ? "True" : "False");
 
 		UGameplayStatics::OpenLevel(GetWorld(), MAP_GAMEBUILDER, true, options);
 	}

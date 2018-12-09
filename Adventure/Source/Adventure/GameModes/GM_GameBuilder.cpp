@@ -16,10 +16,10 @@ void AGM_GameBuilder::InitGame(const FString & MapName, const FString & Options,
 	m_bNewMap = true;
 
 	//Parse all command options
-	FString Name    = ParseStringFor(Options, "Name=",    " ");
-	FString Rows    = ParseStringFor(Options, "Rows=",    " ");
-	FString Columns = ParseStringFor(Options, "Columns=", " ");
-	FString NewMap  = ParseStringFor(Options, "NewMap=",  " ");
+	FString Name    = UGameplayStatics::ParseOption(Options, "MN");
+	FString Rows    = UGameplayStatics::ParseOption(Options, "RC");
+	FString Columns = UGameplayStatics::ParseOption(Options, "CC");
+	FString NewMap  = UGameplayStatics::ParseOption(Options, "NEW");
 
 	UE_LOG(LogNotice, Warning, TEXT("Map Name: %s"), *Name);
 	m_MapName = Name;

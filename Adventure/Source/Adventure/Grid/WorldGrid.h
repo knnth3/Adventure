@@ -3,10 +3,14 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include "WorldGrid_Cell.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "WorldGrid.generated.h"
+
+#define CELL_STEP 50
+#define FLOOR_HEIGHT_STEP 9
 
 USTRUCT(BlueprintType)
 struct FCellEditInstruction
@@ -27,16 +31,15 @@ class ADVENTURE_API AWorldGrid : public AActor
 public:	
 
 	AWorldGrid();
-	bool ServerOnly_GenerateGrid(const FString& MapName, const TArray<FSAVE_OBJECT>* GridSheet);
+
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& MapSize);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_SaveMap();
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_LoadGrid(const FString& MapName);
-
-	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	bool ServerOnly_GenerateGrid(const FString& MapName);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ServerOnly_ResetGrid();
@@ -70,9 +73,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, const FCellEditInstruction& instructions);
-
-	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	FVector GetCenterLocation()const;
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ShowCollisions(bool value);
@@ -122,17 +122,16 @@ protected:
 private:
 
 	bool LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet);
-	void GenerateEnvironment(const FGridCoordinate& GridDimensions);
+	bool GeneratePlayArea(const FGridCoordinate& GridDimensions, const TArray<uint8>* HeightMap);
 	bool ContainsCoordinate(const FGridCoordinate& coordintate);
 	bool ContainsCoordinate(int x, int y);
 	void ServerOnly_LinkCell(AWorldGrid_Cell* NewCell);
-	int8 GetIndexForCell(const FGridCoordinate& Location);
 
 	UFUNCTION()
-	void OnRep_HasBeenConstructed();
+	void OnRep_BuildMap();
 
-	UPROPERTY(ReplicatedUsing = OnRep_HasBeenConstructed)
-	FGridCoordinate m_GridDimensions;
+	UPROPERTY(ReplicatedUsing = OnRep_BuildMap)
+	FString m_MapName;
 
 	template<typename T>
 	int FindEmptyIndex(std::vector<T*>& list)
@@ -142,12 +141,9 @@ private:
 		return newID;
 	}
 
-	bool bHasBeenConstructed;
-	FString m_MapName;
-	FVector m_CenterLocation;
+	bool m_bMapIsLoaded;
+	FGridCoordinate m_GridDimensions;
+	std::set<uint8> m_UsedCellIndices;
 	std::map<int, int> m_PlayerPawnCount;
-	std::vector<FGridCoordinate> m_SpawnLocations;
-	std::vector<std::vector<AWorldGrid_Cell*>> m_Grid;
-	std::map<CoordinatePair, AWorldGrid_Cell*> m_HighlightedCells;
-	std::vector<std::vector<int8>> m_CellIndices;
+	TArray<AMapPawn*> m_PawnArray;
 };

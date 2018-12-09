@@ -10,6 +10,7 @@
 #include "Serialization/MemoryReader.h"
 #include "SaveGameSystem.h"
 #include "PlatformFeatures.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 #define CM_TO_M_FACTOR 100
 #define CM_TO_IN_FACTOR 2.54
@@ -192,6 +193,11 @@ bool FGridCoordinate::operator!=(const FGridCoordinate & b)const
 FGridCoordinate FGridCoordinate::operator+(const FGridCoordinate & b) const
 {
 	return FGridCoordinate(X + b.X, Y + b.Y, Z + b.Z);
+}
+
+FGridCoordinate FGridCoordinate::operator-(const FGridCoordinate & b) const
+{
+	return FGridCoordinate(X - b.X, Y - b.Y, Z - b.Z);
 }
 
 FGridCoordinate FGridCoordinate::operator*(const int32 & s) const
@@ -501,6 +507,36 @@ EJoinSessionResults UBasicFunctions::ToBlueprintType(EOnJoinSessionCompleteResul
 	}
 
 	return State;
+}
+
+bool UBasicFunctions::TraceLine(FVector Start, FVector End, UWorld* World, FHitResult * RV_Hit, bool bShowTrace, ETraceTypeQuery TraceChannel)
+{
+	if (World)
+	{
+		auto showTrace = EDrawDebugTrace::None;
+		TArray<AActor*> IgnoreActors;
+
+		if (bShowTrace)
+			showTrace = EDrawDebugTrace::ForDuration;
+
+		//  do the line trace
+		bool DidTrace = UKismetSystemLibrary::LineTraceSingle(
+			World,
+			Start,
+			End,
+			TraceChannel,
+			true,
+			IgnoreActors,
+			showTrace,
+			*RV_Hit,
+			true,
+			FLinearColor::Blue
+		);
+
+		return DidTrace;
+	}
+
+	return false;
 }
 
 void MeshLibrary::GenerateGrid(FProceduralMeshInfo& Vertices, TArray<int32>& Triangles,

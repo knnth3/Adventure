@@ -47,8 +47,11 @@ void AGM_Lobby::StartGame()
 	UWorld* World = GetWorld();
 	if (World && GameInstance)
 	{
+		FString Option1 = TEXT("?listen");
+		FString Option2 = TEXT("?SN=") + m_MapSaveName;
+		FString URL = FString(MULTIPLAYER_MAP) + Option1 + Option2;
+		World->ServerTravel(URL);
 		GameInstance->StartSession();
-		OnServerTravelRequested(m_MapSaveName);
 	}
 }
 

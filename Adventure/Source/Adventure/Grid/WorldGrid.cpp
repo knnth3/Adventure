@@ -16,8 +16,8 @@ AWorldGrid::AWorldGrid()
 	bShowCollisions = false;
 	bAlwaysRelevant = true;
 	bReplicateMovement = false;
-	bHasBeenConstructed = false;
 	bGenerateBackDrop = false;
+	m_bMapIsLoaded = false;
 	GeneratedAreaWidth = 1000.0f;
 	GeneratedAreaHeightRange = 1000.0f;
 	GeneratedAreaPlayAreaRandomIntensity = 1.0f;
@@ -29,7 +29,7 @@ void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifet
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AWorldGrid, m_GridDimensions);
+	DOREPLIFETIME(AWorldGrid, m_MapName);
 }
 
 bool AWorldGrid::ServerOnly_SaveMap()
@@ -37,41 +37,25 @@ bool AWorldGrid::ServerOnly_SaveMap()
 	UMapSaveFile* SaveGameInstance = Cast<UMapSaveFile>(UGameplayStatics::CreateSaveGameObject(UMapSaveFile::StaticClass()));
 	SaveGameInstance->MapName = m_MapName;
 	SaveGameInstance->MapSize = m_GridDimensions;
+	SaveGameInstance->HeightMap.SetNum(m_GridDimensions.X * m_GridDimensions.Y);
 
-	for (int x = 0; x < m_GridDimensions.X; x++)
+	// Load map and save here
+	for (const auto& index : m_UsedCellIndices)
 	{
-		for (int y = 0; y < m_GridDimensions.Y; y++)
+		auto InstancedMesh = GetCellInstanceMesh(index);
+		if (InstancedMesh)
 		{
-			FSAVE_OBJECT object;
-
-			// If the cell has an interactable on it
-			AActor* obj = m_Grid[x][y]->GetObject();
-			IGridEntity* GEInterface = Cast<IGridEntity>(obj);
-			if (GEInterface)
+			int count = InstancedMesh->GetInstanceCount();
+			for (int x = 0; x < count; x++)
 			{
-				object.Location = { x,y };
-				object.Type = GRID_OBJECT_TYPE::INTERACTABLE;
-				object.ModelIndex = GEInterface->Execute_GetClassIndex(obj);
-				SaveGameInstance->GridSheet.Push(object);
-			}
-
-			if (m_Grid[x][y]->HasPawn())
-			{
-				TArray<AActor*> pawns;
-				m_Grid[x][y]->GetPawns(pawns);
-
-				for (const auto& pawn : pawns)
+				FTransform CellTransform;
+				if (InstancedMesh->GetInstanceTransform(x, CellTransform, true))
 				{
-					GEInterface = Cast<IGridEntity>(pawn);
-					AMapPawn* castedPawn = Cast<AMapPawn>(pawn);
-					if (GEInterface)
-					{
-						object.Location = { x,y };
-						object.Type = GRID_OBJECT_TYPE::PAWN;
-						object.ModelIndex = GEInterface->Execute_GetClassIndex(pawn);
-						object.OwnerName = "";
-						SaveGameInstance->GridSheet.Push(object);
-					}
+					FGridCoordinate GridCoordinates = UGridFunctions::WorldToGridLocation(CellTransform.GetTranslation());
+					int loc = (GridCoordinates.Y * m_GridDimensions.X) + GridCoordinates.X;
+					int height = (uint8)(CellTransform.GetScale3D().Z / CELL_STEP);
+
+					SaveGameInstance->HeightMap[loc] = height;
 				}
 			}
 		}
@@ -89,213 +73,137 @@ bool AWorldGrid::ServerOnly_LoadGrid(const FString& MapName)
 {
 	TArray<FSAVE_OBJECT> GridSheet;
 	FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *MapName);
-	UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UBasicFunctions::LoadFile(path));
 
-	if (MapSaveFile)
+	if (FPaths::FileExists(path))
 	{
-		UE_LOG(LogNotice, Warning, TEXT("Map Loaded!"));
-		UE_LOG(LogNotice, Warning, TEXT("Name: %s"), *MapSaveFile->MapName);
-		UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
-		UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->GridSheet.Num());
-
-		return ServerOnly_GenerateGrid(MapName, &MapSaveFile->GridSheet);
+		// Map was loaded successfully, Tell client to load the map as well
+		m_MapName = MapName;
+		OnRep_BuildMap();
 	}
 
 	return false;
 }
 
-bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const TArray<FSAVE_OBJECT>* GridSheet)
+bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& MapSize)
 {
-
-	if (!bHasBeenConstructed)
-	{
-		int cellCount = 0;
-		UWorld* World = GetWorld();
-		if (World)
-		{
-			m_Grid.resize(m_GridDimensions.X);
-
-			for (int x = 0; x < m_GridDimensions.X; x++)
-			{
-				m_Grid[x].resize(m_GridDimensions.Y, nullptr);
-
-				for (int y = 0; y < m_GridDimensions.Y; y++)
-				{
-					FVector WorldLocation;
-					AWorldGrid_Cell* newCell = nullptr;
-					if (CellClasses.Num() > 0)
-					{
-						WorldLocation = UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y));
-						newCell = Cast<AWorldGrid_Cell>(World->SpawnActor(*CellClasses[0], &WorldLocation));
-					}
-					else // Default to base class when no derivatives exist
-					{
-						FRotator startRotation(0.0f);
-						WorldLocation = UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y));
-						newCell = Cast<AWorldGrid_Cell>(World->SpawnActor<AWorldGrid_Cell>(WorldLocation, startRotation));
-					}
-
-					if (newCell)
-					{
-						newCell->Initialize(FGridCoordinate(x, y));
-						newCell->SetParent(this);
-						m_Grid[x][y] = newCell;
-						ServerOnly_LinkCell(newCell);
-						cellCount++;
-					}
-
-				}
-			}
-		}
-
-		if (cellCount == m_GridDimensions.X * m_GridDimensions.Y)
-		{
-			m_MapName = MapName;
-			LoadMapObjects(GridSheet);
-			FVector BottomRight = UGridFunctions::GridToWorldLocation(m_GridDimensions);
-			m_CenterLocation = FVector(BottomRight.X * 0.5f, BottomRight.Y * 0.5f, 0.0f);
-			m_GridDimensions = m_GridDimensions;
-			OnRep_HasBeenConstructed();
-			UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Finished generating grid"));
-
-			return true;
-		}
-		else
-		{
-			UE_LOG(LogNotice, Warning, TEXT("<Grid Generation>: Failed to generate grid"));
-
-			return false;
-		}
-	}
-
-	return false;
-}
-
-bool AWorldGrid::ServerOnly_GenerateGrid(const FString & MapName)
-{
-	return ServerOnly_GenerateGrid(MapName, nullptr);
+	m_MapName = MapName;
+	return GeneratePlayArea(MapSize, nullptr);
 }
 
 void AWorldGrid::ServerOnly_ResetGrid()
 {
-	m_GridDimensions = FGridCoordinate(0, 0);
-
-	for (auto& row : m_Grid)
+	m_GridDimensions = FGridCoordinate(0,0,0);
+	for (const auto& index : m_UsedCellIndices)
 	{
-		for (auto& cell : row)
+		auto InstancedMesh = GetCellInstanceMesh(index);
+		if (InstancedMesh)
 		{
-			TArray<AActor*> contents;
-			cell->ClearCell(contents);
-
-			for (auto& obj : contents)
-			{
-				obj->Destroy();
-			}
-
-			cell->Destroy();
+			InstancedMesh->ClearInstances();
 		}
 	}
 
-	m_Grid.clear();
+	m_UsedCellIndices.clear();
+	m_PlayerPawnCount.clear();
+	m_bMapIsLoaded = false;
 }
 
 bool AWorldGrid::ServerOnly_AddBlockingObject(int ClassIndex, const FGridCoordinate & Location)
 {
-	if (ContainsCoordinate(Location.X, Location.Y) && !m_Grid[Location.X][Location.Y]->IsOcupied())
-	{
-		if (ClassIndex >= 0 && ClassIndex < InteractableClasses.Num() && InteractableClasses[ClassIndex])
-		{
-			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-			UWorld* World = GetWorld();
-			if (World)
-			{
-				AInteractable* NewBlockingObject = Cast<AInteractable>(World->SpawnActor(*InteractableClasses[ClassIndex], &WorldLocation));
-				if (NewBlockingObject)
-				{
-					NewBlockingObject->ServerOnly_SetClassIndex(ClassIndex);
+	//if (ContainsCoordinate(Location.X, Location.Y) && !m_Grid[Location.X][Location.Y]->IsOcupied())
+	//{
+	//	if (ClassIndex >= 0 && ClassIndex < InteractableClasses.Num() && InteractableClasses[ClassIndex])
+	//	{
+	//		FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+	//		UWorld* World = GetWorld();
+	//		if (World)
+	//		{
+	//			AInteractable* NewBlockingObject = Cast<AInteractable>(World->SpawnActor(*InteractableClasses[ClassIndex], &WorldLocation));
+	//			if (NewBlockingObject)
+	//			{
+	//				NewBlockingObject->ServerOnly_SetClassIndex(ClassIndex);
 
-					return true;
-				}
-			}
-		}
-	}
+	//				return true;
+	//			}
+	//		}
+	//	}
+	//}
 	return false;
 }
 
 bool AWorldGrid::ServerOnly_RemoveBlockingObject(const FGridCoordinate& Location)
 {
-	if (ContainsCoordinate(Location.X, Location.Y))
-	{
-		if (m_Grid[Location.X][Location.Y]->GetObjectType() == GRID_OBJECT_TYPE::INTERACTABLE)
-		{
-			AActor* object = m_Grid[Location.X][Location.Y]->RemoveObject();
-			if (object)
-			{
-				object->Destroy();
-				return true;
-			}
-		}
-	}
+	//if (ContainsCoordinate(Location.X, Location.Y))
+	//{
+	//	if (m_Grid[Location.X][Location.Y]->GetObjectType() == GRID_OBJECT_TYPE::INTERACTABLE)
+	//	{
+	//		AActor* object = m_Grid[Location.X][Location.Y]->RemoveObject();
+	//		if (object)
+	//		{
+	//			object->Destroy();
+	//			return true;
+	//		}
+	//	}
+	//}
 
 	return false;
 }
 
 bool AWorldGrid::ServerOnly_AddSpawnLocation(int ClassIndex, const FGridCoordinate & Location)
 {
-	if (ContainsCoordinate(Location.X, Location.Y) && !m_Grid[Location.X][Location.Y]->IsOcupied())
-	{
-		if (ClassIndex >= 0 && ClassIndex < SpawnerClasses.Num() && SpawnerClasses[ClassIndex])
-		{
-			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-			UWorld* World = GetWorld();
-			if (World)
-			{
-				ASpawner* NewSpawner = Cast<ASpawner>(World->SpawnActor(*SpawnerClasses[ClassIndex], &WorldLocation));
-				if (NewSpawner)
-				{
-					m_SpawnLocations.push_back(Location);
-					return true;
-				}
-			}
-		}
-	}
+	//if (ContainsCoordinate(Location.X, Location.Y) && !m_Grid[Location.X][Location.Y]->IsOcupied())
+	//{
+	//	if (ClassIndex >= 0 && ClassIndex < SpawnerClasses.Num() && SpawnerClasses[ClassIndex])
+	//	{
+	//		FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+	//		UWorld* World = GetWorld();
+	//		if (World)
+	//		{
+	//			ASpawner* NewSpawner = Cast<ASpawner>(World->SpawnActor(*SpawnerClasses[ClassIndex], &WorldLocation));
+	//			if (NewSpawner)
+	//			{
+	//				m_SpawnLocations.push_back(Location);
+	//				return true;
+	//			}
+	//		}
+	//	}
+	//}
 	return false;
 }
 
 bool AWorldGrid::ServerOnly_RemoveSpawnLocation(const FGridCoordinate& Location)
 {
-	if (ContainsCoordinate(Location.X, Location.Y))
-	{
-		if (m_Grid[Location.X][Location.Y]->GetObjectType() == GRID_OBJECT_TYPE::SPAWN)
-		{
-			AActor* spawn = m_Grid[Location.X][Location.Y]->RemoveObject();
-			if (spawn)
-			{
-				spawn->Destroy();
+	//if (ContainsCoordinate(Location.X, Location.Y))
+	//{
+	//	if (m_Grid[Location.X][Location.Y]->GetObjectType() == GRID_OBJECT_TYPE::SPAWN)
+	//	{
+	//		AActor* spawn = m_Grid[Location.X][Location.Y]->RemoveObject();
+	//		if (spawn)
+	//		{
+	//			spawn->Destroy();
 
-				//Remove spawnLocation from list
-				FGridCoordinate temp = m_SpawnLocations.back();
-				for (auto& loc : m_SpawnLocations)
-				{
-					if (loc == Location)
-					{
-						loc = temp;
-						m_SpawnLocations.pop_back();
-						break;
-					}
-				}
+	//			//Remove spawnLocation from list
+	//			FGridCoordinate temp = m_SpawnLocations.back();
+	//			for (auto& loc : m_SpawnLocations)
+	//			{
+	//				if (loc == Location)
+	//				{
+	//					loc = temp;
+	//					m_SpawnLocations.pop_back();
+	//					break;
+	//				}
+	//			}
 
-				return true;
-			}
-		}
-	}
+	//			return true;
+	//		}
+	//	}
+	//}
 
 	return false;
 }
 
 bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Location, int OwningPlayerID)
 {
-	if (ContainsCoordinate(Location.X, Location.Y) && !m_Grid[Location.X][Location.Y]->IsOcupied())
+	if (ContainsCoordinate(Location.X, Location.Y))
 	{
 		if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])
 		{
@@ -310,6 +218,7 @@ bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Loca
 					m_PlayerPawnCount[OwningPlayerID]++;
 					NewPawn->ServerOnly_SetClassIndex(ClassIndex);
 					NewPawn->ServerOnly_SetOwnerID(OwningPlayerID);
+					m_PawnArray.Push(NewPawn);
 					return true;
 				}
 			}
@@ -320,12 +229,14 @@ bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Loca
 
 bool AWorldGrid::ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawnID)
 {
-	if (ContainsCoordinate(Location.X, Location.Y))
+	for (int index = 0; index < m_PawnArray.Num(); index++)
 	{
-		AActor* pawn = m_Grid[Location.X][Location.Y]->RemovePawn(pawnID);
-		if (pawn)
+		if (m_PawnArray[index]->GetPawnID() == pawnID)
 		{
-			pawn->Destroy();
+			m_PawnArray[index]->Destroy();
+			m_PawnArray[index] = m_PawnArray[m_PawnArray.Num() - 1];
+			m_PawnArray.Pop();
+
 			return true;
 		}
 	}
@@ -335,10 +246,13 @@ bool AWorldGrid::ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawn
 
 AMapPawn * AWorldGrid::ServerOnly_GetPawn(const FVector& Location, int pawnID)
 {
-	FGridCoordinate GridLocation = Location;
-	if (ContainsCoordinate(GridLocation.X, GridLocation.Y))
+	for (int index = 0; index < m_PawnArray.Num(); index++)
 	{
-		return m_Grid[GridLocation.X][GridLocation.Y]->GetPawn(pawnID);
+		if (m_PawnArray[index]->GetPawnID() == pawnID)
+		{
+
+			return m_PawnArray[index];
+		}
 	}
 
 	return nullptr;
@@ -346,27 +260,27 @@ AMapPawn * AWorldGrid::ServerOnly_GetPawn(const FVector& Location, int pawnID)
 
 bool AWorldGrid::ServerOnly_GetPath(const FGridCoordinate & Location, const FGridCoordinate & Destination, TArray<FGridCoordinate>& OutPath, int PawnID)
 {
-	bool startExists = ContainsCoordinate(Location.X, Location.Y);
-	bool endExists = ContainsCoordinate(Destination.X, Destination.Y);
+	//bool startExists = ContainsCoordinate(Location.X, Location.Y);
+	//bool endExists = ContainsCoordinate(Destination.X, Destination.Y);
 
-	if (startExists && endExists)
-	{
-		return UPathFinder::FindPath(m_Grid[Location.X][Location.Y], m_Grid[Destination.X][Destination.Y], OutPath, PawnID);
-	}
+	//if (startExists && endExists)
+	//{
+	//	return UPathFinder::FindPath(m_Grid[Location.X][Location.Y], m_Grid[Destination.X][Destination.Y], OutPath, PawnID);
+	//}
 
 	return false;
 }
 
 FGridCoordinate AWorldGrid::ServerOnly_GetOpenSpawnLocation()const
 {
-	for (const auto& loc : m_SpawnLocations)
-	{
-		auto cell = m_Grid[loc.X][loc.Y];
-		if (!cell->HasPawn())
-		{
-			return loc;
-		}
-	}
+	//for (const auto& loc : m_SpawnLocations)
+	//{
+	//	auto cell = m_Grid[loc.X][loc.Y];
+	//	if (!cell->HasPawn())
+	//	{
+	//		return loc;
+	//	}
+	//}
 	return FGridCoordinate();
 }
 
@@ -376,6 +290,7 @@ void AWorldGrid::ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, co
 	if (InstancedMesh)
 	{
 		TArray<int32> indexArray = InstancedMesh->GetInstancesOverlappingBox(FBox(EditBoxVertices), true);
+		float deltaScaleZ = instructions.Height * CELL_STEP;
 
 		UE_LOG(LogNotice, Warning, TEXT("<World Grid>: Begin Edit - %i elements in query"), indexArray.Num());
 		for (const auto& index : indexArray)
@@ -383,9 +298,12 @@ void AWorldGrid::ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, co
 			FTransform cellTransform;
 			if (InstancedMesh->GetInstanceTransform(index, cellTransform, true))
 			{
-				cellTransform.AddToTranslation(FVector(0, 0, instructions.Height * 45.0f));
+				if (cellTransform.GetScale3D().Z + deltaScaleZ > 0)
+				{
+					cellTransform.SetScale3D(FVector(152.4f, 152.4f, cellTransform.GetScale3D().Z + deltaScaleZ));
 
-				InstancedMesh->UpdateInstanceTransform(index, cellTransform, true);
+					InstancedMesh->UpdateInstanceTransform(index, cellTransform, true);
+				}
 			}
 		}
 
@@ -394,10 +312,6 @@ void AWorldGrid::ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, co
 	}
 }
 
-FVector AWorldGrid::GetCenterLocation() const
-{
-	return m_CenterLocation;
-}
 
 void AWorldGrid::ShowCollisions(bool value)
 {
@@ -433,26 +347,46 @@ bool AWorldGrid::LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet)
 	return false;
 }
 
-void AWorldGrid::GenerateEnvironment(const FGridCoordinate& GridDimensions)
+bool AWorldGrid::GeneratePlayArea(const FGridCoordinate& GridDimensions, const TArray<uint8>* HeightMap)
 {
-	// Generate the visual for each cell
-	auto InstancedMesh = GetCellInstanceMesh(0);
-	if (InstancedMesh)
+	if (!m_bMapIsLoaded)
 	{
-		m_CellIndices.resize(m_GridDimensions.X);
-		for (int x = 0; x < m_GridDimensions.X; x++)
+		// Generate the visual for each cell
+		auto InstancedMesh = GetCellInstanceMesh(0);
+		if (InstancedMesh)
 		{
-			m_CellIndices[x].resize(m_GridDimensions.Y);
-			for (int y = 0; y < m_GridDimensions.Y; y++)
+			m_UsedCellIndices.insert(0);
+			for (int x = 0; x < GridDimensions.X; x++)
 			{
-				FTransform cellTransform;
-				cellTransform.SetTranslation(UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y)));
-				cellTransform.SetScale3D(FVector(1.524, 1.524, 1.524));
+				for (int y = 0; y < GridDimensions.Y; y++)
+				{
+					int height = FLOOR_HEIGHT_STEP;
 
-				m_CellIndices[x][y] = InstancedMesh->AddInstanceWorldSpace(cellTransform);
+					if (HeightMap)
+					{
+						const TArray<uint8>& arr = *HeightMap;
+						int loc = (y * GridDimensions.X) + x;
+
+						height = (int)(arr[loc]);
+					}
+
+					float CellSize = Conversions::Feet::ToCentimeters(CELL_WIDTH_FEET);
+					FTransform cellTransform;
+					cellTransform.SetTranslation(UGridFunctions::GridToWorldLocation(FGridCoordinate(x, y, 0)));
+					cellTransform.SetScale3D(FVector(CellSize, CellSize, height * CELL_STEP));
+
+					InstancedMesh->AddInstanceWorldSpace(cellTransform);
+				}
 			}
+
+			m_GridDimensions = GridDimensions;
+			m_bMapIsLoaded = true;
+
+			return true;
 		}
 	}
+
+	return false;
 }
 
 bool AWorldGrid::ContainsCoordinate(const FGridCoordinate & coordintate)
@@ -462,11 +396,11 @@ bool AWorldGrid::ContainsCoordinate(const FGridCoordinate & coordintate)
 
 bool AWorldGrid::ContainsCoordinate(int x, int y)
 {
-	if (m_Grid.size() > x && x >= 0)
+	if (m_GridDimensions.X > x && x >= 0)
 	{
-		if (m_Grid[x].size() > y && y >= 0)
+		if (m_GridDimensions.Y> y && y >= 0)
 		{
-			return m_Grid[x][y];
+			return true;
 		}
 	}
 
@@ -485,46 +419,44 @@ void AWorldGrid::ServerOnly_LinkCell(AWorldGrid_Cell * NewCell)
 	bool bottomLeftExists = ContainsCoordinate(left, bottom);
 	bool topLeftExists = ContainsCoordinate(left, top);
 
-	if (bottomLeftExists)
-	{
-		m_Grid[left][bottom]->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOPRIGHT) = NewCell;
-		NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOMLEFT) = m_Grid[left][bottom];
-	}
-	if (topLeftExists)
-	{
-		m_Grid[left][top]->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOMRIGHT) = NewCell;
-		NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOPLEFT) = m_Grid[left][top];
-	}
-	if (leftExists)
-	{
-		m_Grid[left][center.Y]->Neigbor(AWorldGrid_Cell::NEIGHBOR::RIGHT) = NewCell;
-		NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::LEFT) = m_Grid[left][center.Y];
-	} 
-	if (topExists)
-	{
-		m_Grid[center.X][top]->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOM) = NewCell;
-		NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOP) = m_Grid[center.X][top];
-	}
+	//if (bottomLeftExists)
+	//{
+	//	m_Grid[left][bottom]->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOPRIGHT) = NewCell;
+	//	NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOMLEFT) = m_Grid[left][bottom];
+	//}
+	//if (topLeftExists)
+	//{
+	//	m_Grid[left][top]->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOMRIGHT) = NewCell;
+	//	NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOPLEFT) = m_Grid[left][top];
+	//}
+	//if (leftExists)
+	//{
+	//	m_Grid[left][center.Y]->Neigbor(AWorldGrid_Cell::NEIGHBOR::RIGHT) = NewCell;
+	//	NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::LEFT) = m_Grid[left][center.Y];
+	//} 
+	//if (topExists)
+	//{
+	//	m_Grid[center.X][top]->Neigbor(AWorldGrid_Cell::NEIGHBOR::BOTTOM) = NewCell;
+	//	NewCell->Neigbor(AWorldGrid_Cell::NEIGHBOR::TOP) = m_Grid[center.X][top];
+	//}
 }
 
-int8 AWorldGrid::GetIndexForCell(const FGridCoordinate & Location)
+void AWorldGrid::OnRep_BuildMap()
 {
-	if(!m_CellIndices.empty())
-		UE_LOG(LogNotice, Warning, TEXT("<World Grid>: Index Size <%i, %i>"), m_CellIndices.size(), m_CellIndices[0].size());
-
-	if (m_CellIndices.size() > Location.X && Location.X >= 0)
+	// Only run if the server has identified the map
+	if (!m_MapName.IsEmpty())
 	{
-		if (m_CellIndices[Location.X].size() > Location.Y && Location.Y >= 0)
+		TArray<FSAVE_OBJECT> GridSheet;
+		FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *m_MapName);
+		UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UBasicFunctions::LoadFile(path));
+		if (MapSaveFile)
 		{
-			return m_CellIndices[Location.X][Location.Y];
+			UE_LOG(LogNotice, Warning, TEXT("Map Loaded!"));
+			UE_LOG(LogNotice, Warning, TEXT("Name: %s"), *MapSaveFile->MapName);
+			UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
+			UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->ObjectList.Num());
+
+			GeneratePlayArea(MapSaveFile->MapSize, &MapSaveFile->HeightMap);
 		}
 	}
-
-	return -1;
-}
-
-void AWorldGrid::OnRep_HasBeenConstructed()
-{
-	GenerateEnvironment(m_GridDimensions);
-	bHasBeenConstructed = true;
 }

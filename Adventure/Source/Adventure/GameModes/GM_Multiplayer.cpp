@@ -38,7 +38,7 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	m_CurrentMapName = "Default";
+	m_CurrentMapName = UGameplayStatics::ParseOption(Options, "SN");
 }
 
 void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)

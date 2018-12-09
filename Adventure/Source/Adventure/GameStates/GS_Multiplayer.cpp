@@ -47,7 +47,7 @@ void AGS_Multiplayer::GenerateGrid()
 			{
 				if (!WorldGridItr->ServerOnly_LoadGrid(Gamemode->GetMapName()))
 				{
-					if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName()))
+					if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), FGridCoordinate(10, 10)))
 					{
 						UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));
 					}
