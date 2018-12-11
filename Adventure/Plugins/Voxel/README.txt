@@ -1,1 +1,0 @@
-For more info, check the website: https://voxelplugin.com
