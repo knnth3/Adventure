@@ -22,16 +22,7 @@ bool APC_Adventure_Editor::RequestSpawnBlockingObject(int Type, const FGridCoord
 
 bool APC_Adventure_Editor::RequestAddSpawnLocation(int Type, const FGridCoordinate& Location)
 {
-	bool Success = true;
-	TActorIterator<AWorldGrid> GridItr(GetWorld());
-	if (GridItr)
-	{
-		if (!GridItr->ServerOnly_AddSpawnLocation(Type, Location))
-		{
-			Success = false;
-		}
-	}
-	return Success;
+	return false;
 }
 
 bool APC_Adventure_Editor::RequestDeleteObject(GRID_OBJECT_TYPE Type, const FGridCoordinate & Location, int ID)
@@ -45,10 +36,6 @@ bool APC_Adventure_Editor::RequestDeleteObject(GRID_OBJECT_TYPE Type, const FGri
 		case GRID_OBJECT_TYPE::INTERACTABLE:
 			Success = GridItr->ServerOnly_RemoveBlockingObject(Location);
 			break;
-		case GRID_OBJECT_TYPE::SPAWN:
-			Success = GridItr->ServerOnly_RemoveSpawnLocation(Location);
-			break;
-
 		case GRID_OBJECT_TYPE::PAWN:
 			Success = GridItr->ServerOnly_RemovePawn(Location, ID);
 			break;

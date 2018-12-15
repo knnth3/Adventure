@@ -313,7 +313,7 @@ public:
 	static ESessionState ToBlueprintType(EOnlineSessionState::Type Type);
 	static EJoinSessionResults ToBlueprintType(EOnJoinSessionCompleteResult::Type Type);
 
-	static bool TraceLine(FVector Start, FVector End, UWorld* World, FHitResult* RV_Hit, ETraceTypeQuery TraceChannel = ETraceTypeQuery::TraceTypeQuery1, bool bShowTrace = false);
+	static bool TraceLine(FVector Start, FVector End, UWorld* World, FHitResult* RV_Hit, ETraceTypeQuery TraceChannel = ETraceTypeQuery::TraceTypeQuery1, AActor* Ignore = nullptr, bool bShowTrace = false);
 };
 
 

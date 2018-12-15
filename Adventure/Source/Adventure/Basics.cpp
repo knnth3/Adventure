@@ -509,12 +509,14 @@ EJoinSessionResults UBasicFunctions::ToBlueprintType(EOnJoinSessionCompleteResul
 	return State;
 }
 
-bool UBasicFunctions::TraceLine(FVector Start, FVector End, UWorld* World, FHitResult * RV_Hit, ETraceTypeQuery TraceChannel, bool bShowTrace)
+bool UBasicFunctions::TraceLine(FVector Start, FVector End, UWorld* World, FHitResult * RV_Hit, ETraceTypeQuery TraceChannel, AActor* Ignore, bool bShowTrace)
 {
 	if (World)
 	{
 		auto showTrace = EDrawDebugTrace::None;
 		TArray<AActor*> IgnoreActors;
+		if (Ignore)
+			IgnoreActors.Push(Ignore);
 
 		if (bShowTrace)
 			showTrace = EDrawDebugTrace::ForDuration;

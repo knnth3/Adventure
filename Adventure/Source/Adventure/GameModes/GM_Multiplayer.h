@@ -3,12 +3,12 @@
 #pragma once
 
 #include <map>
+#include <string>
 #include "CoreMinimal.h"
 #include "basics.h"
 #include "Widgets/W_GameBuilderUI.h"
 #include "GameFramework/GameModeBase.h"
 #include "GM_Multiplayer.generated.h"
-
 
 
 /**

@@ -57,7 +57,7 @@ private:
 	static TArray<FVector> TraceParentOwnership(GridEntityPtr begin, GridEntityPtr end);
 	static int GetDistance(const GridEntityPtr begin, const GridEntityPtr end);
 	static std::vector<GridEntityPtr> GetTraversableNeighbors(GridDataList GridData, GridEntityPtr Current, const FGridCoordinate& Dimensions);
-	static FGridCoordinate TracePlayArea(GridDataList & GridData, FGridCoordinate Start, FGridCoordinate End, UWorld* World, GridEntityPtr& StartPtr, GridEntityPtr& EndPtr);
+	static FGridCoordinate TracePlayArea(GridDataList & GridData, FGridCoordinate Start, FGridCoordinate End, AActor* actor, GridEntityPtr& StartPtr, GridEntityPtr& EndPtr);
 	static GridEntityPtr GetElementAt(int x, int y, GridDataList GridData, const FGridCoordinate& Dimensions);
 	static void AddIfAvailable(GridEntityPtr& start, GridEntityPtr& end, std::vector<GridEntityPtr>& Array);
 
