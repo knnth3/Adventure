@@ -45,12 +45,15 @@ public:
 	FGridCoordinate MapSize;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<FSAVE_OBJECT> ObjectList;
-
-	UPROPERTY(BlueprintReadWrite)
 	TArray<uint8> HeightMap;
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<uint8> TextureMap;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<uint8> Objects;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FTransform> ObjectTransforms;
 
 };

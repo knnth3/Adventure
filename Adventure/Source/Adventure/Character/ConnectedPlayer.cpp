@@ -234,6 +234,9 @@ void AConnectedPlayer::SetCameraToOverview()
 		// Calculate Time
 		float Time = 0.8f;
 
+		FVector newLocation = m_SelectedPawn->GetActorLocation();
+		SetActorLocation(FVector(newLocation.X, newLocation.Y, GetActorLocation().Z));
+
 		PlayerController->SetViewTargetWithBlend(this, Time, VTBlend_Cubic, 0.0f, true);
 		m_CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
 		OnCameraTypeChanged(m_CameraType);

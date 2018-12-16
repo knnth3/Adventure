@@ -40,7 +40,7 @@ bool AWorldGrid::ServerOnly_SaveMap()
 	SaveGameInstance->HeightMap.SetNum(m_GridDimensions.X * m_GridDimensions.Y);
 	SaveGameInstance->TextureMap.SetNum(m_GridDimensions.X * m_GridDimensions.Y);
 
-	// Load map and save here
+	// Save cell information
 	for (const auto& index : m_UsedCellIndices)
 	{
 		auto InstancedMesh = GetCellInstanceMesh(index);
@@ -59,6 +59,28 @@ bool AWorldGrid::ServerOnly_SaveMap()
 
 					SaveGameInstance->HeightMap[loc] = height;
 					SaveGameInstance->TextureMap[loc] = index;
+				}
+			}
+		}
+	}
+
+	// Save object information
+	for (const auto& index : m_UsedObjectIndices)
+	{
+		auto InstancedMesh = GetObjectInstanceMesh(index);
+		if (InstancedMesh)
+		{
+			int count = InstancedMesh->GetInstanceCount();
+			for(int x = 0; x < count; x++)
+			{
+				SaveGameInstance->ObjectTransforms.Emplace();
+				if (InstancedMesh->GetInstanceTransform(x, SaveGameInstance->ObjectTransforms.Last(),true))
+				{
+					SaveGameInstance->Objects.Push(index);
+				}
+				else
+				{
+					SaveGameInstance->ObjectTransforms.Pop();
 				}
 			}
 		}
@@ -90,7 +112,7 @@ bool AWorldGrid::ServerOnly_LoadGrid(const FString& MapName)
 bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& MapSize)
 {
 	m_MapName = MapName;
-	return GeneratePlayArea(MapSize, nullptr, nullptr);
+	return GeneratePlayArea(MapSize);
 }
 
 void AWorldGrid::ServerOnly_ResetGrid()
@@ -110,26 +132,16 @@ void AWorldGrid::ServerOnly_ResetGrid()
 	m_bMapIsLoaded = false;
 }
 
-bool AWorldGrid::ServerOnly_AddBlockingObject(int ClassIndex, const FGridCoordinate & Location)
+bool AWorldGrid::ServerOnly_AddBlockingObject(uint8 ClassIndex, const FTransform & transform)
 {
-	//if (ContainsCoordinate(Location.X, Location.Y) && !m_Grid[Location.X][Location.Y]->IsOcupied())
-	//{
-	//	if (ClassIndex >= 0 && ClassIndex < InteractableClasses.Num() && InteractableClasses[ClassIndex])
-	//	{
-	//		FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-	//		UWorld* World = GetWorld();
-	//		if (World)
-	//		{
-	//			AInteractable* NewBlockingObject = Cast<AInteractable>(World->SpawnActor(*InteractableClasses[ClassIndex], &WorldLocation));
-	//			if (NewBlockingObject)
-	//			{
-	//				NewBlockingObject->ServerOnly_SetClassIndex(ClassIndex);
-
-	//				return true;
-	//			}
-	//		}
-	//	}
-	//}
+	UE_LOG(LogNotice, Warning, TEXT("Spawning Obeject for index: %i"), ClassIndex);
+	auto InstancedMesh = GetObjectInstanceMesh(ClassIndex);
+	if (InstancedMesh)
+	{
+		InstancedMesh->AddInstance(transform);
+		m_UsedObjectIndices.insert(ClassIndex);
+		return true;
+	}
 	return false;
 }
 
@@ -210,65 +222,10 @@ AMapPawn * AWorldGrid::ServerOnly_GetPawn(const FVector& Location, int pawnID)
 
 void AWorldGrid::ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, const FCellEditInstruction& instructions)
 {
-	TArray<FTransform> ChangedMeshes;
-	UHierarchicalInstancedStaticMeshComponent* ChangeToMesh = nullptr;
-	for (const auto& meshIndex : m_UsedCellIndices)
-	{
-		auto InstancedMesh = GetCellInstanceMesh(meshIndex);
-		if (InstancedMesh)
-		{
-			TArray<int32> indexArray = InstancedMesh->GetInstancesOverlappingBox(FBox(EditBoxVertices), true);
-			ChangeToMesh = GetCellInstanceMesh(instructions.TextureIndex);
-			if (instructions.TextureIndex != meshIndex && ChangeToMesh && instructions.Height == 0)
-			{
-				// Grab all the transforms that will be replaced
-				for (const auto& instanceIndex : indexArray)
-				{
-					FTransform cellTransform;
-					if (InstancedMesh->GetInstanceTransform(instanceIndex, cellTransform, true))
-					{
-						ChangedMeshes.Push(cellTransform);
-					}
-				}
-
-				// Erase after to avoid any wierd index changes
-				InstancedMesh->RemoveInstances(indexArray);
-			}
-			else
-			{
-				float deltaScaleZ = instructions.Height * CELL_STEP;
-
-				for (const auto& index : indexArray)
-				{
-					FTransform cellTransform;
-					if (InstancedMesh->GetInstanceTransform(index, cellTransform, true))
-					{
-						if (cellTransform.GetScale3D().Z + deltaScaleZ > 0)
-						{
-							cellTransform.SetScale3D(FVector(152.4f, 152.4f, cellTransform.GetScale3D().Z + deltaScaleZ));
-
-							InstancedMesh->UpdateInstanceTransform(index, cellTransform, true);
-						}
-					}
-				}
-
-				InstancedMesh->MarkRenderStateDirty();
-			}
-
-		}
-	}
-
-	if (ChangedMeshes.Num() != 0)
-	{
-		for (const auto& transform : ChangedMeshes)
-		{
-			ChangeToMesh->AddInstanceWorldSpace(transform);
-		}
-
-		ChangeToMesh->MarkRenderStateDirty();
-		m_UsedCellIndices.insert(instructions.TextureIndex);
-	}
-
+	if (instructions.Height == 0)
+		EditCellTexture(EditBoxVertices, instructions.TextureIndex);
+	else
+		EditCellHeight(EditBoxVertices, instructions.Height * CELL_STEP);
 }
 
 
@@ -288,7 +245,7 @@ bool AWorldGrid::LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet)
 			case GRID_OBJECT_TYPE::NONE:
 				break;
 			case GRID_OBJECT_TYPE::INTERACTABLE:
-				ServerOnly_AddBlockingObject(obj.ModelIndex, obj.Location);
+				// ServerOnly_AddBlockingObject(obj.ModelIndex, obj.Location);
 				break;
 			case GRID_OBJECT_TYPE::PAWN:
 				ServerOnly_AddPawn(obj.ModelIndex, obj.Location, 0);
@@ -303,17 +260,23 @@ bool AWorldGrid::LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet)
 	return false;
 }
 
-bool AWorldGrid::GeneratePlayArea(const FGridCoordinate& GridDimensions, const TArray<uint8>* HeightMap, const TArray<uint8>* TextureMap)
+bool AWorldGrid::GeneratePlayArea(const UMapSaveFile * Save)
+{
+	return GeneratePlayArea(Save->MapSize, &Save->HeightMap, &Save->TextureMap, &Save->Objects, &Save->ObjectTransforms);
+}
+
+bool AWorldGrid::GeneratePlayArea(const FGridCoordinate& GridDimensions, const TArray<uint8>* HeightMap, 
+	const TArray<uint8>* TextureMap, const TArray<uint8>* Objects, const TArray<FTransform>* ObjectTransforms)
 {
 	if (!m_bMapIsLoaded)
 	{
-
+		// Generate cells
 		for (int x = 0; x < GridDimensions.X; x++)
 		{
 			for (int y = 0; y < GridDimensions.Y; y++)
 			{
 				int texture = 0;
-				int height = FLOOR_HEIGHT_STEP;
+				int height = FLOOR_HEIGHT_STEPS;
 
 				if (HeightMap)
 				{
@@ -348,6 +311,24 @@ bool AWorldGrid::GeneratePlayArea(const FGridCoordinate& GridDimensions, const T
 			}
 		}
 
+		// Generate Objects
+		if (Objects && ObjectTransforms && Objects->Num() == ObjectTransforms->Num())
+		{
+			uint8 prevIndex = 255;
+			UHierarchicalInstancedStaticMeshComponent* CurrentInstancedMesh = NULL;
+			for (int x = 0; x < Objects->Num(); x++)
+			{
+				uint8 index = (*Objects)[x];
+				if (prevIndex != index)
+				{
+					CurrentInstancedMesh = GetObjectInstanceMesh(index);
+					m_UsedObjectIndices.insert(index);
+				}
+
+				CurrentInstancedMesh->AddInstanceWorldSpace((*ObjectTransforms)[x]);
+			}
+		}
+
 		m_GridDimensions = GridDimensions;
 		m_bMapIsLoaded = true;
 		OnGridConstructed(GridDimensions);
@@ -377,6 +358,106 @@ bool AWorldGrid::ContainsCoordinate(int x, int y)
 	return false;
 }
 
+void AWorldGrid::EditCellHeight(const TArray<FVector>& EditBoxVertices, float DeltaHeight)
+{
+	// Edit cells
+	for (const auto& meshIndex : m_UsedCellIndices)
+	{
+		auto InstancedMesh = GetCellInstanceMesh(meshIndex);
+		if (InstancedMesh)
+		{
+			TArray<int32> indexArray = InstancedMesh->GetInstancesOverlappingBox(FBox(EditBoxVertices), true);
+
+			for (const auto& index : indexArray)
+			{
+				FTransform CellTransform;
+				if (InstancedMesh->GetInstanceTransform(index, CellTransform, true))
+				{
+					if (CellTransform.GetScale3D().Z + DeltaHeight > 0 && CellTransform.GetScale3D().Z + DeltaHeight <= CELL_STEP * MAX_HEIGHT_STEPS)
+					{
+						CellTransform.SetScale3D(FVector(152.4f, 152.4f, CellTransform.GetScale3D().Z + DeltaHeight));
+
+						InstancedMesh->UpdateInstanceTransform(index, CellTransform, true);
+					}
+				}
+			}
+
+			InstancedMesh->MarkRenderStateDirty();
+
+		}
+	}
+
+	// Edit objects as well
+	EditObjectHeight(EditBoxVertices, DeltaHeight);
+}
+
+void AWorldGrid::EditObjectHeight(const TArray<FVector>& EditBoxVertices, float DeltaHeight)
+{
+	for (const auto& meshIndex : m_UsedObjectIndices)
+	{
+		auto InstancedMesh = GetObjectInstanceMesh(meshIndex);
+		if (InstancedMesh)
+		{
+			TArray<int32> indexArray = InstancedMesh->GetInstancesOverlappingBox(FBox(EditBoxVertices), true);
+
+			for (const auto& index : indexArray)
+			{
+				FTransform ObjectTransform;
+				if (InstancedMesh->GetInstanceTransform(index, ObjectTransform, true))
+				{
+					if (ObjectTransform.GetTranslation().Z + DeltaHeight > 1)
+						ObjectTransform.AddToTranslation(FVector(0, 0, DeltaHeight));
+					InstancedMesh->UpdateInstanceTransform(index, ObjectTransform, true);
+				}
+			}
+
+			InstancedMesh->MarkRenderStateDirty();
+
+		}
+	}
+}
+
+void AWorldGrid::EditCellTexture(const TArray<FVector>& EditBoxVertices, uint8 TextureIndex)
+{
+	TArray<FTransform> ChangedMeshes;
+	UHierarchicalInstancedStaticMeshComponent* ChangeToMesh = nullptr;
+	for (const auto& meshIndex : m_UsedCellIndices)
+	{
+		auto InstancedMesh = GetCellInstanceMesh(meshIndex);
+		if (InstancedMesh)
+		{
+			TArray<int32> indexArray = InstancedMesh->GetInstancesOverlappingBox(FBox(EditBoxVertices), true);
+			ChangeToMesh = GetCellInstanceMesh(TextureIndex);
+			if (TextureIndex != meshIndex && ChangeToMesh)
+			{
+				// Grab all the transforms that will be replaced
+				for (const auto& instanceIndex : indexArray)
+				{
+					FTransform cellTransform;
+					if (InstancedMesh->GetInstanceTransform(instanceIndex, cellTransform, true))
+					{
+						ChangedMeshes.Push(cellTransform);
+					}
+				}
+
+				// Erase after to avoid any wierd index changes
+				InstancedMesh->RemoveInstances(indexArray);
+			}
+		}
+	}
+
+	if (ChangedMeshes.Num() != 0)
+	{
+		for (const auto& transform : ChangedMeshes)
+		{
+			ChangeToMesh->AddInstanceWorldSpace(transform);
+		}
+
+		ChangeToMesh->MarkRenderStateDirty();
+		m_UsedCellIndices.insert(TextureIndex);
+	}
+}
+
 void AWorldGrid::OnRep_BuildMap()
 {
 	// Only run if the server has identified the map
@@ -390,9 +471,9 @@ void AWorldGrid::OnRep_BuildMap()
 			UE_LOG(LogNotice, Warning, TEXT("Map Loaded!"));
 			UE_LOG(LogNotice, Warning, TEXT("Name: %s"), *MapSaveFile->MapName);
 			UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
-			UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->ObjectList.Num());
+			UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->Objects.Num());
 
-			GeneratePlayArea(MapSaveFile->MapSize, &MapSaveFile->HeightMap, &MapSaveFile->TextureMap);
+			GeneratePlayArea(MapSaveFile);
 		}
 	}
 }

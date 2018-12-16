@@ -23,13 +23,10 @@ struct GridEntry
 
 	int GetFCost()const;
 
-	FVector TrueLocation;
 	FGridCoordinate Location;
-	GridEntityPtr Parent;
-	int H_Cost;
-	int G_Cost;
-	uint8 height;
-	uint8 Bitfield;
+	GridEntityPtr Parent = nullptr;
+	int H_Cost = 0;
+	int G_Cost = 0;
 };
 
 struct CompareEntities
@@ -54,11 +51,11 @@ public:
 
 private:
 
-	static TArray<FVector> TraceParentOwnership(GridEntityPtr begin, GridEntityPtr end);
+	static TArray<FVector> TraceParentOwnership(GridEntityPtr begin, GridEntityPtr end, const FGridCoordinate& StartLocation);
 	static int GetDistance(const GridEntityPtr begin, const GridEntityPtr end);
-	static std::vector<GridEntityPtr> GetTraversableNeighbors(GridDataList GridData, GridEntityPtr Current, const FGridCoordinate& Dimensions);
-	static FGridCoordinate TracePlayArea(GridDataList & GridData, FGridCoordinate Start, FGridCoordinate End, AActor* actor, GridEntityPtr& StartPtr, GridEntityPtr& EndPtr);
+	static std::vector<GridEntityPtr> GetTraversableNeighbors(GridDataList GridData, GridEntityPtr Current, const FGridCoordinate& Dimensions, const FGridCoordinate& StartLocation, UWorld* World);
+	static FGridCoordinate TracePlayArea(GridDataList & GridData, FGridCoordinate Start, FGridCoordinate End, GridEntityPtr& StartPtr, GridEntityPtr& EndPtr);
 	static GridEntityPtr GetElementAt(int x, int y, GridDataList GridData, const FGridCoordinate& Dimensions);
-	static void AddIfAvailable(GridEntityPtr& start, GridEntityPtr& end, std::vector<GridEntityPtr>& Array);
+	static bool AddIfAvailable(GridEntityPtr& start, GridEntityPtr& end, std::vector<GridEntityPtr>& Array, const FGridCoordinate& StartLocation, UWorld* World);
 
 };

@@ -241,10 +241,24 @@ void AMapPawn::ZoomCamera(const float & AxisValue, const float & DeltaTime)
 {
 	if (AxisValue)
 	{
-		m_CameraSettings.FinalCameraZoom = FMath::Clamp(
-			m_CameraSettings.FinalCameraZoom - (AxisValue * DeltaTime * m_CameraSettings.ZoomSpeed),
-			m_CameraSettings.MaxInZoom, m_CameraSettings.MaxOutZoom
-		);
+		if (CameraBoom->IsCollisionFixApplied())
+		{
+			FVector BoomLocation = CameraBoom->GetComponentLocation();
+			FVector CameraLocation = FollowCamera->GetComponentLocation();
+			float distance = FVector::Dist(BoomLocation, CameraLocation);
+
+			float value = FMath::Min(distance, distance - (AxisValue * DeltaTime * m_CameraSettings.ZoomSpeed));
+
+			m_CameraSettings.FinalCameraZoom = value;
+			CameraBoom->TargetArmLength = distance;
+		}
+		else
+		{
+			m_CameraSettings.FinalCameraZoom = FMath::Clamp(
+				m_CameraSettings.FinalCameraZoom - (AxisValue * DeltaTime * m_CameraSettings.ZoomSpeed),
+				m_CameraSettings.MaxInZoom, m_CameraSettings.MaxOutZoom
+			);
+		}
 	}
 }
 

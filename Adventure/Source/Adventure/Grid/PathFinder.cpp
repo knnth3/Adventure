@@ -17,7 +17,7 @@ bool UPathFinder::FindPath(AActor* Pawn, FVector Destination, TArray<FVector>& O
 	{
 		GridEntityPtr start;
 		GridEntityPtr end;
-		FGridCoordinate Bounds = TracePlayArea(GridData, StartLocation, EndLocation, Pawn, start, end);
+		FGridCoordinate Bounds = TracePlayArea(GridData, StartLocation, EndLocation, start, end);
 
 		if (start != nullptr && end != nullptr)
 		{
@@ -39,12 +39,12 @@ bool UPathFinder::FindPath(AActor* Pawn, FVector Destination, TArray<FVector>& O
 				if (current == end)
 				{
 					//Finished
-					OutPath = TraceParentOwnership(start, end);
+					OutPath = TraceParentOwnership(start, end, StartLocation);
 
 					return true;
 				}
 
-				for (const auto& neighbor : GetTraversableNeighbors(GridData, current, Bounds))
+				for (const auto& neighbor : GetTraversableNeighbors(GridData, current, Bounds, StartLocation, Pawn->GetWorld()))
 				{
 					if (closedSet.find(neighbor->Location.toPair()) != closedSet.end())
 					{
@@ -79,14 +79,19 @@ bool UPathFinder::FindPath(AActor* Pawn, FVector Destination, TArray<FVector>& O
 	return false;
 }
 
-TArray<FVector> UPathFinder::TraceParentOwnership(GridEntityPtr begin, GridEntityPtr end)
+TArray<FVector> UPathFinder::TraceParentOwnership(GridEntityPtr begin, GridEntityPtr end, const FGridCoordinate& StartLocation)
 {
 	TArray<FVector> Path;
 	GridEntityPtr current = end;
 
 	while (current != begin)
 	{
-		Path.Push(current->TrueLocation);
+		FGridCoordinate offset(TRACE_RADIUS, TRACE_RADIUS);
+		FGridCoordinate loc = (current->Location - offset) + StartLocation;
+		FVector Location3D = UGridFunctions::GridToWorldLocation(loc);
+		Location3D.Z = (float)current->Location.Z;
+
+		Path.Push(Location3D);
 		current = current->Parent;
 	}
 
@@ -112,31 +117,51 @@ int UPathFinder::GetDistance(const GridEntityPtr begin, const GridEntityPtr end)
 	return 0;
 }
 
-std::vector<GridEntityPtr> UPathFinder::GetTraversableNeighbors(GridDataList GridData, GridEntityPtr Current, const FGridCoordinate& Dimensions)
+std::vector<GridEntityPtr> UPathFinder::GetTraversableNeighbors(GridDataList GridData, GridEntityPtr Current, const FGridCoordinate& Dimensions, const FGridCoordinate& StartLocation, UWorld* World)
 {
 	std::vector<GridEntityPtr> Results;
 	const FGridCoordinate& loc = Current->Location;
 
-	for (int x = -1; x <= 1; x++) 
+	// Get Direct Neighbors First
+	GridEntityPtr Top = GetElementAt(loc.X + 0, loc.Y + 1, GridData, Dimensions);
+	GridEntityPtr Bottom = GetElementAt(loc.X + 0, loc.Y - 1, GridData, Dimensions);
+	GridEntityPtr Left = GetElementAt(loc.X - 1, loc.Y + 0, GridData, Dimensions);
+	GridEntityPtr Right = GetElementAt(loc.X + 1, loc.Y + 0, GridData, Dimensions);
+
+	bool TopAdded = AddIfAvailable(Current, Top, Results, StartLocation, World);
+	bool BottomAdded = AddIfAvailable(Current, Bottom, Results, StartLocation, World);
+	bool LeftAdded = AddIfAvailable(Current, Left, Results, StartLocation, World);
+	bool RightAdded = AddIfAvailable(Current, Right, Results, StartLocation, World);
+
+	if (TopAdded && RightAdded)
 	{
-		for (int y = -1; y <= 1; y++)
-		{
-			if (x + y != 0)
-			{
-				UE_LOG(LogNotice, Warning, TEXT("Attempting to move to (%i, %i)"), loc.X + x, loc.Y + y);
-				GridEntityPtr Neighbor = GetElementAt(loc.X + x, loc.Y + y, GridData, Dimensions);
-				AddIfAvailable(Current, Neighbor, Results);
-			}
-		}
+		GridEntityPtr TopRight = GetElementAt(loc.X + 1, loc.Y + 1, GridData, Dimensions);
+		AddIfAvailable(Current, TopRight, Results, StartLocation, World);
 	}
 
-	UE_LOG(LogNotice, Warning, TEXT("%i Possible neighbors found."), Results.size());
+	if (TopAdded && LeftAdded)
+	{
+		GridEntityPtr TopLeft = GetElementAt(loc.X - 1, loc.Y + 1, GridData, Dimensions);
+		AddIfAvailable(Current, TopLeft, Results, StartLocation, World);
+	}
+
+	if (BottomAdded && RightAdded)
+	{
+		GridEntityPtr BottomRight = GetElementAt(loc.X + 1, loc.Y - 1, GridData, Dimensions);
+		AddIfAvailable(Current, BottomRight, Results, StartLocation, World);
+	}
+
+	if (BottomAdded && LeftAdded)
+	{
+		GridEntityPtr BottomLeft = GetElementAt(loc.X - 1, loc.Y - 1, GridData, Dimensions);
+		AddIfAvailable(Current, BottomLeft, Results, StartLocation, World);
+	}
+
 	return Results;
 }
 
-FGridCoordinate UPathFinder::TracePlayArea(GridDataList & GridData, FGridCoordinate Start, FGridCoordinate End, AActor* actor, GridEntityPtr& StartPtr, GridEntityPtr& EndPtr)
+FGridCoordinate UPathFinder::TracePlayArea(GridDataList & GridData, FGridCoordinate Start, FGridCoordinate End, GridEntityPtr& StartPtr, GridEntityPtr& EndPtr)
 {
-	FVector actorLocation = actor->GetActorLocation();
 	FGridCoordinate diff = End - Start;
 
 	GridData.resize((TRACE_RADIUS * 2) + 1);
@@ -145,28 +170,18 @@ FGridCoordinate UPathFinder::TracePlayArea(GridDataList & GridData, FGridCoordin
 		GridData[x + TRACE_RADIUS].resize((TRACE_RADIUS * 2) + 1);
 		for(int y = -TRACE_RADIUS; y <= TRACE_RADIUS; y++)
 		{
-			FHitResult results;
-			ETraceTypeQuery traceChannel = ETraceTypeQuery::TraceTypeQuery1;
-			FVector s = UGridFunctions::GridToWorldLocation(FGridCoordinate(Start.X + x, Start.Y + y, actorLocation.Z + 152.0f));
-			FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(Start.X + x, Start.Y + y, actorLocation.Z - 152.0f));
-			if (UBasicFunctions::TraceLine(s, f, actor->GetWorld(), &results, traceChannel, actor, true))
+			GridData[x + TRACE_RADIUS][y + TRACE_RADIUS] = std::make_shared<GridEntry>();
+			GridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->Location = FGridCoordinate(x + TRACE_RADIUS, y + TRACE_RADIUS, 0);
+			GridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->Parent = nullptr;
+
+			if (x == 0 && y == 0)
 			{
-				float fHeight = FMath::DivideAndRoundUp(results.ImpactPoint.Z, STEP_HEIGHT);
-				GridData[x + TRACE_RADIUS][y + TRACE_RADIUS] = std::make_shared<GridEntry>();
-				GridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->Location = FGridCoordinate(x + TRACE_RADIUS, y + TRACE_RADIUS);
-				GridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->TrueLocation = results.ImpactPoint;
-				GridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->Parent = nullptr;
-				GridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->height = (uint8)fHeight;
-
-				if (x == 0 && y == 0)
-				{
-					StartPtr = GridData[x + TRACE_RADIUS][y + TRACE_RADIUS];
-				}
-
-				if (x == diff.X && y == diff.Y)
-				{
-					EndPtr = GridData[x + TRACE_RADIUS][y + TRACE_RADIUS];
-				}
+				StartPtr = GridData[x + TRACE_RADIUS][y + TRACE_RADIUS];
+				StartPtr->Location.Z = Start.Z;
+			}
+			else if (x == diff.X && y == diff.Y)
+			{
+				EndPtr = GridData[x + TRACE_RADIUS][y + TRACE_RADIUS];
 			}
 		}
 	}
@@ -187,16 +202,53 @@ GridEntityPtr UPathFinder::GetElementAt(int x, int y, GridDataList GridData, con
 	return nullptr;
 }
 
-void UPathFinder::AddIfAvailable(GridEntityPtr & start, GridEntityPtr & end, std::vector<GridEntityPtr>& Array)
+bool UPathFinder::AddIfAvailable(GridEntityPtr & start, GridEntityPtr & end, std::vector<GridEntityPtr>& Array, const FGridCoordinate& StartLocation, UWorld* World)
 {
 	if (end)
 	{
-		int heightDif = abs((int)(start->height) - end->height);
-		if (heightDif <= 1)
+		if (end->Location.Z == 0)
 		{
-			Array.push_back(end);
+			FGridCoordinate offset(TRACE_RADIUS, TRACE_RADIUS);
+			FGridCoordinate loc = (end->Location - offset) + StartLocation;
+			float StartHeight = start->Location.Z;
+
+			if (loc.X >= 0 && loc.Y >= 0)
+			{
+				FHitResult result;
+				ETraceTypeQuery traceChannel = ETraceTypeQuery::TraceTypeQuery1;
+				FVector s = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, StartHeight + (STEP_HEIGHT * 2.0f)));
+				FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, StartHeight - (STEP_HEIGHT * 2.0f)));
+				//FVector s = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, 10000));
+				//FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, 0));
+				if (UBasicFunctions::TraceLine(s, f, World, result, traceChannel, nullptr, true))
+				{
+					end->Location.Z = result.ImpactPoint.Z;
+				}
+				else
+				{
+					end->Location.Z = 0;
+				}
+			}
+			else
+			{
+				end->Location.Z = -1;
+			}
+
 		}
+		
+		if (end->Location.Z != -1 && end->Location.Z != 0)
+		{
+			float heightDif = (float)abs((start->Location.Z) - end->Location.Z);
+			if (heightDif <= STEP_HEIGHT)
+			{
+				Array.push_back(end);
+				return true;
+			}
+		}
+
 	}
+
+	return false;
 }
 
 void GridEntry::SetParent(GridEntityPtr parent)

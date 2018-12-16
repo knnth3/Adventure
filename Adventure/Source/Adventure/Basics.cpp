@@ -509,7 +509,7 @@ EJoinSessionResults UBasicFunctions::ToBlueprintType(EOnJoinSessionCompleteResul
 	return State;
 }
 
-bool UBasicFunctions::TraceLine(FVector Start, FVector End, UWorld* World, FHitResult * RV_Hit, ETraceTypeQuery TraceChannel, AActor* Ignore, bool bShowTrace)
+bool UBasicFunctions::TraceLine(FVector Start, FVector End, UWorld* World, FHitResult& Hit, ETraceTypeQuery TraceChannel, AActor* Ignore, bool bShowTrace)
 {
 	if (World)
 	{
@@ -522,20 +522,7 @@ bool UBasicFunctions::TraceLine(FVector Start, FVector End, UWorld* World, FHitR
 			showTrace = EDrawDebugTrace::ForDuration;
 
 		//  do the line trace
-		bool DidTrace = UKismetSystemLibrary::LineTraceSingle(
-			World,
-			Start,
-			End,
-			TraceChannel,
-			false,
-			IgnoreActors,
-			showTrace,
-			*RV_Hit,
-			true,
-			FLinearColor::Blue
-		);
-
-		return DidTrace;
+		return UKismetSystemLibrary::LineTraceSingle(World, Start, End, TraceChannel, false, IgnoreActors, showTrace, Hit, true, FLinearColor::Blue);
 	}
 
 	return false;

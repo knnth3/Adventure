@@ -19,7 +19,7 @@ class ADVENTURE_API APC_Adventure_Editor : public APlayerController
 protected:
 	//Sends request to WorldGrid
 	UFUNCTION(BlueprintCallable)
-	bool RequestSpawnBlockingObject(int Type, const FGridCoordinate& Location);
+	bool RequestSpawnBlockingObject(uint8 Type, const FTransform& Transform);
 
 	UFUNCTION(BlueprintCallable)
 	bool RequestAddSpawnLocation(int Type, const FGridCoordinate& Location);

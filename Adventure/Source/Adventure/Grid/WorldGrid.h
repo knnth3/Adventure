@@ -10,7 +10,8 @@
 #include "WorldGrid.generated.h"
 
 #define CELL_STEP 152.4f
-#define FLOOR_HEIGHT_STEP 3
+#define FLOOR_HEIGHT_STEPS 3
+#define MAX_HEIGHT_STEPS (10 + FLOOR_HEIGHT_STEPS)
 
 USTRUCT(BlueprintType)
 struct FCellEditInstruction
@@ -48,7 +49,7 @@ public:
 	void ServerOnly_ResetGrid();
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	bool ServerOnly_AddBlockingObject(int ClassIndex, const FGridCoordinate & Location);
+	bool ServerOnly_AddBlockingObject(uint8 ClassIndex, const FTransform & transform);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_RemoveBlockingObject(const FGridCoordinate& Location);
@@ -110,16 +111,30 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Cell Functions")
 	class UHierarchicalInstancedStaticMeshComponent* GetCellInstanceMesh(uint8 CellTypeIndex);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Cell Functions")
+	class UHierarchicalInstancedStaticMeshComponent* GetObjectInstanceMesh(uint8 CellTypeIndex);
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual Settings")
 	bool bShowCollisions;
 
 private:
 
 	bool LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet);
-	bool GeneratePlayArea(const FGridCoordinate& GridDimensions, const TArray<uint8>* HeightMap, const TArray<uint8>* TextureMap);
+
+	bool GeneratePlayArea(const UMapSaveFile* Save);
+
+	bool GeneratePlayArea(const FGridCoordinate& GridDimensions, const TArray<uint8>* HeightMap = nullptr, 
+		const TArray<uint8>* TextureMap = nullptr, const TArray<uint8>* Objects = nullptr, const TArray<FTransform>* ObjectTransforms = nullptr);
+
 	bool ContainsCoordinate(const FGridCoordinate& coordintate);
+
 	bool ContainsCoordinate(int x, int y);
-	void ServerOnly_LinkCell(AWorldGrid_Cell* NewCell);
+
+	void EditCellHeight(const TArray<FVector>& EditBoxVertices, float DeltaHeight);
+
+	void EditObjectHeight(const TArray<FVector>& EditBoxVertices, float DeltaHeight);
+
+	void EditCellTexture(const TArray<FVector>& EditBoxVertices, uint8 TextureIndex);
 
 	UFUNCTION()
 	void OnRep_BuildMap();
@@ -137,7 +152,8 @@ private:
 
 	bool m_bMapIsLoaded;
 	FGridCoordinate m_GridDimensions;
-	std::set<uint8> m_UsedCellIndices;
+	std::set<uint8> m_UsedCellIndices; 
+	std::set<uint8> m_UsedObjectIndices;
 	std::map<int, int> m_PlayerPawnCount;
 	TArray<AMapPawn*> m_PawnArray;
 };

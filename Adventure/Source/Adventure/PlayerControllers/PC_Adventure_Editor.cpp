@@ -6,13 +6,13 @@
 #include "Grid/WorldGrid.h"
 
 
-bool APC_Adventure_Editor::RequestSpawnBlockingObject(int Type, const FGridCoordinate& Location)
+bool APC_Adventure_Editor::RequestSpawnBlockingObject(uint8 Type, const FTransform& Transform)
 {
 	bool Success = true;
 	TActorIterator<AWorldGrid> GridItr(GetWorld());
 	if (GridItr)
 	{
-		if (!GridItr->ServerOnly_AddBlockingObject(Type, Location))
+		if (!GridItr->ServerOnly_AddBlockingObject(Type, Transform))
 		{
 			Success = false;
 		}
