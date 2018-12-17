@@ -2,105 +2,145 @@
 
 #include "PathFinder.h"
 #include "Algo/Reverse.h"
+#include "Async.h"
 
-#define OCCUPIED_CELL_COST 400
-#define TRACE_RADIUS 15
-#define STEP_HEIGHT 76.2f
-
-bool UPathFinder::FindPath(AActor* Pawn, FVector Destination, TArray<FVector>& OutPath)
+FPathFinder::FPathFinder(const FVector & StartLocation, const FVector & Destination, UWorld * World, FPathFoundDelegate & Callback)
 {
-	GridDataList GridData;
-	FGridCoordinate StartLocation = Pawn->GetActorLocation();
-	FGridCoordinate EndLocation = Destination;
+	static int ClassID = 0;
 
-	if (StartLocation != EndLocation)
+	ClassID = (ClassID + 1) % 1000;
+	id = ClassID;
+	m_bTargetFound = false;
+	m_bForceClose = false;
+	m_World = World;
+	m_StartLocation = StartLocation; 
+	m_EndLocation = Destination;
+	m_Callback = Callback;
+	m_StartPtr = nullptr;
+	m_EndPtr = nullptr;
+
+	// Start thread
+	FString NewThreadName = "FPathFinder" + FString::FromInt(ClassID);
+
+	// UE_LOG(LogNotice, Warning, TEXT("<%s>: Starting trace..."), *NewThreadName);
+	m_Thread = FRunnableThread::Create(this, *NewThreadName, 0, TPri_BelowNormal);
+}
+
+FPathFinder* FPathFinder::RequestFindPath(const FVector& StartLocation, const FVector& Destination, UWorld* World, FPathFoundDelegate& Callback)
+{
+	if (World)
 	{
-		GridEntityPtr start;
-		GridEntityPtr end;
-		FGridCoordinate Bounds = TracePlayArea(GridData, StartLocation, EndLocation, start, end);
+		FPathFinder* NewPathFindRequest = new FPathFinder(StartLocation, Destination, World, Callback);
+		return NewPathFindRequest;
+	}
 
-		if (start != nullptr && end != nullptr)
-		{
-			PRIORITY_QUEUE(GridEntityPtr) openQueue;
-			std::map<CoordinatePair, GridEntityPtr> openSet;
-			std::map<CoordinatePair, GridEntityPtr> closedSet;
+	return nullptr;
+}
 
-			openQueue.push(start);
-			openSet[StartLocation.toPair()] = GridData[0][0];
+void FPathFinder::CancelRequest()
+{
+	Stop();
+}
 
-			while (!openQueue.empty())
-			{
-				auto current = openQueue.top();
-				openQueue.pop();
-				openSet.erase(current->Location.toPair());
+bool FPathFinder::Init()
+{
+	if (m_StartLocation != m_EndLocation)
+	{
+		m_Bounds = TracePlayArea();
 
-				closedSet[current->Location.toPair()] = current;
-
-				if (current == end)
-				{
-					//Finished
-					OutPath = TraceParentOwnership(start, end, StartLocation);
-
-					return true;
-				}
-
-				for (const auto& neighbor : GetTraversableNeighbors(GridData, current, Bounds, StartLocation, Pawn->GetWorld()))
-				{
-					if (closedSet.find(neighbor->Location.toPair()) != closedSet.end())
-					{
-						continue;
-					}
-
-					int newG_Cost = current->G_Cost + GetDistance(current, neighbor);
-
-					bool bInOpenSet = false;
-					if (openSet.find(neighbor->Location.toPair()) != openSet.end())
-					{
-						bInOpenSet = true;
-					}
-
-					if (newG_Cost < neighbor->G_Cost || !bInOpenSet)
-					{
-						neighbor->G_Cost = newG_Cost;
-						neighbor->H_Cost = GetDistance(neighbor, end);
-						neighbor->Parent = current;
-
-						if (!bInOpenSet)
-						{
-							openQueue.push(neighbor);
-							openSet[neighbor->Location.toPair()] = neighbor;
-						}
-					}
-				}
-			}
-		}
+		if (m_StartPtr != nullptr && m_EndPtr != nullptr)
+			return true;
 	}
 
 	return false;
 }
 
-TArray<FVector> UPathFinder::TraceParentOwnership(GridEntityPtr begin, GridEntityPtr end, const FGridCoordinate& StartLocation)
+uint32 FPathFinder::Run()
 {
-	TArray<FVector> Path;
-	GridEntityPtr current = end;
+	PRIORITY_QUEUE(GridEntityPtr) openQueue;
+	std::map<CoordinatePair, GridEntityPtr> openSet;
+	std::map<CoordinatePair, GridEntityPtr> closedSet;
 
-	while (current != begin)
+	openQueue.push(m_StartPtr);
+	openSet[m_StartLocation.toPair()] = m_GeneratedGridData[0][0];
+
+	while (!openQueue.empty() && !m_bForceClose)
+	{
+		auto current = openQueue.top();
+		openQueue.pop();
+		openSet.erase(current->Location.toPair());
+
+		closedSet[current->Location.toPair()] = current;
+
+		if (current == m_EndPtr)
+		{
+			//Finished
+			m_bTargetFound = true;
+
+			TraceParentOwnership();
+			ThreadOnly_SubmitEndEvent();
+			return 0;
+		}
+
+		for (const auto& neighbor : GetTraversableNeighbors(current))
+		{
+			if (closedSet.find(neighbor->Location.toPair()) != closedSet.end())
+			{
+				continue;
+			}
+
+			int newG_Cost = current->G_Cost + GetDistance(current, neighbor);
+
+			bool bInOpenSet = false;
+			if (openSet.find(neighbor->Location.toPair()) != openSet.end())
+			{
+				bInOpenSet = true;
+			}
+
+			if (newG_Cost < neighbor->G_Cost || !bInOpenSet)
+			{
+				neighbor->G_Cost = newG_Cost;
+				neighbor->H_Cost = GetDistance(neighbor, m_EndPtr);
+				neighbor->Parent = current;
+
+				if (!bInOpenSet)
+				{
+					openQueue.push(neighbor);
+					openSet[neighbor->Location.toPair()] = neighbor;
+				}
+			}
+		}
+	}
+
+	m_bTargetFound = false;
+	ThreadOnly_SubmitEndEvent();
+	return 0;
+}
+
+void FPathFinder::Stop()
+{
+	m_bForceClose = true;
+}
+
+void FPathFinder::TraceParentOwnership()
+{
+	GridEntityPtr current = m_EndPtr;
+
+	while (current != m_StartPtr)
 	{
 		FGridCoordinate offset(TRACE_RADIUS, TRACE_RADIUS);
-		FGridCoordinate loc = (current->Location - offset) + StartLocation;
+		FGridCoordinate loc = (current->Location - offset) + m_StartLocation;
 		FVector Location3D = UGridFunctions::GridToWorldLocation(loc);
 		Location3D.Z = (float)current->Location.Z;
 
-		Path.Push(Location3D);
+		m_TargetPath.Push(Location3D);
 		current = current->Parent;
 	}
 
-	Algo::Reverse(Path);
-
-	return Path;
+	Algo::Reverse(m_TargetPath);
 }
 
-int UPathFinder::GetDistance(const GridEntityPtr begin, const GridEntityPtr end)
+int FPathFinder::GetDistance(const GridEntityPtr begin, const GridEntityPtr end)
 {
 	if (begin && end)
 	{
@@ -117,71 +157,71 @@ int UPathFinder::GetDistance(const GridEntityPtr begin, const GridEntityPtr end)
 	return 0;
 }
 
-std::vector<GridEntityPtr> UPathFinder::GetTraversableNeighbors(GridDataList GridData, GridEntityPtr Current, const FGridCoordinate& Dimensions, const FGridCoordinate& StartLocation, UWorld* World)
+std::vector<GridEntityPtr> FPathFinder::GetTraversableNeighbors(GridEntityPtr Current)
 {
 	std::vector<GridEntityPtr> Results;
 	const FGridCoordinate& loc = Current->Location;
 
 	// Get Direct Neighbors First
-	GridEntityPtr Top = GetElementAt(loc.X + 0, loc.Y + 1, GridData, Dimensions);
-	GridEntityPtr Bottom = GetElementAt(loc.X + 0, loc.Y - 1, GridData, Dimensions);
-	GridEntityPtr Left = GetElementAt(loc.X - 1, loc.Y + 0, GridData, Dimensions);
-	GridEntityPtr Right = GetElementAt(loc.X + 1, loc.Y + 0, GridData, Dimensions);
+	GridEntityPtr Top = GetElementAt(loc.X + 0, loc.Y + 1);
+	GridEntityPtr Bottom = GetElementAt(loc.X + 0, loc.Y - 1);
+	GridEntityPtr Left = GetElementAt(loc.X - 1, loc.Y + 0);
+	GridEntityPtr Right = GetElementAt(loc.X + 1, loc.Y + 0);
 
-	bool TopAdded = AddIfAvailable(Current, Top, Results, StartLocation, World);
-	bool BottomAdded = AddIfAvailable(Current, Bottom, Results, StartLocation, World);
-	bool LeftAdded = AddIfAvailable(Current, Left, Results, StartLocation, World);
-	bool RightAdded = AddIfAvailable(Current, Right, Results, StartLocation, World);
+	bool TopAdded = AddIfAvailable(Current, Top, Results);
+	bool BottomAdded = AddIfAvailable(Current, Bottom, Results);
+	bool LeftAdded = AddIfAvailable(Current, Left, Results);
+	bool RightAdded = AddIfAvailable(Current, Right, Results);
 
 	if (TopAdded && RightAdded)
 	{
-		GridEntityPtr TopRight = GetElementAt(loc.X + 1, loc.Y + 1, GridData, Dimensions);
-		AddIfAvailable(Current, TopRight, Results, StartLocation, World);
+		GridEntityPtr TopRight = GetElementAt(loc.X + 1, loc.Y + 1);
+		AddIfAvailable(Current, TopRight, Results);
 	}
 
 	if (TopAdded && LeftAdded)
 	{
-		GridEntityPtr TopLeft = GetElementAt(loc.X - 1, loc.Y + 1, GridData, Dimensions);
-		AddIfAvailable(Current, TopLeft, Results, StartLocation, World);
+		GridEntityPtr TopLeft = GetElementAt(loc.X - 1, loc.Y + 1);
+		AddIfAvailable(Current, TopLeft, Results);
 	}
 
 	if (BottomAdded && RightAdded)
 	{
-		GridEntityPtr BottomRight = GetElementAt(loc.X + 1, loc.Y - 1, GridData, Dimensions);
-		AddIfAvailable(Current, BottomRight, Results, StartLocation, World);
+		GridEntityPtr BottomRight = GetElementAt(loc.X + 1, loc.Y - 1);
+		AddIfAvailable(Current, BottomRight, Results);
 	}
 
 	if (BottomAdded && LeftAdded)
 	{
-		GridEntityPtr BottomLeft = GetElementAt(loc.X - 1, loc.Y - 1, GridData, Dimensions);
-		AddIfAvailable(Current, BottomLeft, Results, StartLocation, World);
+		GridEntityPtr BottomLeft = GetElementAt(loc.X - 1, loc.Y - 1);
+		AddIfAvailable(Current, BottomLeft, Results);
 	}
 
 	return Results;
 }
 
-FGridCoordinate UPathFinder::TracePlayArea(GridDataList & GridData, FGridCoordinate Start, FGridCoordinate End, GridEntityPtr& StartPtr, GridEntityPtr& EndPtr)
+FGridCoordinate FPathFinder::TracePlayArea()
 {
-	FGridCoordinate diff = End - Start;
+	FGridCoordinate diff = m_EndLocation - m_StartLocation;
 
-	GridData.resize((TRACE_RADIUS * 2) + 1);
+	m_GeneratedGridData.resize((TRACE_RADIUS * 2) + 1);
 	for (int x = -TRACE_RADIUS; x <= TRACE_RADIUS; x++)
 	{
-		GridData[x + TRACE_RADIUS].resize((TRACE_RADIUS * 2) + 1);
+		m_GeneratedGridData[x + TRACE_RADIUS].resize((TRACE_RADIUS * 2) + 1);
 		for(int y = -TRACE_RADIUS; y <= TRACE_RADIUS; y++)
 		{
-			GridData[x + TRACE_RADIUS][y + TRACE_RADIUS] = std::make_shared<GridEntry>();
-			GridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->Location = FGridCoordinate(x + TRACE_RADIUS, y + TRACE_RADIUS, 0);
-			GridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->Parent = nullptr;
+			m_GeneratedGridData[x + TRACE_RADIUS][y + TRACE_RADIUS] = std::make_shared<GridEntry>();
+			m_GeneratedGridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->Location = FGridCoordinate(x + TRACE_RADIUS, y + TRACE_RADIUS, 0);
+			m_GeneratedGridData[x + TRACE_RADIUS][y + TRACE_RADIUS]->Parent = nullptr;
 
 			if (x == 0 && y == 0)
 			{
-				StartPtr = GridData[x + TRACE_RADIUS][y + TRACE_RADIUS];
-				StartPtr->Location.Z = Start.Z;
+				m_StartPtr = m_GeneratedGridData[x + TRACE_RADIUS][y + TRACE_RADIUS];
+				m_StartPtr->Location.Z = m_StartLocation.Z;
 			}
 			else if (x == diff.X && y == diff.Y)
 			{
-				EndPtr = GridData[x + TRACE_RADIUS][y + TRACE_RADIUS];
+				m_EndPtr = m_GeneratedGridData[x + TRACE_RADIUS][y + TRACE_RADIUS];
 			}
 		}
 	}
@@ -189,28 +229,28 @@ FGridCoordinate UPathFinder::TracePlayArea(GridDataList & GridData, FGridCoordin
 	return FGridCoordinate((TRACE_RADIUS * 2) + 1, (TRACE_RADIUS * 2) + 1);
 }
 
-GridEntityPtr UPathFinder::GetElementAt(int x, int y, GridDataList GridData, const FGridCoordinate& Dimensions)
+GridEntityPtr FPathFinder::GetElementAt(int x, int y)
 {
-	if (Dimensions.X > x && x >= 0)
+	if (m_Bounds.X > x && x >= 0)
 	{
-		if (Dimensions.Y > y && y >= 0)
+		if (m_Bounds.Y > y && y >= 0)
 		{
-			return GridData[x][y];
+			return m_GeneratedGridData[x][y];
 		}
 	}
 
 	return nullptr;
 }
 
-bool UPathFinder::AddIfAvailable(GridEntityPtr & start, GridEntityPtr & end, std::vector<GridEntityPtr>& Array, const FGridCoordinate& StartLocation, UWorld* World)
+bool FPathFinder::AddIfAvailable(GridEntityPtr & Start, GridEntityPtr & End, std::vector<GridEntityPtr>& ValidNeighbors)
 {
-	if (end)
+	if (End)
 	{
-		if (end->Location.Z == 0)
+		if (End->Location.Z == 0)
 		{
 			FGridCoordinate offset(TRACE_RADIUS, TRACE_RADIUS);
-			FGridCoordinate loc = (end->Location - offset) + StartLocation;
-			float StartHeight = start->Location.Z;
+			FGridCoordinate loc = (End->Location - offset) + m_StartLocation;
+			float StartHeight = Start->Location.Z;
 
 			if (loc.X >= 0 && loc.Y >= 0)
 			{
@@ -220,28 +260,43 @@ bool UPathFinder::AddIfAvailable(GridEntityPtr & start, GridEntityPtr & end, std
 				FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, StartHeight - (STEP_HEIGHT * 2.0f)));
 				//FVector s = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, 10000));
 				//FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, 0));
-				if (UBasicFunctions::TraceLine(s, f, World, result, traceChannel, nullptr, true))
+				
+				bool traceComplete = false;
+				FThreadSafeBool taskComplete = false;
+				AsyncTask(ENamedThreads::GameThread, [&]() {
+					// code to execute on game thread here
+					if (m_World)
+					{
+						traceComplete = UBasicFunctions::TraceLine(s, f, m_World, result, traceChannel, nullptr, false);
+						taskComplete = true;
+					}
+				});
+
+				// Block until task in the main thread is done
+				while (!taskComplete);
+
+				if (traceComplete)
 				{
-					end->Location.Z = result.ImpactPoint.Z;
+					End->Location.Z = result.ImpactPoint.Z;
 				}
 				else
 				{
-					end->Location.Z = 0;
+					End->Location.Z = 0;
 				}
 			}
 			else
 			{
-				end->Location.Z = -1;
+				End->Location.Z = -1;
 			}
 
 		}
 		
-		if (end->Location.Z != -1 && end->Location.Z != 0)
+		if (End->Location.Z != -1 && End->Location.Z != 0)
 		{
-			float heightDif = (float)abs((start->Location.Z) - end->Location.Z);
+			float heightDif = (float)abs((Start->Location.Z) - End->Location.Z);
 			if (heightDif <= STEP_HEIGHT)
 			{
-				Array.push_back(end);
+				ValidNeighbors.push_back(End);
 				return true;
 			}
 		}
@@ -249,6 +304,31 @@ bool UPathFinder::AddIfAvailable(GridEntityPtr & start, GridEntityPtr & end, std
 	}
 
 	return false;
+}
+
+void FPathFinder::EndThreadedTask()
+{
+	FString NewThreadName = "FPathFinder" + FString::FromInt(id);
+	if (m_bForceClose)
+	{
+		// UE_LOG(LogNotice, Warning, TEXT("<%s>: Trace canceling..."), *NewThreadName);
+	}
+
+	Stop();
+	m_Thread->WaitForCompletion();
+
+
+	m_Callback.ExecuteIfBound(m_bTargetFound, m_TargetPath);
+	// UE_LOG(LogNotice, Warning, TEXT("<%s>: Trace finished!"), *NewThreadName);
+	delete this;
+}
+
+void FPathFinder::ThreadOnly_SubmitEndEvent()
+{
+	AsyncTask(ENamedThreads::GameThread, [this]() {
+		// code to execute on game thread here
+		EndThreadedTask();
+	});
 }
 
 void GridEntry::SetParent(GridEntityPtr parent)

@@ -6,14 +6,21 @@
 #include "CoreMinimal.h"
 #include "Basics.h"
 #include "WorldGrid.h"
-#include "PathFinder.generated.h"
+#include "HAL/Runnable.h"
 
 /**
  * 
  */
 
+#define OCCUPIED_CELL_COST 400
+#define TRACE_RADIUS 15
+#define STEP_HEIGHT 76.2f
+
+
 typedef std::shared_ptr<struct GridEntry> GridEntityPtr;
 typedef std::vector<std::vector<GridEntityPtr>> GridDataList;
+
+DECLARE_DELEGATE_TwoParams(FPathFoundDelegate, bool, TArray<FVector>);
 
 struct GridEntry
 {
@@ -39,23 +46,46 @@ struct CompareEntities
 
 #define PRIORITY_QUEUE(T) std::priority_queue<T, std::vector<T>, CompareEntities>
 
-UCLASS()
-class ADVENTURE_API UPathFinder : public UBlueprintFunctionLibrary
+
+class ADVENTURE_API FPathFinder : public FRunnable
 {
-	GENERATED_BODY()
-	
+
 public:
 
-	UFUNCTION(BlueprintCallable, Category = "Path Finder")
-	static bool FindPath(AActor* Pawn, FVector Destination, TArray<FVector>& OutPath);
+	FPathFinder(const FVector& StartLocation, const FVector& Destination, UWorld* World, FPathFoundDelegate& Callback);
+
+	static FPathFinder* RequestFindPath(const FVector& StartLocation, const FVector& Destination, UWorld* World, FPathFoundDelegate& Callback);
+
+	void CancelRequest();
 
 private:
 
-	static TArray<FVector> TraceParentOwnership(GridEntityPtr begin, GridEntityPtr end, const FGridCoordinate& StartLocation);
-	static int GetDistance(const GridEntityPtr begin, const GridEntityPtr end);
-	static std::vector<GridEntityPtr> GetTraversableNeighbors(GridDataList GridData, GridEntityPtr Current, const FGridCoordinate& Dimensions, const FGridCoordinate& StartLocation, UWorld* World);
-	static FGridCoordinate TracePlayArea(GridDataList & GridData, FGridCoordinate Start, FGridCoordinate End, GridEntityPtr& StartPtr, GridEntityPtr& EndPtr);
-	static GridEntityPtr GetElementAt(int x, int y, GridDataList GridData, const FGridCoordinate& Dimensions);
-	static bool AddIfAvailable(GridEntityPtr& start, GridEntityPtr& end, std::vector<GridEntityPtr>& Array, const FGridCoordinate& StartLocation, UWorld* World);
+	bool m_bTargetFound;
+	int id;
+	UWorld* m_World;
+	FRunnableThread* m_Thread;
+	GridEntityPtr m_StartPtr;
+	GridEntityPtr m_EndPtr;
+	GridDataList m_GeneratedGridData;
+	FGridCoordinate m_Bounds;
+	FGridCoordinate m_StartLocation;
+	FGridCoordinate m_EndLocation;
+	TArray<FVector> m_TargetPath;
+	FPathFoundDelegate m_Callback;
+	FThreadSafeBool m_bForceClose;
+
+	virtual bool Init();
+	virtual uint32 Run();
+	virtual void Stop();
+
+	void TraceParentOwnership();
+	int GetDistance(const GridEntityPtr begin, const GridEntityPtr end);
+	std::vector<GridEntityPtr> GetTraversableNeighbors(GridEntityPtr Current);
+	FGridCoordinate TracePlayArea();
+	GridEntityPtr GetElementAt(int x, int y);
+	bool AddIfAvailable(GridEntityPtr& Start, GridEntityPtr& End, std::vector<GridEntityPtr>& ValidNeighbors);
+	void EndThreadedTask();
+
+	void ThreadOnly_SubmitEndEvent();
 
 };

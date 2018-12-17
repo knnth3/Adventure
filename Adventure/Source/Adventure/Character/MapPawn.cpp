@@ -13,11 +13,13 @@ AMapPawn::AMapPawn()
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicateMovement = false;
 	bPlayCelebrationAnim = false;
+	bWasPathingSucessfull = false;
 	bAttacking = false;
 	bMovePawn = false;
 	bRotatePawn = false;
 	bHasTarget = false;
 	bIsFrozen = false;
+	m_CurrentRequest = nullptr;
 	m_PawnID = -1;
 	m_CelebrationAnimIndex = 0;
 	m_AttackAnimIndex = 0;
@@ -269,23 +271,26 @@ void AMapPawn::ServerOnly_SetDestination(const FVector & Destination)
 		FVector CurrentLocation = GetActorLocation();
 		if (CurrentLocation != Destination)
 		{
-			TArray<FVector> Directions;
-			if (UPathFinder::FindPath(this, Destination, Directions))
+			if (m_CurrentRequest)
 			{
-				m_MoveQueue.clear();
-				for (auto& step : Directions)
-				{
-					m_MoveQueue.push_back(step);
-				}
+				m_CurrentRequest->CancelRequest();
+				m_CurrentRequest = nullptr;
+			}
 
-				FVector newDestination = m_MoveQueue.front();
-				m_MoveQueue.pop_front();
-				Multicast_SetActiveDestination(newDestination);
-			}
-			else
+			// b = c- a
+			FVector TravelVec = Destination - CurrentLocation;
+			FVector EndLocation = Destination;
+			if (TravelVec.Size() > (TRACE_RADIUS - 1) * CELL_STEP)
 			{
-				UE_LOG(LogNotice, Warning, TEXT("<Pawn_%i Movement>: No path found to (%i, %i, %i)"), GetPawnID(), Destination.X, Destination.Y, Destination.Z);
+				TravelVec.Normalize();
+				EndLocation = CurrentLocation + (TravelVec * (TRACE_RADIUS - 1) * CELL_STEP);
 			}
+
+			FPathFoundDelegate Callback;
+			Callback.BindUObject(this, &AMapPawn::OnNewPathRecieved);
+
+			m_FullDestination = Destination;
+			m_CurrentRequest = FPathFinder::RequestFindPath(GetActorLocation(), EndLocation, GetWorld(), Callback);
 		}
 	}
 }
@@ -403,9 +408,41 @@ void AMapPawn::MovePawn(float DeltaTime)
 			}
 			else
 			{
+				FGridCoordinate cur = currentLocation;
+				FGridCoordinate fin = m_FullDestination;
+				if (bWasPathingSucessfull && cur != fin)
+				{
+					// UE_LOG(LogNotice, Warning, TEXT("<Pawn_%i>: Attempting to finish pathing [ (%i, %i) to (%i, %i) ]"), GetPawnID(), fin.X, fin.Y, cur.X, cur.Y);
+					ServerOnly_SetDestination(m_FullDestination);
+				}
+				else
+				{
+					// UE_LOG(LogNotice, Warning, TEXT("<Pawn_%i>: Pathing has reached the final location!"), GetPawnID());
+					m_FullDestination = currentLocation;
+				}
 				bMovePawn = false;
 			}
 		}
+	}
+}
+
+void AMapPawn::OnNewPathRecieved(bool success, TArray<FVector> Path)
+{
+	// Make sure to let go of the request
+	m_CurrentRequest = nullptr;
+	bWasPathingSucessfull = success;
+	if (success)
+	{
+		m_MoveQueue.clear();
+		for (auto& step : Path)
+		{
+			m_MoveQueue.push_back(step);
+		}
+
+		FVector newDestination = m_MoveQueue.front();
+		m_MoveQueue.pop_front();
+		Multicast_SetActiveDestination(newDestination);
+
 	}
 }
 

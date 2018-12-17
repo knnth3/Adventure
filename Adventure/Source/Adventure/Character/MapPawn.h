@@ -155,15 +155,18 @@ private:
 	bool bAttacking;
 	bool bPlayCelebrationAnim;
 	bool bIsDead;
+	bool bWasPathingSucessfull;
 	int m_ClassIndex;
 	int m_CelebrationAnimIndex;
 	int m_AttackAnimIndex;
 
+	FVector m_FullDestination;
 	FVector m_ForwardVector;
 	FVector m_Destination;
 	FVector m_TargetedLocation;
 	FCameraSettings m_CameraSettings;
 	std::deque<FVector> m_MoveQueue;
+	class FPathFinder* m_CurrentRequest;
 
 	// Server Property/Functions
 	UPROPERTY(Replicated)
@@ -177,6 +180,7 @@ private:
 
 	void RotatePawn(float DeltaTime);
 	void MovePawn(float DeltaTime);
+	void OnNewPathRecieved(bool success, TArray<FVector> Path);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_SetActiveDestination(const FVector& Location);
