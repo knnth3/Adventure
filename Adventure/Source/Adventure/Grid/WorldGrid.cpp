@@ -145,22 +145,21 @@ bool AWorldGrid::ServerOnly_AddBlockingObject(uint8 ClassIndex, const FTransform
 	return false;
 }
 
-bool AWorldGrid::ServerOnly_RemoveBlockingObject(const FGridCoordinate& Location)
+bool AWorldGrid::ServerOnly_RemoveBlockingObjects(const TArray<FVector>& EditBoxVertices)
 {
-	//if (ContainsCoordinate(Location.X, Location.Y))
-	//{
-	//	if (m_Grid[Location.X][Location.Y]->GetObjectType() == GRID_OBJECT_TYPE::INTERACTABLE)
-	//	{
-	//		AActor* object = m_Grid[Location.X][Location.Y]->RemoveObject();
-	//		if (object)
-	//		{
-	//			object->Destroy();
-	//			return true;
-	//		}
-	//	}
-	//}
+	for (const auto& index : m_UsedObjectIndices)
+	{
+		auto InstancedMesh = GetObjectInstanceMesh(index);
+		if (InstancedMesh)
+		{
+			TArray<int32> indexArray = InstancedMesh->GetInstancesOverlappingBox(FBox(EditBoxVertices), true);
 
-	return false;
+			// Remove all found instances
+			InstancedMesh->RemoveInstances(indexArray);
+		}
+	}
+
+	return true;
 }
 
 bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Location, int OwningPlayerID)

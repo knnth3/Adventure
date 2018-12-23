@@ -258,7 +258,7 @@ void AConnectedPlayer::SetCameraToCharacter()
 
 void AConnectedPlayer::Server_KillPawn_Implementation(const int PawnID, const FVector & PawnLocation)
 {
-	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
+	APS_Multiplayer* state = Cast<APS_Multiplayer>(GetPlayerState());
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{
@@ -277,7 +277,7 @@ bool AConnectedPlayer::Server_KillPawn_Validate(const int PawnID, const FVector 
 
 void AConnectedPlayer::Server_PawnAttack_Implementation(int AttackIndex, const int PawnID, const FVector & PawnLocation, const FVector& TargetLocation)
 {
-	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
+	APS_Multiplayer* state = Cast<APS_Multiplayer>(GetPlayerState());
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{
@@ -296,7 +296,7 @@ bool AConnectedPlayer::Server_PawnAttack_Validate(int AttackIndex, const int Paw
 
 void AConnectedPlayer::Server_MovePlayer_Implementation(const int PawnID, const FVector& Location, const FVector& Destination)
 {
-	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
+	APS_Multiplayer* state = Cast<APS_Multiplayer>(GetPlayerState());
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{
@@ -337,7 +337,7 @@ bool AConnectedPlayer::Server_ClearPawnTargetLocation_Validate()
 
 void AConnectedPlayer::Server_PlayPawnCelebrationAnimation_Implementation(int AnimationIndex, const int PawnID, const FVector& PawnLocation)
 {
-	APS_Multiplayer* state = Cast<APS_Multiplayer>(PlayerState);
+	APS_Multiplayer* state = Cast<APS_Multiplayer>(GetPlayerState());
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{

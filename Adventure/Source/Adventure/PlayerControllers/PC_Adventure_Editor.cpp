@@ -33,9 +33,6 @@ bool APC_Adventure_Editor::RequestDeleteObject(GRID_OBJECT_TYPE Type, const FGri
 	{
 		switch (Type)
 		{
-		case GRID_OBJECT_TYPE::INTERACTABLE:
-			Success = GridItr->ServerOnly_RemoveBlockingObject(Location);
-			break;
 		case GRID_OBJECT_TYPE::PAWN:
 			Success = GridItr->ServerOnly_RemovePawn(Location, ID);
 			break;

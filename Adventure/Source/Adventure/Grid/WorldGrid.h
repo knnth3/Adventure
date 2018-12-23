@@ -52,7 +52,7 @@ public:
 	bool ServerOnly_AddBlockingObject(uint8 ClassIndex, const FTransform & transform);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
-	bool ServerOnly_RemoveBlockingObject(const FGridCoordinate& Location);
+	bool ServerOnly_RemoveBlockingObjects(const TArray<FVector>& EditBoxVertices);
 
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Location, int OwningPlayerID);
