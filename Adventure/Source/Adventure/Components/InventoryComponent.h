@@ -1,40 +1,58 @@
-// By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
+// By: Eric Marquez. All information and code provided is free to use and can be used comercially. Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
 
 #pragma once
 
 #include <map>
+#include "DataTables/InventoryDatabase.h"
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "InventoryComponent.generated.h"
 
 USTRUCT(BlueprintType)
-struct FInventoryObjectEntry
-{
-	GENERATED_BODY()
+struct FConsumable
 
-	UPROPERTY(BlueprintReadWrite)
-	uint8 ObjectEnum;
-
-	UPROPERTY(BlueprintReadWrite)
-	int Count;
-
-};
-
-USTRUCT(BlueprintType)
-struct FCustomInventoryObjectEntry
 {
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadWrite)
 	FName Name;
-	UPROPERTY(BlueprintReadWrite)
-	int Count;
 
 	UPROPERTY(BlueprintReadWrite)
 	int Weight;
 
 	UPROPERTY(BlueprintReadWrite)
 	FString Description;
+
+	UPROPERTY(BlueprintReadWrite)
+	int Quantity;
+
+	UPROPERTY(BlueprintReadWrite)
+	int HealthBonus;
+
+	UPROPERTY(BlueprintReadWrite)
+	int VisualIndex;
+
+};
+
+USTRUCT(BlueprintType)
+struct FWeapon
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	FName Name;
+
+	UPROPERTY(BlueprintReadWrite)
+	int Weight;
+
+	UPROPERTY(BlueprintReadWrite)
+	FString Description;
+
+	UPROPERTY(BlueprintReadWrite)
+	int Quantity;
+
+	UPROPERTY(BlueprintReadWrite)
+	int VisualIndex;
 
 };
 
@@ -47,23 +65,31 @@ public:
 	// Sets default values for this component's properties
 	UInventoryComponent();
 
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool AddObject(uint8 objectEnum, int quantity);
+	void AttatchStatistics(class UStatisticsComponent* Statistics);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool RemoveObject(uint8 objectEnum, int quantity);
+	bool AddConsumable(const FConsumable& ConsumableInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool AddCustomObject(FCustomInventoryObjectEntry object);
+	bool AddWeapon(const FWeapon& WeaponInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool RemoveCustomObject(FName name, int quantity);
+	void AddCurrency(int Gold, int Silver, int Copper);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool EquipObject(uint8 objectEnum, bool bInMainHand = true);
+	bool RemoveConsumable(const FName& Name, int Quantity);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	void UnequipObject(bool inRightHand = true);
+	bool RemoveWeapon(const FName& Name, int Quantity);
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	void RemoveCurrency(int Gold, int Silver, int Copper);
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	bool EquipWeapon(FName Name, bool bInMainHand = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	void UnequipWeapon(bool inRightHand = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	int GetObjectCount(uint8 objectEnum)const;
@@ -78,57 +104,52 @@ public:
 	void SetCarryCapacity(int newCapacity);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	TArray<FInventoryObjectEntry> GetInventory() const;
+	TArray<FWeapon> GetWeapons() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	TArray<FCustomInventoryObjectEntry> GetCustomInventoryObjects() const;
+	TArray<FConsumable> GetConsumables() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool GetCustomInventoryObject(FName Name, FCustomInventoryObjectEntry& object) const;
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Startup Settings")
+	FName RHandSocketName;
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Startup Settings")
+	FName LHandSocketName;
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Startup Settings")
+	FName SkeletalMeshTag;
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Startup Settings")
+	bool bIsLeftHanded;
 
 protected:
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Events")
-	void OnObjectEquiped(uint8 objectEnum, bool bInMainHand);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Events")
-	void OnObjectUnequiped(bool bInMainHand);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Events")
-	void OnObjectAdded(uint8 objectEnum);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Events")
-	void OnObjectRemoved(uint8 objectEnum);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Events")
-	void OnCustomObjectAdded(FName Name);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Events")
-	void OnCustomObjectRemoved(FName Name);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Inventory Events")
-	void OnBecomeOverburdened(bool newState);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Inventory Object Events")
-	void QueryObjectWeight(int& weight, uint8 objectEnum) const;
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Inventory Object Events")
-	void QueryObjectCategory(uint8& objectClassEnum, uint8 objectEnum) const;
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Inventory Object Events")
-	void QueryObjectInfo(int& weight, uint8& objectClassEnum, uint8 objectEnum) const;
+	// Called when the game starts
+	virtual void BeginPlay() override;
 
 private:
 
-	bool ContainsObject(uint8 objectEnum) const;
-	bool ContainsCustomObject(FName name) const;
+	void OnObjectEquiped(EItemCategory Category, uint8 ItemID, bool bInMainHand);
 
+	void OnObjectUnequiped(bool bInMainHand);
+
+	void OnOverburdenedStateChanged();
+
+	bool ContainsObject(EItemCategory Category, const FName Name) const;
+	bool AddWeight(int deltaWeight);
+
+	int m_Gold;
+	int m_Silver;
+	int m_Copper;
 	bool m_bOverburdened;
-	int m_MaxWeight;
-	int m_CurrentWeight;
-	int m_MainHandObject;
-	int m_OffHandObject;
-	std::map<uint8, int> m_InventoryObjects;
-	std::map<FName, FCustomInventoryObjectEntry> m_CustomInventoryObjects;
+	uint32 m_MaxWeight;
+	uint32 m_CurrentWeight;
+	FName m_MainHandObject;
+	FName m_OffHandObject;
+	class AHeldObject* m_RightHandObject;
+	class AHeldObject* m_LeftHandObject;
+	class UStatisticsComponent* m_Stats;
+	class USkeletalMeshComponent* m_SkeletalMesh;
+	TMap<FName, FConsumable> m_Consumables;
+	TMap<FName, FWeapon> m_Weapons;
 
 };

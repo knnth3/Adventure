@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Basics.h"
-#include "MapPawnStatSheet.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "ConnectedPlayer.generated.h"
@@ -77,7 +76,7 @@ protected:
 	bool GetSelectedActorLocation(FVector& Location) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	bool GetSelectedActorStats(FMapPawnStatSheet& Stats) const;
+	class UStatisticsComponent* GetSelectedActorStats()const;
 
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	int GetSpectatingPawnID() const;

@@ -1,6 +1,10 @@
 // By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
 
 #include "InventoryComponent.h"
+#include "StatisticsComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "GameFramework/Actor.h"
+#include "Adventure.h"
 
 
 // Sets default values for this component's properties
@@ -10,256 +14,344 @@ UInventoryComponent::UInventoryComponent()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
 	m_bOverburdened = false;
-	m_MainHandObject = -1;
-	m_OffHandObject = -1;
-	// ...
+	m_Stats = nullptr;
+	m_SkeletalMesh = nullptr;
+	m_RightHandObject = nullptr;
+	m_LeftHandObject = nullptr;
+	m_Gold = 0;
+	m_Silver = 0;
+	m_Copper = 0;
+	m_CurrentWeight = 0;
+	m_MaxWeight = 100;
+	m_bOverburdened = false;
 }
 
-bool UInventoryComponent::ContainsObject(uint8 objectEnum) const
+// Attaches the Statistics component to be able to make stat changes
+void UInventoryComponent::AttatchStatistics(UStatisticsComponent * Statistics)
 {
-	return (m_InventoryObjects.find(objectEnum) != m_InventoryObjects.end());
+	m_Stats = Statistics;
 }
 
-bool UInventoryComponent::ContainsCustomObject(FName name) const
+bool UInventoryComponent::AddConsumable(const FConsumable & ConsumableInfo)
 {
-	return (m_CustomInventoryObjects.find(name) != m_CustomInventoryObjects.end());
-}
-
-bool UInventoryComponent::AddObject(uint8 objectEnum, int quantity)
-{
-	int weight = 0;
-	QueryObjectWeight(weight, objectEnum);
-
-	int canAddNumber = quantity;
-
-	if (weight > 0)
+	// Item is found
+	if (AddWeight(ConsumableInfo.Weight * ConsumableInfo.Quantity))
 	{
-		canAddNumber = (m_MaxWeight - m_CurrentWeight) / weight;
-		canAddNumber = (canAddNumber > quantity) ? quantity : canAddNumber;
-	}
-
-	if (canAddNumber > 0)
-	{
-		m_CurrentWeight += weight * canAddNumber;
-
-		if (!ContainsObject(objectEnum))
+		if (ContainsObject(EItemCategory::CONSUMABLE, ConsumableInfo.Name))
 		{
-			m_InventoryObjects[objectEnum] = canAddNumber;
-		}
-		else
-		{
-			m_InventoryObjects[objectEnum] += canAddNumber;
-		}
-
-		OnObjectAdded(objectEnum);
-
-		return true;
-	}
-
-	return false;
-}
-
-bool UInventoryComponent::RemoveObject(uint8 objectEnum, int quantity)
-{
-	if (ContainsObject(objectEnum))
-	{
-		int canRemoveNumber = (m_InventoryObjects[objectEnum] > quantity) ? quantity : m_InventoryObjects[objectEnum];
-
-		int weight = 0;
-		QueryObjectWeight(weight, objectEnum);
-
-		m_CurrentWeight -= weight * canRemoveNumber;
-
-		m_InventoryObjects[objectEnum] -= canRemoveNumber;
-
-		OnObjectRemoved(objectEnum);
-		return true;
-	}
-
-	return false;
-}
-
-bool UInventoryComponent::AddCustomObject(FCustomInventoryObjectEntry object)
-{
-	int canAddNumber = object.Count;
-
-	if (object.Weight > 0)
-	{
-		canAddNumber = (m_MaxWeight - m_CurrentWeight) / object.Weight;
-		canAddNumber = (canAddNumber > object.Count) ? object.Count : canAddNumber;
-	}
-
-	if (canAddNumber > 0)
-	{
-		m_CurrentWeight += object.Weight * canAddNumber;
-
-		if (!ContainsCustomObject(object.Name))
-		{
-			m_CustomInventoryObjects[object.Name] = object;
-			m_CustomInventoryObjects[object.Name].Count = canAddNumber;
-		}
-		else
-		{
-			m_CustomInventoryObjects[object.Name].Count += canAddNumber;
-		}
-
-		OnCustomObjectAdded(object.Name);
-
-		return true;
-	}
-
-	return false;
-}
-
-bool UInventoryComponent::RemoveCustomObject(FName name, int quantity)
-{
-	if (ContainsCustomObject(name))
-	{
-		int canRemoveNumber = (m_CustomInventoryObjects[name].Count > quantity) ? quantity : m_CustomInventoryObjects[name].Count;
-
-		m_CurrentWeight -= m_CustomInventoryObjects[name].Weight * canRemoveNumber;
-
-		m_CustomInventoryObjects[name].Count -= canRemoveNumber;
-
-		OnCustomObjectRemoved(name);
-		return true;
-	}
-
-	return false;
-}
-
-bool UInventoryComponent::EquipObject(uint8 objectEnum, bool bInMainHand)
-{
-	if (ContainsObject(objectEnum))
-	{
-		if (m_InventoryObjects[objectEnum] > 0)
-		{
-			m_InventoryObjects[objectEnum]--;
-
-			if (bInMainHand)
-			{
-				if (m_MainHandObject != -1)
-				{
-					m_InventoryObjects[m_MainHandObject]++;
-				}
-
-				m_MainHandObject = objectEnum;
-			}
-			else
-			{
-				if (m_OffHandObject != -1)
-				{
-					m_InventoryObjects[m_OffHandObject]++;
-				}
-
-				m_OffHandObject = objectEnum;
-			}
-
-			OnObjectEquiped(objectEnum, bInMainHand);
-
+			m_Consumables[ConsumableInfo.Name].Quantity += ConsumableInfo.Quantity;
 			return true;
 		}
-		
+		else
+		{
+			m_Consumables.Emplace(ConsumableInfo.Name, ConsumableInfo);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UInventoryComponent::AddWeapon(const FWeapon & WeaponInfo)
+{
+	// Item is found
+	if (AddWeight(WeaponInfo.Weight * WeaponInfo.Quantity))
+	{
+		if (ContainsObject(EItemCategory::WEAPON, WeaponInfo.Name))
+		{
+			m_Weapons[WeaponInfo.Name].Quantity += WeaponInfo.Quantity;
+			return true;
+		}
+		else
+		{
+			m_Weapons.Emplace(WeaponInfo.Name, WeaponInfo);
+			return true;
+		}
+	}
+	return false;
+}
+
+void UInventoryComponent::AddCurrency(int Gold, int Silver, int Copper)
+{
+	m_Gold += Gold;
+	m_Silver += Silver;
+	m_Copper += Copper;
+}
+
+bool UInventoryComponent::RemoveConsumable(const FName & Name, int Quantity)
+{
+	// Item is found
+	if (ContainsObject(EItemCategory::CONSUMABLE, Name))
+	{
+		if (m_Consumables[Name].Quantity == 1)
+		{
+			m_Consumables.Remove(Name);
+		}
+		else
+		{
+			m_Consumables[Name].Quantity--;
+		}
+
+		AddWeight(m_Consumables[Name].Weight * Quantity * -1);
+		return true;
 	}
 
 	return false;
 }
 
-void UInventoryComponent::UnequipObject(bool bInMainHand)
+bool UInventoryComponent::RemoveWeapon(const FName & Name, int Quantity)
+{
+	// Item is found
+	if (ContainsObject(EItemCategory::WEAPON, Name))
+	{
+		if (m_Weapons[Name].Quantity == 1)
+		{
+			m_Weapons.Remove(Name);
+		}
+		else
+		{
+			m_Weapons[Name].Quantity--;
+		}
+
+		AddWeight(m_Weapons[Name].Weight * Quantity * -1);
+		return true;
+	}
+
+	return false;
+}
+
+void UInventoryComponent::RemoveCurrency(int Gold, int Silver, int Copper)
+{
+	m_Gold = FMath::Max(0, m_Gold - Gold);
+	m_Silver = FMath::Max(0, m_Silver - Silver);
+	m_Copper = FMath::Max(0, m_Copper - Copper);
+}
+
+// Equips object if found in inventory
+bool UInventoryComponent::EquipWeapon(FName Name, bool bInMainHand)
+{
+	if (ContainsObject(EItemCategory::WEAPON, Name))
+	{
+		m_Weapons[Name].Quantity--;
+		UnequipWeapon(bInMainHand);
+
+		if (bInMainHand)
+			m_MainHandObject = Name;
+		else
+			m_OffHandObject = Name;
+
+
+		OnObjectEquiped(EItemCategory::WEAPON, m_Weapons[Name].VisualIndex, bInMainHand);
+
+		return true;
+	}
+
+	return false;
+}
+
+// Unequips object and stores back into inventory
+void UInventoryComponent::UnequipWeapon(bool bInMainHand)
 {
 	if (bInMainHand)
 	{
-		if (m_MainHandObject != -1)
+		if (m_MainHandObject != "")
 		{
-			m_InventoryObjects[m_MainHandObject]++;
+			m_Weapons[m_MainHandObject].Quantity++;
 		}
 
-		m_MainHandObject = -1;
+		m_MainHandObject = TEXT("");
 	}
 	else
 	{
-		if (m_OffHandObject != -1)
+		if (m_OffHandObject != "")
 		{
-			m_InventoryObjects[m_OffHandObject]++;
+			m_Weapons[m_OffHandObject].Quantity++;
 		}
 
-		m_OffHandObject = -1;
+		m_OffHandObject = TEXT("");
 	}
 
 	OnObjectUnequiped(bInMainHand);
 }
 
+// Gets the number of objects held
 int UInventoryComponent::GetObjectCount(uint8 objectEnum) const
 {
 	return 0;
 }
 
+// Gets the max weight
 int UInventoryComponent::GetCarryCapacity() const
 {
 	return m_MaxWeight;
 }
 
+// Gets the current weight
 int UInventoryComponent::GetCurrentCarryWeight() const
 {
 	return m_CurrentWeight;
 }
 
+// Sets the carry weight capacity
 void UInventoryComponent::SetCarryCapacity(int newCapacity)
 {
 
-	bool nowOverburdened = (m_CurrentWeight > newCapacity);
+	bool nowOverburdened = ((int)m_CurrentWeight > newCapacity);
 	if (m_bOverburdened != nowOverburdened)
 	{
 		m_bOverburdened = nowOverburdened;
 		m_MaxWeight = newCapacity;
-		OnBecomeOverburdened(m_bOverburdened);
+		OnOverburdenedStateChanged();
 
 	}
 }
 
-TArray<FInventoryObjectEntry> UInventoryComponent::GetInventory() const
+// Gets all objects in inventory
+TArray<FWeapon> UInventoryComponent::GetWeapons() const
 {
-	TArray<FInventoryObjectEntry> Objects;
-	for (const auto& object : m_InventoryObjects)
+	TArray<FWeapon> Objects;
+	for (const auto& object : m_Weapons)
 	{
-		FInventoryObjectEntry newObject;
-		newObject.ObjectEnum = object.first;
-		newObject.Count = object.second;
-
-		Objects.Add(newObject);
+		Objects.Add(object.Value);
 	}
+
 	return Objects;
 }
 
-TArray<FCustomInventoryObjectEntry> UInventoryComponent::GetCustomInventoryObjects() const
+TArray<FConsumable> UInventoryComponent::GetConsumables() const
 {
-	TArray<FCustomInventoryObjectEntry> Objects;
-	for (const auto& object : m_CustomInventoryObjects)
+	TArray<FConsumable> Objects;
+	for (const auto& object : m_Consumables)
 	{
-		Objects.Add(object.second);
+		Objects.Add(object.Value);
 	}
+
 	return Objects;
 }
 
-bool UInventoryComponent::GetCustomInventoryObject(FName Name, FCustomInventoryObjectEntry& object) const
+void UInventoryComponent::BeginPlay()
 {
-	if (m_CustomInventoryObjects.find(Name) != m_CustomInventoryObjects.end())
+	Super::BeginPlay();
+
+	AActor* Owner = GetOwner();
+	if (Owner)
 	{
-		object = m_CustomInventoryObjects.at(Name);
-		return true;
+
+		TArray<UActorComponent*> SkeletalMesh = Owner->GetComponentsByTag(USkeletalMeshComponent::StaticClass(), SkeletalMeshTag);
+		if (SkeletalMesh.Num() != 0)
+		{
+			m_SkeletalMesh = Cast<USkeletalMeshComponent>(SkeletalMesh[0]);
+		}
+		else
+		{
+			UE_LOG(LogNotice, Error, TEXT("<InventoryComponent>: Failed to find skeletal mesh with tag %s"), *SkeletalMeshTag.ToString());
+		}
+	}
+}
+
+void UInventoryComponent::OnObjectEquiped(EItemCategory Category, uint8 ItemIndex, bool bInMainHand)
+{
+	if (m_SkeletalMesh)
+	{
+		FInventoryItem Item;
+		if (UInventoryDatabase::GetInventoryItem(Category, ItemIndex, Item))
+		{
+			if (Item.Class)
+			{
+				FActorSpawnParameters params;
+				params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				FTransform ObjectTransform(FRotator::ZeroRotator, FVector::ZeroVector);
+				AHeldObject* HeldObject = Cast<AHeldObject>(GetWorld()->SpawnActor(Item.Class, &ObjectTransform, params));
+				if (HeldObject)
+				{
+					FAttachmentTransformRules rules(
+						EAttachmentRule::SnapToTarget, 
+						EAttachmentRule::SnapToTarget,
+						EAttachmentRule::SnapToTarget,
+						true);
+
+					// Attatching to right hand
+					if ((bInMainHand && !bIsLeftHanded) || (!bInMainHand && bIsLeftHanded))
+					{
+						m_RightHandObject = HeldObject;
+						m_RightHandObject->AttachToComponent(m_SkeletalMesh, rules, RHandSocketName);
+
+					}
+					else // Attatching to left hand
+					{
+						m_LeftHandObject = HeldObject;
+						m_LeftHandObject->AttachToComponent(m_SkeletalMesh, rules, LHandSocketName);
+					}
+				}
+				else
+				{
+					UE_LOG(LogNotice, Warning, TEXT("<InventoryComponent>: Failed to spawn weapon."));
+				}
+			}
+			else
+			{
+				UE_LOG(LogNotice, Warning, TEXT("<InventoryComponent>: Attempted to wield %s but no visual class was found."), *Item.Name.ToString());
+			}
+		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("<InventoryComponent>: No Visual weapon with index %i exists. Object spawn failed."), ItemIndex);
+		}
+	}
+}
+
+void UInventoryComponent::OnObjectUnequiped(bool bInMainHand)
+{
+	// Detaching from right hand
+	if ((bInMainHand && !bIsLeftHanded) || (!bInMainHand && bIsLeftHanded))
+	{
+		if (m_RightHandObject)
+		{
+			m_RightHandObject->Destroy();
+			m_RightHandObject = nullptr;
+		}
+
+	}
+	else // Detaching from left hand
+	{
+		if (m_LeftHandObject)
+		{
+			m_LeftHandObject->Destroy();
+			m_LeftHandObject = nullptr;
+		}
+	}
+}
+
+void UInventoryComponent::OnOverburdenedStateChanged()
+{
+}
+
+// Searches through inventory to find a given object
+bool UInventoryComponent::ContainsObject(EItemCategory Category, const FName Name) const
+{
+	bool result = false;
+	switch (Category)
+	{
+	case EItemCategory::WEAPON:
+		if (m_Weapons.Contains(Name))
+			result = (bool)m_Weapons[Name].Quantity;
+		break;
+	case EItemCategory::CONSUMABLE:
+		if (m_Consumables.Contains(Name))
+			result = (bool)m_Consumables[Name].Quantity;
+		break;
+	default:
+		break;
 	}
 
-	return false;
+	return result;
 }
 
-void UInventoryComponent::QueryObjectWeight_Implementation(int & weight, uint8 objectEnum) const
+bool UInventoryComponent::AddWeight(int deltaWeight)
 {
-}
+	bool ovrbrden = (m_MaxWeight) ? m_CurrentWeight + deltaWeight > m_MaxWeight : false;
+	if (ovrbrden != m_bOverburdened)
+		OnOverburdenedStateChanged();
 
-void UInventoryComponent::QueryObjectCategory_Implementation(uint8 & objectClassEnum, uint8 objectEnum) const
-{
-}
-
-void UInventoryComponent::QueryObjectInfo_Implementation(int & weight, uint8 & objectClassEnum, uint8 objectEnum) const
-{
+	m_CurrentWeight += deltaWeight;
+	return true;
 }

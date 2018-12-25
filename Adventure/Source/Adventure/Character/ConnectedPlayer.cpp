@@ -9,6 +9,8 @@
 #include "GameStates/GS_Multiplayer.h"
 #include "PlayerStates/PS_Multiplayer.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/StatisticsComponent.h"
+#include "Components/InteractionInterfaceComponent.h"
 
 // Sets default values
 AConnectedPlayer::AConnectedPlayer()
@@ -160,15 +162,14 @@ bool AConnectedPlayer::GetSelectedActorLocation(FVector& Location) const
 	return false;
 }
 
-bool AConnectedPlayer::GetSelectedActorStats(FMapPawnStatSheet & Stats) const
+UStatisticsComponent* AConnectedPlayer::GetSelectedActorStats() const
 {
 	if (m_SelectedPawn)
 	{
-		Stats = m_SelectedPawn->GetStatSheet();
-		return true;
+		return m_SelectedPawn->GetStats();
 	}
 
-	return false;
+	return nullptr;
 }
 
 int AConnectedPlayer::GetSpectatingPawnID() const
@@ -265,7 +266,7 @@ void AConnectedPlayer::Server_KillPawn_Implementation(const int PawnID, const FV
 		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(PawnLocation, PawnID);
 		if (pawn && state && (state->GetGameID() == 0 || state->GetGameID() == pawn->GetOwnerID()))
 		{
-			pawn->KillPawn();
+			pawn->GetStats()->SetCurrentAction(PAWN_ACTION::DEAD);
 		}
 	}
 }
@@ -284,7 +285,7 @@ void AConnectedPlayer::Server_PawnAttack_Implementation(int AttackIndex, const i
 		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(PawnLocation, PawnID);
 		if (pawn && state && (state->GetGameID() == 0 || state->GetGameID() == pawn->GetOwnerID()))
 		{
-			pawn->Attack(AttackIndex, TargetLocation);
+			pawn->GetInteractionInterface()->Attack(AttackIndex, TargetLocation);
 		}
 	}
 }
@@ -344,7 +345,7 @@ void AConnectedPlayer::Server_PlayPawnCelebrationAnimation_Implementation(int An
 		AMapPawn* pawn = WorldGrid->ServerOnly_GetPawn(PawnLocation, PawnID);
 		if (pawn && state && (state->GetGameID() == 0 || state->GetGameID() == pawn->GetOwnerID()))
 		{
-			pawn->Celebrate(AnimationIndex);
+			pawn->GetInteractionInterface()->Celebrate(AnimationIndex);
 		}
 	}
 }

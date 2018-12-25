@@ -5,6 +5,10 @@
 #include "Adventure.h"
 #include "MapPawnComponent_Head.h"
 #include "Grid/PathFinder.h"
+#include "Components/StatisticsComponent.h"
+#include "Components/InventoryComponent.h"
+#include "Components/HoverArrowComponent.h"
+#include "Components/InteractionInterfaceComponent.h"
 
 // Sets default values
 AMapPawn::AMapPawn()
@@ -12,13 +16,9 @@ AMapPawn::AMapPawn()
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicateMovement = false;
-	bPlayCelebrationAnim = false;
 	bWasPathingSucessfull = false;
-	bAttacking = false;
-	bMovePawn = false;
 	bRotatePawn = false;
 	bHasTarget = false;
-	bIsFrozen = false;
 	m_CurrentRequest = nullptr;
 	m_PawnID = -1;
 	m_CelebrationAnimIndex = 0;
@@ -46,9 +46,19 @@ AMapPawn::AMapPawn()
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
-	//Create a static mesh component
+	//Create the base scene component
 	Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Focus"));
 	RootComponent = Scene;
+
+	// Create a Statistics Component
+	Statistics = CreateDefaultSubobject<UStatisticsComponent>(TEXT("Pawn Stats"));
+
+	// Create an Inventory Component
+	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
+	Inventory->AttatchStatistics(Statistics);
+
+	// Create an Attack Interface Component
+	InteractionInterface = CreateDefaultSubobject<UInteractionInterfaceComponent>(TEXT("Interaction Interface"));
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -77,7 +87,6 @@ void AMapPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetime
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AMapPawn, m_StatSheet);
 	DOREPLIFETIME(AMapPawn, m_PawnID);
 	DOREPLIFETIME(AMapPawn, m_OwnerID);
 
@@ -93,36 +102,14 @@ void AMapPawn::BeginPlay()
 
 	if (HasAuthority())
 	{
-		FRandomStream rand;
-		rand.GenerateNewSeed();
-		m_StatSheet.Name = m_StatSheet.Name + FString::FromInt(rand.FRandRange(0, 100));
+		Statistics->SetCharacterName(TEXT("Alfie"));
 		m_PawnID = GetNewID();
 	}
-}
-
-int AMapPawn::GetClassIndex_Implementation() const
-{
-	return m_ClassIndex;
-}
-
-int AMapPawn::GetObjectID_Implementation() const
-{
-	return GetPawnID();
 }
 
 void AMapPawn::ServerOnly_SetClassIndex(const int Index)
 {
 	m_ClassIndex = Index;
-}
-
-void AMapPawn::OnCelebrationAnimEnd()
-{
-	bPlayCelebrationAnim = false;
-}
-
-void AMapPawn::OnAttackAnimEnd()
-{
-	bAttacking = false;
 }
 
 void AMapPawn::ServerOnly_SetOwnerID(const int ID)
@@ -147,12 +134,6 @@ void AMapPawn::Tick(float DeltaTime)
 	}
 }
 
-// Called to bind functionality to input
-void AMapPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-}
-
 int AMapPawn::GetPawnID() const
 {
 	return m_PawnID;
@@ -168,50 +149,9 @@ const FVector AMapPawn::GetCameraLocation() const
 	return FollowCamera->GetComponentLocation();
 }
 
-FMapPawnStatSheet AMapPawn::GetStatSheet() const
-{
-	return m_StatSheet;
-}
-
 bool AMapPawn::IsMoving() const
 {
-	return bMovePawn;
-}
-
-bool AMapPawn::IsCelebrating() const
-{
-	return bPlayCelebrationAnim;
-}
-
-bool AMapPawn::IsAttacking() const
-{
-	return bAttacking;
-}
-
-bool AMapPawn::IsDead() const
-{
-	return bIsDead;
-}
-
-void AMapPawn::Celebrate(int AnimationIndex)
-{
-	if (!IsMoving() && !bIsFrozen && !bPlayCelebrationAnim && !bAttacking)
-	{
-		Multicast_Celebrate(AnimationIndex);
-	}
-}
-
-void AMapPawn::Attack(int AttackIndex, const FVector& TargetLocation)
-{
-	if (!IsMoving() && !bIsFrozen && !bPlayCelebrationAnim && !bAttacking)
-	{
-		Multicast_Attack(AttackIndex, TargetLocation);
-	}
-}
-
-void AMapPawn::KillPawn()
-{
-	Multicast_KillPawn();
+	return Statistics->GetCurrentAction() == PAWN_ACTION::MOVING;
 }
 
 void AMapPawn::RotateCameraPitch(const float & AxisValue, const float & DeltaTime)
@@ -266,7 +206,7 @@ void AMapPawn::ZoomCamera(const float & AxisValue, const float & DeltaTime)
 
 void AMapPawn::ServerOnly_SetDestination(const FVector & Destination)
 {
-	if (HasAuthority() && !bIsDead && !bIsFrozen && !bAttacking && !bPlayCelebrationAnim)
+	if (HasAuthority() && (Statistics->GetCurrentAction() == PAWN_ACTION::NONE || Statistics->GetCurrentAction() == PAWN_ACTION::MOVING))
 	{
 		FVector CurrentLocation = GetActorLocation();
 		if (CurrentLocation != Destination)
@@ -308,17 +248,6 @@ void AMapPawn::ServerOnly_SetTargetLocation(const FVector& Location)
 	}
 }
 
-void AMapPawn::ServerOnly_SetStatusEffect(int EffectID)
-{
-	m_StatSheet.StatusEffect = EffectID;
-	Multicast_ApplyNewStatus(EffectID);
-}
-
-void AMapPawn::ServerOnly_SetEquipedWeaponType(WEAPON_TYPE type)
-{
-	m_StatSheet.EquipedWeaponType = type;
-}
-
 FVector AMapPawn::ServerOnly_GetDesiredForwardVector() const
 {
 	return m_ForwardVector;
@@ -334,9 +263,24 @@ void AMapPawn::SetFocusToPawn(float TransitionTime)
 	}
 }
 
+UStatisticsComponent * AMapPawn::GetStats()const
+{
+	return Statistics;
+}
+
+UInventoryComponent * AMapPawn::GetInventory()const
+{
+	return Inventory;
+}
+
+UInteractionInterfaceComponent * AMapPawn::GetInteractionInterface()const
+{
+	return InteractionInterface;
+}
+
 void AMapPawn::RotatePawn(float DeltaTime)
 {
-	if (bRotatePawn && !bIsFrozen)
+	if (bRotatePawn && Statistics->GetCurrentStatusEffect() != STATUS_EFFECT::FROZEN)
 	{
 		// Rotate towards path
 		FVector currentForward = GetActorForwardVector();
@@ -346,7 +290,7 @@ void AMapPawn::RotatePawn(float DeltaTime)
 		float mag = FVector::Distance(currentForward, FVector(0.0f)) * FVector::Distance(m_ForwardVector, FVector(0.0f));
 		float angle = FMath::RadiansToDegrees(FMath::Acos(dot / mag));
 
-		float w = DeltaTime * GetStatSheet().MoveSpeed * 0.5;
+		float w = DeltaTime * Statistics->GetMoveSpeed() * 0.5;
 
 		if (angle > 1.0f)
 		{
@@ -367,7 +311,14 @@ void AMapPawn::RotatePawn(float DeltaTime)
 
 void AMapPawn::MovePawn(float DeltaTime)
 {
-	if (bIsDead)
+	if (Statistics->GetCurrentStatusEffect() == STATUS_EFFECT::FROZEN)
+	{
+		if (!m_MoveQueue.empty())
+		{
+			m_MoveQueue.clear();
+		}
+	}
+	else if (Statistics->GetCurrentAction() != PAWN_ACTION::MOVING)
 	{
 		if (m_Destination != GetActorLocation())
 		{
@@ -375,20 +326,14 @@ void AMapPawn::MovePawn(float DeltaTime)
 			m_Destination = GetActorLocation();
 		}
 	}
-	else if (bIsFrozen)
-	{
-		if (!m_MoveQueue.empty())
-		{
-			m_MoveQueue.clear();
-		}
-	}
-	else if (bMovePawn)
+	else
 	{
 		FVector currentLocation = GetActorLocation();
 		FVector finalLocation = m_Destination;
 		FVector TravelVector = finalLocation - currentLocation;
 
-		float v = DeltaTime * Conversions::Feet::ToCentimeters(GetStatSheet().MoveSpeed) * 0.5;
+		float moveSpeed = Statistics->GetMoveSpeed();
+		float v = DeltaTime * Conversions::Feet::ToCentimeters(moveSpeed) * 0.5;
 		float totalLeft = FVector::Distance(TravelVector, FVector(0.0f));
 
 		if (totalLeft > v)
@@ -420,7 +365,7 @@ void AMapPawn::MovePawn(float DeltaTime)
 					// UE_LOG(LogNotice, Warning, TEXT("<Pawn_%i>: Pathing has reached the final location!"), GetPawnID());
 					m_FullDestination = currentLocation;
 				}
-				bMovePawn = false;
+				Statistics->SetCurrentAction(PAWN_ACTION::NONE);
 			}
 		}
 	}
@@ -446,30 +391,6 @@ void AMapPawn::OnNewPathRecieved(bool success, TArray<FVector> Path)
 	}
 }
 
-void AMapPawn::Multicast_ApplyNewStatus_Implementation(int StatusID)
-{
-	OnStatusChanged(StatusID);
-}
-
-void AMapPawn::Multicast_Celebrate_Implementation(int AnimationIndex)
-{
-	bPlayCelebrationAnim = true;
-	m_CelebrationAnimIndex = AnimationIndex;
-}
-
-void AMapPawn::Multicast_Attack_Implementation(int AttackIndex, const FVector& TargetLocation)
-{
-	bAttacking = true;
-	m_AttackAnimIndex = AttackIndex;
-	OnAttackInitiated(AttackIndex, TargetLocation);
-}
-
-void AMapPawn::Multicast_KillPawn_Implementation()
-{
-	bIsDead = true;
-	OnPawnKilled();
-}
-
 int AMapPawn::GetNewID()
 {
 	static int PawnIDCount = 0;
@@ -485,6 +406,6 @@ void AMapPawn::Multicast_SetActiveDestination_Implementation(const FVector& Loca
 	m_ForwardVector.Z = 0.0f;
 	m_ForwardVector.Normalize();
 
-	bMovePawn = true;
+	Statistics->SetCurrentAction(PAWN_ACTION::MOVING);
 	bRotatePawn = true;
 }
