@@ -32,45 +32,55 @@ void UInventoryComponent::AttatchStatistics(UStatisticsComponent * Statistics)
 	m_Stats = Statistics;
 }
 
-bool UInventoryComponent::AddConsumable(const FConsumable & ConsumableInfo)
+bool UInventoryComponent::GiveConsumable(FName Name, int Quantity)
 {
-	// Item is found
-	if (AddWeight(ConsumableInfo.Weight * ConsumableInfo.Quantity))
+	auto ConsumablePtr = UInventoryDatabase::GetConsumableFromDatabase(Name);
+	if (ConsumablePtr)
 	{
-		if (ContainsObject(EItemCategory::CONSUMABLE, ConsumableInfo.Name))
+		if (AddWeight(ConsumablePtr->Weight * Quantity))
 		{
-			m_Consumables[ConsumableInfo.Name].Quantity += ConsumableInfo.Quantity;
-			return true;
-		}
-		else
-		{
-			m_Consumables.Emplace(ConsumableInfo.Name, ConsumableInfo);
+			if (m_Consumables.Find(Name))
+			{
+				m_Consumables[Name] += Quantity;
+			}
+			else
+			{
+				m_Consumables.Emplace(Name, Quantity);
+			}
+
 			return true;
 		}
 	}
+
+	UE_LOG(LogNotice, Error, TEXT("<InventoryComponent>: Failed to give/find consumable with name: %s"), *Name.ToString());
 	return false;
 }
 
-bool UInventoryComponent::AddWeapon(const FWeapon & WeaponInfo)
+bool UInventoryComponent::GiveWeapon(FName Name, int Quantity)
 {
-	// Item is found
-	if (AddWeight(WeaponInfo.Weight * WeaponInfo.Quantity))
+	auto WeaponPtr = UInventoryDatabase::GetWeaponFromDatabase(Name);
+	if (WeaponPtr)
 	{
-		if (ContainsObject(EItemCategory::WEAPON, WeaponInfo.Name))
+		if (AddWeight(WeaponPtr->Weight * Quantity))
 		{
-			m_Weapons[WeaponInfo.Name].Quantity += WeaponInfo.Quantity;
-			return true;
-		}
-		else
-		{
-			m_Weapons.Emplace(WeaponInfo.Name, WeaponInfo);
+			if (m_Weapons.Find(Name))
+			{
+				m_Weapons[Name] += Quantity;
+			}
+			else
+			{
+				m_Weapons.Emplace(Name, Quantity);
+			}
+
 			return true;
 		}
 	}
+
+	UE_LOG(LogNotice, Error, TEXT("<InventoryComponent>: Failed to give/find weapon with name: %s"), *Name.ToString());
 	return false;
 }
 
-void UInventoryComponent::AddCurrency(int Gold, int Silver, int Copper)
+void UInventoryComponent::GiveCurrency(int Gold, int Silver, int Copper)
 {
 	m_Gold += Gold;
 	m_Silver += Silver;
@@ -82,16 +92,19 @@ bool UInventoryComponent::RemoveConsumable(const FName & Name, int Quantity)
 	// Item is found
 	if (ContainsObject(EItemCategory::CONSUMABLE, Name))
 	{
-		if (m_Consumables[Name].Quantity == 1)
+		if (m_Consumables[Name] == 1)
 		{
 			m_Consumables.Remove(Name);
 		}
 		else
 		{
-			m_Consumables[Name].Quantity--;
+			m_Consumables[Name]--;
 		}
 
-		AddWeight(m_Consumables[Name].Weight * Quantity * -1);
+		auto ConsumablePtr = UInventoryDatabase::GetConsumableFromDatabase(Name);
+		if(ConsumablePtr)
+			AddWeight(ConsumablePtr->Weight * Quantity * -1);
+
 		return true;
 	}
 
@@ -101,18 +114,22 @@ bool UInventoryComponent::RemoveConsumable(const FName & Name, int Quantity)
 bool UInventoryComponent::RemoveWeapon(const FName & Name, int Quantity)
 {
 	// Item is found
+
 	if (ContainsObject(EItemCategory::WEAPON, Name))
 	{
-		if (m_Weapons[Name].Quantity == 1)
+		if (m_Weapons[Name] == 1)
 		{
 			m_Weapons.Remove(Name);
 		}
 		else
 		{
-			m_Weapons[Name].Quantity--;
+			m_Weapons[Name]--;
 		}
 
-		AddWeight(m_Weapons[Name].Weight * Quantity * -1);
+		auto WeaponPtr = UInventoryDatabase::GetWeaponFromDatabase(Name);
+		if(WeaponPtr)
+			AddWeight(WeaponPtr->Weight * Quantity * -1);
+
 		return true;
 	}
 
@@ -131,7 +148,7 @@ bool UInventoryComponent::EquipWeapon(FName Name, bool bInMainHand)
 {
 	if (ContainsObject(EItemCategory::WEAPON, Name))
 	{
-		m_Weapons[Name].Quantity--;
+		m_Weapons[Name]--;
 		UnequipWeapon(bInMainHand);
 
 		if (bInMainHand)
@@ -140,7 +157,7 @@ bool UInventoryComponent::EquipWeapon(FName Name, bool bInMainHand)
 			m_OffHandObject = Name;
 
 
-		OnObjectEquiped(EItemCategory::WEAPON, m_Weapons[Name].VisualIndex, bInMainHand);
+		OnObjectEquiped(EItemCategory::WEAPON, Name, bInMainHand);
 
 		return true;
 	}
@@ -155,7 +172,7 @@ void UInventoryComponent::UnequipWeapon(bool bInMainHand)
 	{
 		if (m_MainHandObject != "")
 		{
-			m_Weapons[m_MainHandObject].Quantity++;
+			m_Weapons[m_MainHandObject]++;
 		}
 
 		m_MainHandObject = TEXT("");
@@ -164,7 +181,7 @@ void UInventoryComponent::UnequipWeapon(bool bInMainHand)
 	{
 		if (m_OffHandObject != "")
 		{
-			m_Weapons[m_OffHandObject].Quantity++;
+			m_Weapons[m_OffHandObject]++;
 		}
 
 		m_OffHandObject = TEXT("");
@@ -206,23 +223,23 @@ void UInventoryComponent::SetCarryCapacity(int newCapacity)
 }
 
 // Gets all objects in inventory
-TArray<FWeapon> UInventoryComponent::GetWeapons() const
+TArray<FName> UInventoryComponent::GetWeapons() const
 {
-	TArray<FWeapon> Objects;
+	TArray<FName> Objects;
 	for (const auto& object : m_Weapons)
 	{
-		Objects.Add(object.Value);
+		Objects.Add(object.Key);
 	}
 
 	return Objects;
 }
 
-TArray<FConsumable> UInventoryComponent::GetConsumables() const
+TArray<FName> UInventoryComponent::GetConsumables() const
 {
-	TArray<FConsumable> Objects;
+	TArray<FName> Objects;
 	for (const auto& object : m_Consumables)
 	{
-		Objects.Add(object.Value);
+		Objects.Add(object.Key);
 	}
 
 	return Objects;
@@ -248,19 +265,20 @@ void UInventoryComponent::BeginPlay()
 	}
 }
 
-void UInventoryComponent::OnObjectEquiped(EItemCategory Category, uint8 ItemIndex, bool bInMainHand)
+void UInventoryComponent::OnObjectEquiped(EItemCategory Category, const FName& Name, bool bInMainHand)
 {
 	if (m_SkeletalMesh)
 	{
-		FInventoryItem Item;
-		if (UInventoryDatabase::GetInventoryItem(Category, ItemIndex, Item))
+
+		auto visual = GetItemVisual(Category, Name);
+		if (visual)
 		{
-			if (Item.Class)
+			if (visual->Class)
 			{
 				FActorSpawnParameters params;
 				params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				FTransform ObjectTransform(FRotator::ZeroRotator, FVector::ZeroVector);
-				AHeldObject* HeldObject = Cast<AHeldObject>(GetWorld()->SpawnActor(Item.Class, &ObjectTransform, params));
+				AHeldObject* HeldObject = Cast<AHeldObject>(GetWorld()->SpawnActor(visual->Class, &ObjectTransform, params));
 				if (HeldObject)
 				{
 					FAttachmentTransformRules rules(
@@ -281,20 +299,30 @@ void UInventoryComponent::OnObjectEquiped(EItemCategory Category, uint8 ItemInde
 						m_LeftHandObject = HeldObject;
 						m_LeftHandObject->AttachToComponent(m_SkeletalMesh, rules, LHandSocketName);
 					}
+
+					// Change stance if in main hand
+					if (bInMainHand && m_Stats)
+					{
+						m_Stats->SetWeaponStance(HeldObject->GetWeaponStance());
+					}
+
 				}
 				else
 				{
 					UE_LOG(LogNotice, Warning, TEXT("<InventoryComponent>: Failed to spawn weapon."));
+					UnequipWeapon(bInMainHand);
 				}
 			}
 			else
 			{
-				UE_LOG(LogNotice, Warning, TEXT("<InventoryComponent>: Attempted to wield %s but no visual class was found."), *Item.Name.ToString());
+				UE_LOG(LogNotice, Warning, TEXT("<InventoryComponent>: Attempted to wield %s but no visual class was found."), *visual->Name.ToString());
+				UnequipWeapon(bInMainHand);
 			}
 		}
 		else
 		{
-			UE_LOG(LogNotice, Warning, TEXT("<InventoryComponent>: No Visual weapon with index %i exists. Object spawn failed."), ItemIndex);
+			UE_LOG(LogNotice, Warning, TEXT("<InventoryComponent>: No Visual for %s was found. "), *Name.ToString());
+			UnequipWeapon(bInMainHand);
 		}
 	}
 }
@@ -319,6 +347,12 @@ void UInventoryComponent::OnObjectUnequiped(bool bInMainHand)
 			m_LeftHandObject = nullptr;
 		}
 	}
+
+	// Change stance if in main hand
+	if (bInMainHand && m_Stats)
+	{
+		m_Stats->SetWeaponStance(WEAPON_TYPE::UNARMED);
+	}
 }
 
 void UInventoryComponent::OnOverburdenedStateChanged()
@@ -333,11 +367,11 @@ bool UInventoryComponent::ContainsObject(EItemCategory Category, const FName Nam
 	{
 	case EItemCategory::WEAPON:
 		if (m_Weapons.Contains(Name))
-			result = (bool)m_Weapons[Name].Quantity;
+			result = (bool)m_Weapons[Name];
 		break;
 	case EItemCategory::CONSUMABLE:
 		if (m_Consumables.Contains(Name))
-			result = (bool)m_Consumables[Name].Quantity;
+			result = (bool)m_Consumables[Name];
 		break;
 	default:
 		break;
@@ -354,4 +388,34 @@ bool UInventoryComponent::AddWeight(int deltaWeight)
 
 	m_CurrentWeight += deltaWeight;
 	return true;
+}
+
+FItemVisualsRow* UInventoryComponent::GetItemVisual(EItemCategory Category, const FName & Name)
+{
+	FItemVisualsRow* ItemVisual = nullptr;
+	switch (Category)
+	{
+	case EItemCategory::WEAPON:
+	{
+		auto weapon = UInventoryDatabase::GetWeaponFromDatabase(Name);
+		if (weapon)
+		{
+			ItemVisual = weapon->Visual;
+		}
+	}
+	break;
+	case EItemCategory::CONSUMABLE:
+	{
+		auto consumable = UInventoryDatabase::GetConsumableFromDatabase(Name);
+		if (consumable)
+		{
+			ItemVisual = consumable->Visual;
+		}
+	}
+	break;
+	default:
+		break;
+	}
+
+	return ItemVisual;
 }

@@ -18,6 +18,11 @@ void AHeldObject::BeginPlay()
 	
 }
 
+WEAPON_TYPE AHeldObject::GetWeaponStance_Implementation() const
+{
+	return WEAPON_TYPE::SWORD_1H;
+}
+
 // Called every frame
 void AHeldObject::Tick(float DeltaTime)
 {

@@ -4,6 +4,7 @@
 
 #include "Basics.h"
 #include "Grid/GridEntity.h"
+#include "DataTables/InventoryDatabase.h"
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "MapSaveFile.generated.h"
@@ -13,21 +14,27 @@
  */
 
 USTRUCT(BlueprintType)
-struct ADVENTURE_API FSAVE_OBJECT
+struct ADVENTURE_API FMapLocation
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite, Category = "GAMEBUILDER OBJECT")
-	int ModelIndex;
+	UPROPERTY(BlueprintReadWrite)
+	FString Name;
 
-	UPROPERTY(BlueprintReadWrite, Category = "GAMEBUILDER OBJECT")
-	FString OwnerName;
+	UPROPERTY(BlueprintReadWrite)
+	FGridCoordinate Size;
 
-	UPROPERTY(BlueprintReadWrite, Category = "GAMEBUILDER OBJECT")
-	FGridCoordinate Location;
+	UPROPERTY(BlueprintReadWrite)
+	TArray<uint8> HeightMap;
 
-	UPROPERTY(BlueprintReadWrite, Category = "GAMEBUILDER OBJECT")
-	GRID_OBJECT_TYPE Type;
+	UPROPERTY(BlueprintReadWrite)
+	TArray<uint8> TextureMap;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<uint8> Objects;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FTransform> ObjectTransforms;
 };
 
 UCLASS()
@@ -42,18 +49,15 @@ public:
 	FString MapName;
 
 	UPROPERTY(BlueprintReadWrite)
-	FGridCoordinate MapSize;
+	FString ActiveLocation;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<uint8> HeightMap;
+	TArray<FMapLocation> Locations;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<uint8> TextureMap;
+	TArray<FConsumableInfo> Consumables;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<uint8> Objects;
-
-	UPROPERTY(BlueprintReadWrite)
-	TArray<FTransform> ObjectTransforms;
+	TArray<FWeaponInfo> Weapons;
 
 };

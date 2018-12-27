@@ -4,6 +4,7 @@
 #include "GameModes/GM_GameBuilder.h"
 #include "Adventure.h"
 #include "Grid/WorldGrid.h"
+#include "DataTables/InventoryDatabase.h"
 
 void AGS_GameBuilder::HandleBeginPlay()
 {
@@ -24,10 +25,20 @@ void AGS_GameBuilder::HandleBeginPlay()
 					loaded = false;
 				}
 			}
-
-			// New Map was requested
-			if (!loaded)
+			else // New map requested
 			{
+				FWeaponInfo Winfo;
+				Winfo.Name = TEXT("Basic Sword");
+				Winfo.Description = TEXT("Ye ol faithful");
+				Winfo.VisualIndex = 1;
+				UInventoryDatabase::AddWeaponToDatabase(Winfo);
+
+				FConsumableInfo Cinfo;
+				Cinfo.Name = TEXT("Cake");
+				Cinfo.Description = TEXT("Delicious!");
+				Cinfo.HealthBonus = 1;
+				UInventoryDatabase::AddConsumableToDatabase(Cinfo);
+
 				if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), Gamemode->GetMapSize()))
 				{
 					UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));

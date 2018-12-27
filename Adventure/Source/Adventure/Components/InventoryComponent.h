@@ -8,53 +8,6 @@
 #include "Components/ActorComponent.h"
 #include "InventoryComponent.generated.h"
 
-USTRUCT(BlueprintType)
-struct FConsumable
-
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	FName Name;
-
-	UPROPERTY(BlueprintReadWrite)
-	int Weight;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Description;
-
-	UPROPERTY(BlueprintReadWrite)
-	int Quantity;
-
-	UPROPERTY(BlueprintReadWrite)
-	int HealthBonus;
-
-	UPROPERTY(BlueprintReadWrite)
-	int VisualIndex;
-
-};
-
-USTRUCT(BlueprintType)
-struct FWeapon
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	FName Name;
-
-	UPROPERTY(BlueprintReadWrite)
-	int Weight;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Description;
-
-	UPROPERTY(BlueprintReadWrite)
-	int Quantity;
-
-	UPROPERTY(BlueprintReadWrite)
-	int VisualIndex;
-
-};
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent), Blueprintable)
 class ADVENTURE_API UInventoryComponent : public UActorComponent
@@ -68,13 +21,13 @@ public:
 	void AttatchStatistics(class UStatisticsComponent* Statistics);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool AddConsumable(const FConsumable& ConsumableInfo);
+	bool GiveConsumable(FName Name, int Quantity);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool AddWeapon(const FWeapon& WeaponInfo);
+	bool GiveWeapon(FName Name, int Quantity);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	void AddCurrency(int Gold, int Silver, int Copper);
+	void GiveCurrency(int Gold, int Silver, int Copper);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	bool RemoveConsumable(const FName& Name, int Quantity);
@@ -104,10 +57,10 @@ public:
 	void SetCarryCapacity(int newCapacity);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	TArray<FWeapon> GetWeapons() const;
+	TArray<FName> GetWeapons() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	TArray<FConsumable> GetConsumables() const;
+	TArray<FName> GetConsumables() const;
 
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Startup Settings")
 	FName RHandSocketName;
@@ -128,14 +81,12 @@ protected:
 
 private:
 
-	void OnObjectEquiped(EItemCategory Category, uint8 ItemID, bool bInMainHand);
-
+	void OnObjectEquiped(EItemCategory Category, const FName& Name, bool bInMainHand);
 	void OnObjectUnequiped(bool bInMainHand);
-
 	void OnOverburdenedStateChanged();
-
 	bool ContainsObject(EItemCategory Category, const FName Name) const;
 	bool AddWeight(int deltaWeight);
+	FItemVisualsRow* GetItemVisual(EItemCategory Category, const FName& Name);
 
 	int m_Gold;
 	int m_Silver;
@@ -149,7 +100,7 @@ private:
 	class AHeldObject* m_LeftHandObject;
 	class UStatisticsComponent* m_Stats;
 	class USkeletalMeshComponent* m_SkeletalMesh;
-	TMap<FName, FConsumable> m_Consumables;
-	TMap<FName, FWeapon> m_Weapons;
+	TMap<FName, uint32> m_Consumables;
+	TMap<FName, uint32> m_Weapons;
 
 };

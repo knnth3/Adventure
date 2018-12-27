@@ -7,7 +7,5 @@
 UMapSaveFile::UMapSaveFile()
 {
 	MapName = TEXT("TestMap");
-	MapSize = { 0,0 };
-
 }
 

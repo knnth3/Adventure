@@ -71,6 +71,8 @@ public:
 
 protected:
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason)override;
+
 	// Spawner Components
 	UPROPERTY(EditAnywhere, Category = "Components")
 	TArray<TSubclassOf<class ASpawner>> SpawnerClasses;
@@ -118,8 +120,6 @@ protected:
 	bool bShowCollisions;
 
 private:
-
-	bool LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet);
 
 	bool GeneratePlayArea(const UMapSaveFile* Save);
 

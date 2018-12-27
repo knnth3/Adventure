@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Components/StatisticsComponent.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "HeldObject.generated.h"
@@ -15,14 +16,14 @@ public:
 	// Sets default values for this actor's properties
 	AHeldObject();
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Game")
+	WEAPON_TYPE GetWeaponStance()const;
+
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
 	
 };

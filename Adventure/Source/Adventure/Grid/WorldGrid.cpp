@@ -36,9 +36,15 @@ bool AWorldGrid::ServerOnly_SaveMap()
 {
 	UMapSaveFile* SaveGameInstance = Cast<UMapSaveFile>(UGameplayStatics::CreateSaveGameObject(UMapSaveFile::StaticClass()));
 	SaveGameInstance->MapName = m_MapName;
-	SaveGameInstance->MapSize = m_GridDimensions;
-	SaveGameInstance->HeightMap.SetNum(m_GridDimensions.X * m_GridDimensions.Y);
-	SaveGameInstance->TextureMap.SetNum(m_GridDimensions.X * m_GridDimensions.Y);
+	SaveGameInstance->ActiveLocation = "Temp";
+	SaveGameInstance->Consumables = UInventoryDatabase::GetAllConsumablesInDatabase();
+	SaveGameInstance->Weapons = UInventoryDatabase::GetAllWeaponsInDatabase();
+
+	FMapLocation newLocation;
+	newLocation.Name = "Temp";
+	newLocation.Size = m_GridDimensions;
+	newLocation.HeightMap.SetNum(m_GridDimensions.X * m_GridDimensions.Y);
+	newLocation.TextureMap.SetNum(m_GridDimensions.X * m_GridDimensions.Y);
 
 	// Save cell information
 	for (const auto& index : m_UsedCellIndices)
@@ -57,8 +63,8 @@ bool AWorldGrid::ServerOnly_SaveMap()
 					float fHeight = FMath::DivideAndRoundUp(CellTransform.GetScale3D().Z, CELL_STEP);
 					int height = (uint8)fHeight;
 
-					SaveGameInstance->HeightMap[loc] = height;
-					SaveGameInstance->TextureMap[loc] = index;
+					newLocation.HeightMap[loc] = height;
+					newLocation.TextureMap[loc] = index;
 				}
 			}
 		}
@@ -73,14 +79,14 @@ bool AWorldGrid::ServerOnly_SaveMap()
 			int count = InstancedMesh->GetInstanceCount();
 			for(int x = 0; x < count; x++)
 			{
-				SaveGameInstance->ObjectTransforms.Emplace();
-				if (InstancedMesh->GetInstanceTransform(x, SaveGameInstance->ObjectTransforms.Last(),true))
+				newLocation.ObjectTransforms.Emplace();
+				if (InstancedMesh->GetInstanceTransform(x, newLocation.ObjectTransforms.Last(),true))
 				{
-					SaveGameInstance->Objects.Push(index);
+					newLocation.Objects.Push(index);
 				}
 				else
 				{
-					SaveGameInstance->ObjectTransforms.Pop();
+					newLocation.ObjectTransforms.Pop();
 				}
 			}
 		}
@@ -90,13 +96,13 @@ bool AWorldGrid::ServerOnly_SaveMap()
 
 	UE_LOG(LogNotice, Warning, TEXT("Map saved at: %s"), *path);
 
+	SaveGameInstance->Locations.Push(newLocation);
 	UBasicFunctions::SaveFile(SaveGameInstance, path);
 	return true;
 }
 
 bool AWorldGrid::ServerOnly_LoadGrid(const FString& MapName)
 {
-	TArray<FSAVE_OBJECT> GridSheet;
 	FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *MapName);
 
 	if (FPaths::FileExists(path))
@@ -104,6 +110,7 @@ bool AWorldGrid::ServerOnly_LoadGrid(const FString& MapName)
 		// Map was loaded successfully, Tell client to load the map as well
 		m_MapName = MapName;
 		OnRep_BuildMap();
+		return true;
 	}
 
 	return false;
@@ -233,35 +240,38 @@ void AWorldGrid::ShowCollisions(bool value)
 	bShowCollisions = value;
 }
 
-bool AWorldGrid::LoadMapObjects(const TArray<FSAVE_OBJECT>* GridSheet)
+void AWorldGrid::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (GridSheet)
-	{
-		for (const auto& obj : *GridSheet)
-		{
-			switch (obj.Type)
-			{
-			case GRID_OBJECT_TYPE::NONE:
-				break;
-			case GRID_OBJECT_TYPE::INTERACTABLE:
-				// ServerOnly_AddBlockingObject(obj.ModelIndex, obj.Location);
-				break;
-			case GRID_OBJECT_TYPE::PAWN:
-				ServerOnly_AddPawn(obj.ModelIndex, obj.Location, 0);
-				break;
-			default:
-				break;
-			}
-		}
-		return true;
-	}
-
-	return false;
+	UInventoryDatabase::ClearDatabase();
 }
 
 bool AWorldGrid::GeneratePlayArea(const UMapSaveFile * Save)
 {
-	return GeneratePlayArea(Save->MapSize, &Save->HeightMap, &Save->TextureMap, &Save->Objects, &Save->ObjectTransforms);
+	for (const auto& weapon : Save->Weapons)
+	{
+		UInventoryDatabase::AddWeaponToDatabase(weapon);
+	}
+
+	for (const auto& consumable : Save->Consumables)
+	{
+		UInventoryDatabase::AddConsumableToDatabase(consumable);
+	}
+
+	for (const auto& location : Save->Locations)
+	{
+		if (Save->ActiveLocation == location.Name)
+		{
+
+			return GeneratePlayArea(
+				location.Size,
+				&location.HeightMap,
+				&location.TextureMap,
+				&location.Objects,
+				&location.ObjectTransforms);
+		}
+	}
+
+	return false;
 }
 
 bool AWorldGrid::GeneratePlayArea(const FGridCoordinate& GridDimensions, const TArray<uint8>* HeightMap, 
@@ -462,15 +472,11 @@ void AWorldGrid::OnRep_BuildMap()
 	// Only run if the server has identified the map
 	if (!m_MapName.IsEmpty())
 	{
-		TArray<FSAVE_OBJECT> GridSheet;
 		FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *m_MapName);
 		UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UBasicFunctions::LoadFile(path));
 		if (MapSaveFile)
 		{
-			UE_LOG(LogNotice, Warning, TEXT("Map Loaded!"));
-			UE_LOG(LogNotice, Warning, TEXT("Name: %s"), *MapSaveFile->MapName);
-			UE_LOG(LogNotice, Warning, TEXT("Size: (%i, %i)"), MapSaveFile->MapSize.X, MapSaveFile->MapSize.Y);
-			UE_LOG(LogNotice, Warning, TEXT("Number of Objects: %i"), MapSaveFile->Objects.Num());
+			UE_LOG(LogNotice, Warning, TEXT("<WorldGrid>: Map Loaded! Name: %s"), *MapSaveFile->MapName);
 
 			GeneratePlayArea(MapSaveFile);
 		}
