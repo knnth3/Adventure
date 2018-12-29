@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Basics.h"
-#include "Grid/GridEntity.h"
 #include "DataTables/InventoryDatabase.h"
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"

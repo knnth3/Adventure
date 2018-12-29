@@ -215,18 +215,6 @@ void AConnectedPlayer::SetSpectatingPawn(const int PawnID)
 	}
 }
 
-void AConnectedPlayer::SpawnPawn(FGridCoordinate Location, const int ClassIndex, const int OwnerID)
-{
-	if (HasAuthority())
-	{
-		TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-		if (WorldGrid)
-		{
-			WorldGrid->ServerOnly_AddPawn(ClassIndex, Location, OwnerID);
-		}
-	}
-}
-
 void AConnectedPlayer::SetCameraToOverview()
 {
 	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);

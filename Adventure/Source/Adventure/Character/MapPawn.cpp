@@ -7,7 +7,6 @@
 #include "Grid/PathFinder.h"
 #include "Components/StatisticsComponent.h"
 #include "Components/InventoryComponent.h"
-#include "Components/HoverArrowComponent.h"
 #include "Components/InteractionInterfaceComponent.h"
 
 // Sets default values
@@ -75,11 +74,6 @@ AMapPawn::AMapPawn()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
-
-	// Create a selection arrow
-	ArrowComponent = CreateDefaultSubobject<UHoverArrowComponent>(TEXT("Selection Arrow"));
-	ArrowComponent->SetupAttachment(Scene);
-	ArrowComponent->SetIsReplicated(true);
 }
 
 //sets variables for replicaton over a network

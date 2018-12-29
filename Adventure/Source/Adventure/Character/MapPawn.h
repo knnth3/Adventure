@@ -95,9 +95,6 @@ public:
 protected:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
-	class UHoverArrowComponent* ArrowComponent;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")
 	class USpringArmComponent* CameraBoom;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Skeletal Mesh")

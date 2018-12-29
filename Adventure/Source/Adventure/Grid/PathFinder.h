@@ -55,11 +55,13 @@ public:
 	FPathFinder(const FVector& StartLocation, const FVector& Destination, UWorld* World, FPathFoundDelegate& Callback);
 
 	static FPathFinder* RequestFindPath(const FVector& StartLocation, const FVector& Destination, UWorld* World, FPathFoundDelegate& Callback);
+	static void ShowDebugPathLines(bool Value);
 
 	void CancelRequest();
 
 private:
 
+	static bool m_bShowDebugLines;
 	bool m_bTargetFound;
 	int id;
 	UWorld* m_World;

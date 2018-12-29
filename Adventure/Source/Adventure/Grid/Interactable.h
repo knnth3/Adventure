@@ -2,13 +2,12 @@
 
 #pragma once
 
-#include "Grid/GridEntity.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interactable.generated.h"
 
 UCLASS()
-class ADVENTURE_API AInteractable : public AActor, public IGridEntity
+class ADVENTURE_API AInteractable : public AActor
 {
 	GENERATED_BODY()
 	
@@ -19,10 +18,10 @@ public:
 	void ServerOnly_SetObjectID(int ID);
 	void ServerOnly_SetClassIndex(int Index);
 
-	virtual int GetClassIndex_Implementation() const override;
-	virtual int GetObjectID_Implementation() const override;
-	virtual bool IsNonTraversable_Implementation() const override;
-	virtual bool IsBlockingSpace_Implementation() const override;
+	int GetClassIndex_Implementation() const;
+	int GetObjectID_Implementation() const;
+	bool IsNonTraversable_Implementation() const;
+	bool IsBlockingSpace_Implementation() const;
 
 protected:
 

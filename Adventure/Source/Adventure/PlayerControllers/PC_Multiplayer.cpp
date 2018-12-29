@@ -1,6 +1,7 @@
 // By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
 
 #include "PC_Multiplayer.h"
+#include "Grid/PathFinder.h"
 
 APC_Multiplayer::APC_Multiplayer()
 {
@@ -15,4 +16,9 @@ void APC_Multiplayer::SetPlayerID(const int ID)
 int APC_Multiplayer::GetPlayerID() const
 {
 	return UniqueID;
+}
+
+void APC_Multiplayer::ShowPathfindingDebugLines(bool Value)
+{
+	FPathFinder::ShowDebugPathLines(Value);
 }

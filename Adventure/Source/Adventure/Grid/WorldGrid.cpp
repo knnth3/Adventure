@@ -3,26 +3,20 @@
 #include "WorldGrid.h"
 #include "./Character/MapPawn.h"
 #include "Interactable.h"
-#include "Grid/GridEntity.h"
-#include "Spawner.h"
 #include "PathFinder.h"
+#include "Saves/MapSaveFile.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "DataTables/PawnDatabase.h"
 
 using namespace std;
 
 AWorldGrid::AWorldGrid()
 {
 	bReplicates = true;
-	bShowCollisions = false;
 	bAlwaysRelevant = true;
 	bReplicateMovement = false;
-	bGenerateBackDrop = false;
 	m_bMapIsLoaded = false;
-	GeneratedAreaWidth = 1000.0f;
-	GeneratedAreaHeightRange = 1000.0f;
-	GeneratedAreaPlayAreaRandomIntensity = 1.0f;
-	GeneratedAreaTesselation = 20;
-	m_GridDimensions = FGridCoordinate(100, 100);
+	m_GridDimensions = FGridCoordinate(10, 10);
 }
 
 void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const 
@@ -134,8 +128,17 @@ void AWorldGrid::ServerOnly_ResetGrid()
 		}
 	}
 
+	for (const auto& index : m_UsedObjectIndices)
+	{
+		auto InstancedMesh = GetObjectInstanceMesh(index);
+		if (InstancedMesh)
+		{
+			InstancedMesh->ClearInstances();
+		}
+	}
+
 	m_UsedCellIndices.clear();
-	m_PlayerPawnCount.clear();
+	m_UsedObjectIndices.clear();
 	m_bMapIsLoaded = false;
 }
 
@@ -183,10 +186,9 @@ bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Loca
 				AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[ClassIndex], &pawnTransform));
 				if (NewPawn)
 				{
-					m_PlayerPawnCount[OwningPlayerID]++;
 					NewPawn->ServerOnly_SetClassIndex(ClassIndex);
 					NewPawn->ServerOnly_SetOwnerID(OwningPlayerID);
-					m_PawnArray.Push(NewPawn);
+					m_PawnInstances.Push(NewPawn);
 					return true;
 				}
 			}
@@ -195,15 +197,15 @@ bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Loca
 	return false;
 }
 
-bool AWorldGrid::ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawnID)
+bool AWorldGrid::ServerOnly_RemovePawn(int pawnID)
 {
-	for (int index = 0; index < m_PawnArray.Num(); index++)
+	for (int index = 0; index < m_PawnInstances.Num(); index++)
 	{
-		if (m_PawnArray[index]->GetPawnID() == pawnID)
+		if (m_PawnInstances[index]->GetPawnID() == pawnID)
 		{
-			m_PawnArray[index]->Destroy();
-			m_PawnArray[index] = m_PawnArray[m_PawnArray.Num() - 1];
-			m_PawnArray.Pop();
+			m_PawnInstances[index]->Destroy();
+			m_PawnInstances[index] = m_PawnInstances[m_PawnInstances.Num() - 1];
+			m_PawnInstances.Pop();
 
 			return true;
 		}
@@ -214,12 +216,12 @@ bool AWorldGrid::ServerOnly_RemovePawn(const FGridCoordinate& Location, int pawn
 
 AMapPawn * AWorldGrid::ServerOnly_GetPawn(const FVector& Location, int pawnID)
 {
-	for (int index = 0; index < m_PawnArray.Num(); index++)
+	for (int index = 0; index < m_PawnInstances.Num(); index++)
 	{
-		if (m_PawnArray[index]->GetPawnID() == pawnID)
+		if (m_PawnInstances[index]->GetPawnID() == pawnID)
 		{
 
-			return m_PawnArray[index];
+			return m_PawnInstances[index];
 		}
 	}
 
@@ -234,15 +236,10 @@ void AWorldGrid::ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, co
 		EditCellHeight(EditBoxVertices, instructions.Height * CELL_STEP);
 }
 
-
-void AWorldGrid::ShowCollisions(bool value)
-{
-	bShowCollisions = value;
-}
-
 void AWorldGrid::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UInventoryDatabase::ClearDatabase();
+	UPawnDatabase::ClearDatabase();
 }
 
 bool AWorldGrid::GeneratePlayArea(const UMapSaveFile * Save)

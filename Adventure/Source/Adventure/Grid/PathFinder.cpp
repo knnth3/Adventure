@@ -4,6 +4,8 @@
 #include "Algo/Reverse.h"
 #include "Async.h"
 
+bool FPathFinder::m_bShowDebugLines = false;
+
 FPathFinder::FPathFinder(const FVector & StartLocation, const FVector & Destination, UWorld * World, FPathFoundDelegate & Callback)
 {
 	static int ClassID = 0;
@@ -35,6 +37,11 @@ FPathFinder* FPathFinder::RequestFindPath(const FVector& StartLocation, const FV
 	}
 
 	return nullptr;
+}
+
+void FPathFinder::ShowDebugPathLines(bool Value)
+{
+	m_bShowDebugLines = Value;
 }
 
 void FPathFinder::CancelRequest()
@@ -267,7 +274,7 @@ bool FPathFinder::AddIfAvailable(GridEntityPtr & Start, GridEntityPtr & End, std
 					// code to execute on game thread here
 					if (m_World)
 					{
-						traceComplete = UBasicFunctions::TraceLine(s, f, m_World, result, traceChannel, nullptr, false);
+						traceComplete = UBasicFunctions::TraceLine(s, f, m_World, result, traceChannel, nullptr, m_bShowDebugLines);
 						taskComplete = true;
 					}
 				});

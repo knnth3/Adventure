@@ -16,15 +16,8 @@ class ADVENTURE_API APC_Adventure_Editor : public APlayerController
 {
 	GENERATED_BODY()
 	
-protected:
-	//Sends request to WorldGrid
-	UFUNCTION(BlueprintCallable)
-	bool RequestSpawnBlockingObject(uint8 Type, const FTransform& Transform);
+public:
 
-	UFUNCTION(BlueprintCallable)
-	bool RequestAddSpawnLocation(int Type, const FGridCoordinate& Location);
-
-	UFUNCTION(BlueprintCallable)
-	bool RequestDeleteObject(enum GRID_OBJECT_TYPE Type, const FGridCoordinate& Location, int ID = -1);
-	
+	UFUNCTION(Exec, Category = ExecFunctions)
+	void ShowPathfindingDebugLines(bool Value);
 };

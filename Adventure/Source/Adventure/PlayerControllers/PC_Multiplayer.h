@@ -18,6 +18,9 @@ public:
 	void SetPlayerID(const int ID);
 	int GetPlayerID()const;
 
+	UFUNCTION(Exec, Category = ExecFunctions)
+	void ShowPathfindingDebugLines(bool Value);
+
 private:
 	
 	UPROPERTY()

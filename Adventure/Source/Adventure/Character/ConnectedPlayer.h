@@ -96,11 +96,6 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Connected Player")
 	void OnCameraTypeChanged(CONNECTED_PLAYER_CAMERA Type);
 
-	// Host Functions
-
-	UFUNCTION(BlueprintCallable, Category = "Connected Player")
-	void SpawnPawn(FGridCoordinate Location, const int ClassIndex = 0, const int OwnerID = 0);
-
 private:
 
 	bool bRegistered;
