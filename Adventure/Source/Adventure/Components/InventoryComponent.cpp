@@ -27,7 +27,7 @@ UInventoryComponent::UInventoryComponent()
 }
 
 // Attaches the Statistics component to be able to make stat changes
-void UInventoryComponent::AttatchStatistics(UStatisticsComponent * Statistics)
+void UInventoryComponent::AttachStatistics(UStatisticsComponent * Statistics)
 {
 	m_Stats = Statistics;
 }
@@ -276,6 +276,7 @@ void UInventoryComponent::OnObjectEquiped(EItemCategory Category, const FName& N
 			if (visual->Class)
 			{
 				FActorSpawnParameters params;
+				params.Owner = GetOwner();
 				params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				FTransform ObjectTransform(FRotator::ZeroRotator, FVector::ZeroVector);
 				AHeldObject* HeldObject = Cast<AHeldObject>(GetWorld()->SpawnActor(visual->Class, &ObjectTransform, params));

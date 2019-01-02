@@ -80,6 +80,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	FVector ServerOnly_GetDesiredForwardVector() const;
 
+	// Universal Functions
 	UFUNCTION(BlueprintCallable, Category = "Map Pawn")
 	void SetFocusToPawn(float TransitionTime);
 

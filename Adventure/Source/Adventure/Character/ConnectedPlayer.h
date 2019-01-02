@@ -33,6 +33,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Connected Player")
 	class AMapPawn* GetSelectedPawn() const;
 
+	UFUNCTION(BlueprintCallable, Category = "MapPawn Camera")
+	CONNECTED_PLAYER_CAMERA GetCameraType()const;
+
 protected:
 
 	// Player Components
@@ -57,18 +60,6 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "MapPawn Camera")
 	void ZoomPawnCameraInOut(const float& AxisValue, const float& DeltaTime);
-
-	UFUNCTION(BlueprintCallable, Category = "MapPawn Camera")
-	CONNECTED_PLAYER_CAMERA GetCameraType()const;
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn Controlls")
-	void PlayPawnCelebrationAnimation(int AnimationIndex = 0);
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn Controlls")
-	void PawnAttack(const FVector& TargetLocation, int AttackIndex = 0);
-
-	UFUNCTION(BlueprintCallable, Category = "Map Pawn Controlls")
-	void KillPawn();
 
 	// Accessor Functions
 
@@ -118,14 +109,5 @@ private:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ClearPawnTargetLocation();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_PlayPawnCelebrationAnimation(int AnimationIndex, const int PawnID, const FVector& PawnLocation);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_PawnAttack(int AttackIndex, const int PawnID, const FVector& PawnLocation, const FVector& TargetLocation);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_KillPawn(const int PawnID, const FVector& PawnLocation);
 
 };

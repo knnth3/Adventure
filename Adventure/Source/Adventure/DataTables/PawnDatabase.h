@@ -21,43 +21,47 @@ struct ADVENTURE_API FPawnDefaultStats
 public:
 	// Pawn Name
 	UPROPERTY(BlueprintReadWrite)
-	FName Name;
+	FName Name = "";
 
 	// Max health pool
 	UPROPERTY(BlueprintReadWrite)
-	int MaxHealth;
+	int MaxHealth = 10;
+
+	// Base AC
+	UPROPERTY(BlueprintReadWrite)
+	int AC = 10;
 
 	// Class used to identify strength/weaknesses
 	UPROPERTY(BlueprintReadWrite)
-	FName Class;
+	FName Class = "";
 
 	// Class used to identify strength/weaknesses
 	UPROPERTY(BlueprintReadWrite)
-	FName Race;
+	FName Race = "";
 
 	// Strength stat used to calculate certain actions
 	UPROPERTY(BlueprintReadWrite)
-	uint8 Strength;
+	uint8 Strength = 0;
 
 	// Dexterity stat used to calculate certain actions
 	UPROPERTY(BlueprintReadWrite)
-	uint8 Dexterity;
+	uint8 Dexterity = 0;
 
 	// Constitutuion stat used to calculate certain actions
 	UPROPERTY(BlueprintReadWrite)
-	uint8 Constitution;
+	uint8 Constitution = 0;
 
 	// Intelligence stat used to calculate certain actions
 	UPROPERTY(BlueprintReadWrite)
-	uint8 Intelligence;
+	uint8 Intelligence = 0;
 
 	// Wisdom stat used to calculate certain actions
 	UPROPERTY(BlueprintReadWrite)
-	uint8 Wisdom;
+	uint8 Wisdom = 0;
 
 	// Charisma stat used to calculate certain actions
 	UPROPERTY(BlueprintReadWrite)
-	uint8 Charisma;
+	uint8 Charisma = 0;
 };
 
 // Lookup result row when using a UDataTable

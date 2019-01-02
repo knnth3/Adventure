@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Components/InteractionInterfaceComponent.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Attack.generated.h"
@@ -15,14 +16,26 @@ public:
 	// Sets default values for this actor's properties
 	AAttack();
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	
+	void Initialize(FAttackReuqest Request);
+
+protected:
+
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	int Damage;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	float Radius;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	FVector Destination;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnInitialized();
 	
 };

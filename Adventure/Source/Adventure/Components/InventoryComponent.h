@@ -18,7 +18,7 @@ public:
 	// Sets default values for this component's properties
 	UInventoryComponent();
 
-	void AttatchStatistics(class UStatisticsComponent* Statistics);
+	void AttachStatistics(class UStatisticsComponent* Statistics);
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	bool GiveConsumable(FName Name, int Quantity);

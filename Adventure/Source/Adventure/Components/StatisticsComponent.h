@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include "DataTables/PawnDatabase.h"
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "StatisticsComponent.generated.h"
 
+
+//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FFloatValueChangedDelegate, float);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FIntDelegate, int, Value);
 
 UENUM(BlueprintType)
 enum class STATUS_EFFECT : uint8
@@ -31,6 +35,7 @@ enum class PAWN_ACTION : uint8
 	CELEBRATING,
 	MOVING,
 	DEAD,
+	DAMAGED
 };
 
 UENUM(BlueprintType)
@@ -47,7 +52,6 @@ enum class WEAPON_TYPE : uint8
 	CROSSBOW_2H
 };
 
-
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent), Blueprintable)
 class ADVENTURE_API UStatisticsComponent : public UActorComponent
 {
@@ -58,6 +62,9 @@ public:
 	UStatisticsComponent();
 
 	// Getters ----------------------------------------------------
+
+	UFUNCTION(BlueprintCallable, Category = "Information Version Control")
+	int GetCurrentInformationVersion();
 
 	UFUNCTION(BlueprintCallable, Category = "Basic Information")
 	FName GetCharacterName()const;
@@ -73,6 +80,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Basic Information")
 	int GetCurrentHealth()const;
+
+	UFUNCTION(BlueprintCallable, Category = "Basic Information")
+	int GetCurrentAC()const;
 
 	UFUNCTION(BlueprintCallable, Category = "Basic Information")
 	int GetCurrentLevel()const;
@@ -122,6 +132,9 @@ public:
 	void SetCurrentHealth(int Health);
 
 	UFUNCTION(BlueprintCallable, Category = "Basic Information")
+	void SetCurrentAC(int AC);
+
+	UFUNCTION(BlueprintCallable, Category = "Basic Information")
 	void SetCurrentLevel(uint8 Level);
 
 	UFUNCTION(BlueprintCallable, Category = "Base Stats")
@@ -151,47 +164,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Status")
 	void SetCurrentAction(PAWN_ACTION Action);
 
+	// Delegates ------------------------------------------------
+	UPROPERTY(BlueprintAssignable, Category = "Statistic Changes")
+	FIntDelegate OnHealthChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Statistic Changes")
+	FIntDelegate OnACChanged;
+
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
 private:
 
+	int m_StatUpdateVersion;
+
 	// Pawn Name
 	FName m_Name;
 
-	// Class used to identify weaknesses
-	FName m_Class;
+	// Base stats
+	FPawnDefaultStats m_BaseStats;
 
 	//Units in feet (walking)
 	float m_MoveSpeed;
-
-	// Max health pool
-	int16 m_MaxHealth;
 
 	// Current health pool
 	int16 m_CurrentHealth;
 
 	// Current pawn level
 	uint8 m_CurrentLevel;
-
-	// Strength stat used to calculate certain actions
-	uint8 m_Strength;
-
-	// Dexterity stat used to calculate certain actions
-	uint8 m_Dexterity;
-
-	// Constitutuion stat used to calculate certain actions
-	uint8 m_Constitution;
-
-	// Intelligence stat used to calculate certain actions
-	uint8 m_Intelligence;
-
-	// Wisdom stat used to calculate certain actions
-	uint8 m_Wisdom;
-
-	// Charisma stat used to calculate certain actions
-	uint8 m_Charisma;
 
 	// CurrentStatusEffect
 	STATUS_EFFECT m_StatusEffect;

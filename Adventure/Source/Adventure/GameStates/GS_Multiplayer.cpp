@@ -48,6 +48,18 @@ void AGS_Multiplayer::GenerateGrid()
 			{
 				if (!WorldGridItr->ServerOnly_LoadGrid(Gamemode->GetMapName()))
 				{
+					FWeaponInfo Winfo;
+					Winfo.Name = TEXT("Basic Sword");
+					Winfo.Description = TEXT("Ye ol faithful");
+					Winfo.VisualIndex = 1;
+					UInventoryDatabase::AddWeaponToDatabase(Winfo);
+
+					FConsumableInfo Cinfo;
+					Cinfo.Name = TEXT("Cake");
+					Cinfo.Description = TEXT("Delicious!");
+					Cinfo.HealthBonus = 1;
+					UInventoryDatabase::AddConsumableToDatabase(Cinfo);
+
 					if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), Gamemode->GetMapSize()))
 					{
 						UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));

@@ -4,6 +4,7 @@
 
 #include <map>
 #include <set>
+#include "Basics.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "WorldGrid.generated.h"

@@ -54,10 +54,11 @@ AMapPawn::AMapPawn()
 
 	// Create an Inventory Component
 	Inventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("Inventory"));
-	Inventory->AttatchStatistics(Statistics);
+	Inventory->AttachStatistics(Statistics);
 
-	// Create an Attack Interface Component
+	// Create an Interaction Interface Component
 	InteractionInterface = CreateDefaultSubobject<UInteractionInterfaceComponent>(TEXT("Interaction Interface"));
+	InteractionInterface->AttachStatistics(Statistics);
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
