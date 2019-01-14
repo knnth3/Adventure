@@ -245,6 +245,14 @@ TArray<FName> UInventoryComponent::GetConsumables() const
 	return Objects;
 }
 
+AHeldObject * UInventoryComponent::GetWeapon(bool rightHand) const
+{
+	if (rightHand)
+		return m_RightHandObject;
+	else
+		return m_LeftHandObject;
+}
+
 void UInventoryComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -263,6 +271,18 @@ void UInventoryComponent::BeginPlay()
 			UE_LOG(LogNotice, Error, TEXT("<InventoryComponent>: Failed to find skeletal mesh with tag %s"), *SkeletalMeshTag.ToString());
 		}
 	}
+}
+
+void UInventoryComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	if (m_RightHandObject)
+		m_RightHandObject->Destroy();
+	if (m_LeftHandObject)
+		m_LeftHandObject->Destroy();
+
+	m_RightHandObject = nullptr;
+	m_LeftHandObject = nullptr;
 }
 
 void UInventoryComponent::OnObjectEquiped(EItemCategory Category, const FName& Name, bool bInMainHand)
@@ -293,12 +313,14 @@ void UInventoryComponent::OnObjectEquiped(EItemCategory Category, const FName& N
 					{
 						m_RightHandObject = HeldObject;
 						m_RightHandObject->AttachToComponent(m_SkeletalMesh, rules, RHandSocketName);
+						OnWeaponEquiped.Broadcast(true);
 
 					}
 					else // Attatching to left hand
 					{
 						m_LeftHandObject = HeldObject;
 						m_LeftHandObject->AttachToComponent(m_SkeletalMesh, rules, LHandSocketName);
+						OnWeaponEquiped.Broadcast(false);
 					}
 
 					// Change stance if in main hand
@@ -335,6 +357,7 @@ void UInventoryComponent::OnObjectUnequiped(bool bInMainHand)
 	{
 		if (m_RightHandObject)
 		{
+			OnWeaponUnequiped.Broadcast(true);
 			m_RightHandObject->Destroy();
 			m_RightHandObject = nullptr;
 		}
@@ -344,6 +367,7 @@ void UInventoryComponent::OnObjectUnequiped(bool bInMainHand)
 	{
 		if (m_LeftHandObject)
 		{
+			OnWeaponUnequiped.Broadcast(false);
 			m_LeftHandObject->Destroy();
 			m_LeftHandObject = nullptr;
 		}

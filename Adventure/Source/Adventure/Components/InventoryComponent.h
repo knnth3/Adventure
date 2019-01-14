@@ -8,6 +8,7 @@
 #include "Components/ActorComponent.h"
 #include "InventoryComponent.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWeaponDelegate, bool, RightHand);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent), Blueprintable)
 class ADVENTURE_API UInventoryComponent : public UActorComponent
@@ -74,10 +75,21 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "Startup Settings")
 	bool bIsLeftHanded;
 
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	class AHeldObject* GetWeapon(bool rightHand)const;
+
+	UPROPERTY(BlueprintAssignable, Category = "Visual Changes")
+	FWeaponDelegate OnWeaponEquiped;
+
+	UPROPERTY(BlueprintAssignable, Category = "Visual Changes")
+	FWeaponDelegate OnWeaponUnequiped;
+
 protected:
 
 	// Called when the game starts
 	virtual void BeginPlay() override;
+	// Called when component is destroyed
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 

@@ -7,6 +7,7 @@
 #include "Saves/MapSaveFile.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "DataTables/PawnDatabase.h"
+#include "PlayerControllers/PC_Multiplayer.h"
 
 using namespace std;
 
@@ -473,9 +474,25 @@ void AWorldGrid::OnRep_BuildMap()
 		UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UBasicFunctions::LoadFile(path));
 		if (MapSaveFile)
 		{
+			APC_Multiplayer* Controller = Cast<APC_Multiplayer>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+			if (Controller)
+			{
+				Controller->ShouldDownloadMap(false);
+			}
+
 			UE_LOG(LogNotice, Warning, TEXT("<WorldGrid>: Map Loaded! Name: %s"), *MapSaveFile->MapName);
 
 			GeneratePlayArea(MapSaveFile);
+		}
+		else
+		{
+			// Download map
+			UE_LOG(LogNotice, Warning, TEXT("<WorldGrid>: Downloading map..  Name: %s"), *m_MapName);
+			APC_Multiplayer* Controller = Cast<APC_Multiplayer>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+			if (Controller)
+			{
+				Controller->ShouldDownloadMap(true);
+			}
 		}
 	}
 }
