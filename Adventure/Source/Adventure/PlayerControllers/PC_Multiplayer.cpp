@@ -69,9 +69,9 @@ void APC_Multiplayer::Client_RecievePacket_Implementation(int Data, bool LastPac
 {
 	m_CurrentDownloadPacketID++;
 
-	if (LastPacket)
+	if (LastPacket && !m_bMapDownloaded)
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<WorldGrid>: Last packet recieved from client."));
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: WorldGrid download: Last packet recieved from client."));
 		m_bMapDownloaded = true;
 	}
 	else
