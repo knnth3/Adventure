@@ -289,7 +289,7 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		m_CurrentDownloadPacketID++;
 		m_RawSaveFileClient.Append(Data);
 
-		if (LastPacket && !m_bMapDownloaded)
+		if (LastPacket)
 		{
 			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete!"));
 			m_bMapDownloaded = true;
