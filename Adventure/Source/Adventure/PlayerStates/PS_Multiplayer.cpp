@@ -176,8 +176,6 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 	Data.Empty();
 	// How many bytes are left that have not been copied over
 	int remain = m_RawSaveFileServer.Num() - (m_NextPacketIndex * TRANSFER_DATA_SIZE);
-
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i)"), (m_NextPacketIndex * TRANSFER_DATA_SIZE), m_RawSaveFileServer.Num());
 	if (remain > 0)
 	{
 		// Get bytes needed to transfer
@@ -281,6 +279,8 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 	}
 	else
 	{
+		int totalSize = m_LocationStats.NameSize + m_LocationStats.HeightMapSize + m_LocationStats.TextureMapSize + m_LocationStats.ObjectsSize + (sizeof(BasicTransform) * m_LocationStats.ObjectTransformsSize) + sizeof(FGridCoordinate);
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i)"), (m_CurrentDownloadPacketID * TRANSFER_DATA_SIZE), totalSize);
 		m_CurrentDownloadPacketID++;
 		m_RawSaveFileClient.Append(Data);
 
