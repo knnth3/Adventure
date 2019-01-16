@@ -4,7 +4,7 @@
 #include "Grid/WorldGrid.h"
 #include <string>
 
-#define TRANSFER_DATA_SIZE 16
+#define TRANSFER_DATA_SIZE 64
 #define PACKET_TRANSFER_TIME_DELAY 0.0025f
 
 APS_Multiplayer::APS_Multiplayer()
@@ -13,6 +13,8 @@ APS_Multiplayer::APS_Multiplayer()
 	m_GameID = -1;
 	m_CurrentPlayerActive = -1;
 	gotAuthority = false;
+	m_bMapDownloaded = false;
+	m_bNeedsNextPacket = false;
 	m_CurrentState = TURN_BASED_STATE::FREE_ROAM;
 }
 
@@ -297,7 +299,7 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 			LoadLocationDataFromBinary();
 
 		}
-		else
+		else if (!m_bMapDownloaded)
 		{
 			m_bNeedsNextPacket = true;
 			Server_DownloadMap(m_CurrentDownloadPacketID);
