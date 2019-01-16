@@ -6,6 +6,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "GameModes/GM_Multiplayer.h"
 #include "PlayerStates/PS_Multiplayer.h"
+#include "DataTables/InventoryDatabase.h"
 #include "Adventure.h"
 
 AGS_Multiplayer::AGS_Multiplayer()
@@ -42,30 +43,29 @@ void AGS_Multiplayer::GenerateGrid()
 {
 	if (HasAuthority())
 	{
-			AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
-			TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
-			if (Gamemode && WorldGridItr)
+		bool bGenerateNewMap = false;
+		// Ensure the map knows a a given map should be created
+		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
+		if (Gamemode)
+		{
+			FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *Gamemode->GetMapName());
+			if (!FPaths::FileExists(path))
 			{
-				if (!WorldGridItr->ServerOnly_LoadGrid(Gamemode->GetMapName()))
-				{
-					FWeaponInfo Winfo;
-					Winfo.Name = TEXT("Basic Sword");
-					Winfo.Description = TEXT("Ye ol faithful");
-					Winfo.VisualIndex = 1;
-					UInventoryDatabase::AddWeaponToDatabase(Winfo);
+				FWeaponInfo Winfo;
+				Winfo.Name = TEXT("Basic Sword");
+				Winfo.Description = TEXT("Ye ol faithful");
+				Winfo.VisualIndex = 1;
+				UInventoryDatabase::AddWeaponToDatabase(Winfo);
 
-					FConsumableInfo Cinfo;
-					Cinfo.Name = TEXT("Cake");
-					Cinfo.Description = TEXT("Delicious!");
-					Cinfo.HealthBonus = 1;
-					UInventoryDatabase::AddConsumableToDatabase(Cinfo);
+				FConsumableInfo Cinfo;
+				Cinfo.Name = TEXT("Cake");
+				Cinfo.Description = TEXT("Delicious!");
+				Cinfo.HealthBonus = 1;
+				UInventoryDatabase::AddConsumableToDatabase(Cinfo);
 
-					if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), Gamemode->GetMapSize()))
-					{
-						UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));
-					}
-				}
+				bGenerateNewMap = true;
 			}
+		}
 	}
 }
 

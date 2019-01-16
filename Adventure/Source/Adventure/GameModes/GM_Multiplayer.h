@@ -40,6 +40,7 @@ private:
 	int GeneratePlayerID();
 	void LoginConnectedPlayer(APlayerController *& Player);
 
+	bool m_MapDNE;
 	int m_PlayerIndexCount;
 	FString m_CurrentMapName;
 	FString m_HostUsername;

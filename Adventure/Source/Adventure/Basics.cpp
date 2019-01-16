@@ -11,6 +11,8 @@
 #include "SaveGameSystem.h"
 #include "PlatformFeatures.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include <fstream>
+#include <sys/stat.h>
 
 #define CM_TO_M_FACTOR 100
 #define CM_TO_IN_FACTOR 2.54
@@ -380,7 +382,7 @@ bool UBasicFunctions::GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ex
 	return true;
 }
 
-bool UBasicFunctions::SaveFile(USaveGame * SaveGameObject, const FString & SlotName)
+bool UBasicFunctions::SaveGameEx(USaveGame * SaveGameObject, const FString & SlotName)
 {
 	ISaveGameSystem* SaveSystem = IPlatformFeaturesModule::Get().GetSaveGameSystem();
 	// If we have a system and an object to save and a save name...
@@ -403,7 +405,7 @@ bool UBasicFunctions::SaveFile(USaveGame * SaveGameObject, const FString & SlotN
 	return false;
 }
 
-USaveGame * UBasicFunctions::LoadFile(const FString & SlotName)
+USaveGame * UBasicFunctions::LoadSaveGameEx(const FString & SlotName)
 {
 	USaveGame* OutSaveGameObject = NULL;
 
@@ -523,6 +525,52 @@ bool UBasicFunctions::TraceLine(FVector Start, FVector End, UWorld* World, FHitR
 
 		//  do the line trace
 		return UKismetSystemLibrary::LineTraceSingle(World, Start, End, TraceChannel, false, IgnoreActors, showTrace, Hit, true, FLinearColor::Blue);
+	}
+
+	return false;
+}
+
+bool UBasicFunctions::LoadBinaryFile(const FString & FilePath, TArray<uint8>& Data)
+{
+	//Convert to UTF8
+	std::string path = std::string(TCHAR_TO_UTF8(*FilePath));
+
+	// Get file size
+	struct stat results;
+	if (stat(path.c_str(), &results) == 0)
+	{
+		// Open file
+		std::ifstream SaveFile;
+		SaveFile.open(path.c_str(), std::ios::binary);
+
+		if (SaveFile.is_open())
+		{
+			// Resize data to fit save
+			Data.AddUninitialized(results.st_size);
+
+			// Load Contents
+			SaveFile.read((char*)Data.GetData(), Data.Num());
+
+			SaveFile.close();
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool UBasicFunctions::SaveBinaryFile(const FString & FilePath, const TArray<uint8>& Data)
+{
+	//Convert to UTF8
+	std::string path = std::string(TCHAR_TO_UTF8(*FilePath));
+
+	std::ofstream SaveFile(path, std::ios::out | std::ios::binary);
+
+	if (SaveFile.is_open())
+	{
+		SaveFile.write((const char*)Data.GetData(), Data.Num());
+		SaveFile.close();
+		return true;
 	}
 
 	return false;

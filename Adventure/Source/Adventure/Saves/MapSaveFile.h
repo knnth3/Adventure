@@ -59,4 +59,9 @@ public:
 	UPROPERTY(BlueprintReadWrite)
 	TArray<FWeaponInfo> Weapons;
 
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FString> Players;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FString> PlayerLocationNames;
 };

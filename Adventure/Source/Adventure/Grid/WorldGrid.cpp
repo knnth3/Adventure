@@ -4,7 +4,6 @@
 #include "./Character/MapPawn.h"
 #include "Interactable.h"
 #include "PathFinder.h"
-#include "Saves/MapSaveFile.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "DataTables/PawnDatabase.h"
 #include "PlayerControllers/PC_Multiplayer.h"
@@ -17,14 +16,13 @@ AWorldGrid::AWorldGrid()
 	bAlwaysRelevant = true;
 	bReplicateMovement = false;
 	m_bMapIsLoaded = false;
+	m_bMapFileExists = false;
 	m_GridDimensions = FGridCoordinate(10, 10);
 }
 
-void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const 
+void AWorldGrid::ServerOnly_SetMapName(const FString & MapName)
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AWorldGrid, m_MapName);
+	m_MapName = MapName;
 }
 
 bool AWorldGrid::ServerOnly_SaveMap()
@@ -92,29 +90,8 @@ bool AWorldGrid::ServerOnly_SaveMap()
 	UE_LOG(LogNotice, Warning, TEXT("Map saved at: %s"), *path);
 
 	SaveGameInstance->Locations.Push(newLocation);
-	UBasicFunctions::SaveFile(SaveGameInstance, path);
+	UBasicFunctions::SaveGameEx(SaveGameInstance, path);
 	return true;
-}
-
-bool AWorldGrid::ServerOnly_LoadGrid(const FString& MapName)
-{
-	FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *MapName);
-
-	if (FPaths::FileExists(path))
-	{
-		// Map was loaded successfully, Tell client to load the map as well
-		m_MapName = MapName;
-		OnRep_BuildMap();
-		return true;
-	}
-
-	return false;
-}
-
-bool AWorldGrid::ServerOnly_GenerateGrid(const FString& MapName, const FGridCoordinate& MapSize)
-{
-	m_MapName = MapName;
-	return GeneratePlayArea(MapSize);
 }
 
 void AWorldGrid::ServerOnly_ResetGrid()
@@ -175,23 +152,20 @@ bool AWorldGrid::ServerOnly_RemoveBlockingObjects(const TArray<FVector>& EditBox
 
 bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Location, int OwningPlayerID)
 {
-	if (ContainsCoordinate(Location.X, Location.Y))
+	if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])
 	{
-		if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])
+		FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
+		UWorld* World = GetWorld();
+		if (World)
 		{
-			FVector WorldLocation = UGridFunctions::GridToWorldLocation(Location);
-			UWorld* World = GetWorld();
-			if (World)
+			FTransform pawnTransform(FRotator(0, 180, 0), WorldLocation);
+			AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[ClassIndex], &pawnTransform));
+			if (NewPawn)
 			{
-				FTransform pawnTransform(FRotator(0, 180, 0), WorldLocation);
-				AMapPawn* NewPawn = Cast<AMapPawn>(World->SpawnActor(*MapPawnClasses[ClassIndex], &pawnTransform));
-				if (NewPawn)
-				{
-					NewPawn->ServerOnly_SetClassIndex(ClassIndex);
-					NewPawn->ServerOnly_SetOwnerID(OwningPlayerID);
-					m_PawnInstances.Push(NewPawn);
-					return true;
-				}
+				NewPawn->ServerOnly_SetClassIndex(ClassIndex);
+				NewPawn->ServerOnly_SetOwnerID(OwningPlayerID);
+				m_PawnInstances.Push(NewPawn);
+				return true;
 			}
 		}
 	}
@@ -237,39 +211,25 @@ void AWorldGrid::ServerOnly_EditCells(const TArray<FVector>& EditBoxVertices, co
 		EditCellHeight(EditBoxVertices, instructions.Height * CELL_STEP);
 }
 
+void AWorldGrid::BuildLocation(const struct FMapLocation& Data)
+{
+	GeneratePlayArea(
+		Data.Size,
+		&Data.HeightMap,
+		&Data.TextureMap,
+		&Data.Objects,
+		&Data.ObjectTransforms);
+}
+
+void AWorldGrid::GenerateEmptyLocation(const FGridCoordinate& Size)
+{
+	GeneratePlayArea(Size);
+}
+
 void AWorldGrid::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UInventoryDatabase::ClearDatabase();
 	UPawnDatabase::ClearDatabase();
-}
-
-bool AWorldGrid::GeneratePlayArea(const UMapSaveFile * Save)
-{
-	for (const auto& weapon : Save->Weapons)
-	{
-		UInventoryDatabase::AddWeaponToDatabase(weapon);
-	}
-
-	for (const auto& consumable : Save->Consumables)
-	{
-		UInventoryDatabase::AddConsumableToDatabase(consumable);
-	}
-
-	for (const auto& location : Save->Locations)
-	{
-		if (Save->ActiveLocation == location.Name)
-		{
-
-			return GeneratePlayArea(
-				location.Size,
-				&location.HeightMap,
-				&location.TextureMap,
-				&location.Objects,
-				&location.ObjectTransforms);
-		}
-	}
-
-	return false;
 }
 
 bool AWorldGrid::GeneratePlayArea(const FGridCoordinate& GridDimensions, const TArray<uint8>* HeightMap, 
@@ -342,24 +302,6 @@ bool AWorldGrid::GeneratePlayArea(const FGridCoordinate& GridDimensions, const T
 
 		return true;
 
-	}
-
-	return false;
-}
-
-bool AWorldGrid::ContainsCoordinate(const FGridCoordinate & coordintate)
-{
-	return ContainsCoordinate(coordintate.X, coordintate.Y);
-}
-
-bool AWorldGrid::ContainsCoordinate(int x, int y)
-{
-	if (m_GridDimensions.X > x && x >= 0)
-	{
-		if (m_GridDimensions.Y> y && y >= 0)
-		{
-			return true;
-		}
 	}
 
 	return false;
@@ -462,37 +404,5 @@ void AWorldGrid::EditCellTexture(const TArray<FVector>& EditBoxVertices, uint8 T
 
 		ChangeToMesh->MarkRenderStateDirty();
 		m_UsedCellIndices.insert(TextureIndex);
-	}
-}
-
-void AWorldGrid::OnRep_BuildMap()
-{
-	// Only run if the server has identified the map
-	if (!m_MapName.IsEmpty())
-	{
-		FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *m_MapName);
-		UMapSaveFile* MapSaveFile = Cast<UMapSaveFile>(UBasicFunctions::LoadFile(path));
-		if (MapSaveFile)
-		{
-			APC_Multiplayer* Controller = Cast<APC_Multiplayer>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-			if (Controller)
-			{
-				Controller->ShouldDownloadMap(false);
-			}
-
-			UE_LOG(LogNotice, Warning, TEXT("<WorldGrid>: Map Loaded! Name: %s"), *MapSaveFile->MapName);
-
-			GeneratePlayArea(MapSaveFile);
-		}
-		else
-		{
-			// Download map
-			UE_LOG(LogNotice, Warning, TEXT("<WorldGrid>: Downloading map..  Name: %s"), *m_MapName);
-			APC_Multiplayer* Controller = Cast<APC_Multiplayer>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-			if (Controller)
-			{
-				Controller->ShouldDownloadMap(true);
-			}
-		}
 	}
 }

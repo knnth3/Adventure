@@ -14,6 +14,7 @@
 
 AGM_Multiplayer::AGM_Multiplayer()
 {
+	m_MapDNE = false;
 	bUseSeamlessTravel = true;
 	m_PlayerIndexCount = 0;
 	m_GridDimensions = { 100, 100 };
@@ -89,6 +90,7 @@ void AGM_Multiplayer::LoginConnectedPlayer(APlayerController *& Player)
 		{
 			m_ConnnectedPlayers[PlayerName] = GeneratePlayerID();
 			currentPlayerState->ServerOnly_SetGameID(m_ConnnectedPlayers[PlayerName]);
+
 			gameState->AddNewPlayer(m_ConnnectedPlayers[PlayerName], currentPlayerState->GetPlayerName());
 
 			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has connected. Player was assigned to GameID: %i"), *FString(PlayerName.c_str()), currentPlayerState->GetGameID());
@@ -97,6 +99,13 @@ void AGM_Multiplayer::LoginConnectedPlayer(APlayerController *& Player)
 		{
 			currentPlayerState->ServerOnly_SetGameID(m_ConnnectedPlayers[PlayerName]);
 			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has reconnected."), *FString(PlayerName.c_str()));
+		}
+
+		// Re-download map
+		if (m_MapDNE || !currentPlayerState->LoadMap(GetMapName()))
+		{
+			m_MapDNE = true;
+			currentPlayerState->GenerateEmptyMap(GetMapName(), GetMapSize());
 		}
 	}
 }

@@ -2,6 +2,7 @@
 #include "GS_GameBuilder.h"
 
 #include "GameModes/GM_GameBuilder.h"
+#include "PlayerStates/PS_GameBuilder.h"
 #include "Adventure.h"
 #include "Grid/WorldGrid.h"
 #include "DataTables/InventoryDatabase.h"
@@ -12,20 +13,11 @@ void AGS_GameBuilder::HandleBeginPlay()
 
 	if (HasAuthority())
 	{
+		bool bGenerateNewMap = false;
 		AGM_GameBuilder* Gamemode = Cast<AGM_GameBuilder>(AuthorityGameMode);
-		TActorIterator<AWorldGrid> WorldGridItr(GetWorld());
-		if (Gamemode && WorldGridItr)
+		if (Gamemode)
 		{
-			bool loaded = !Gamemode->IsNewMap();
-			if (loaded)
-			{
-				if (!WorldGridItr->ServerOnly_LoadGrid(Gamemode->GetMapName()))
-				{
-					UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to load grid"));
-					loaded = false;
-				}
-			}
-			else // New map requested
+			if (Gamemode->IsNewMap())
 			{
 				FWeaponInfo Winfo;
 				Winfo.Name = TEXT("Basic Sword");
@@ -39,9 +31,19 @@ void AGS_GameBuilder::HandleBeginPlay()
 				Cinfo.HealthBonus = 1;
 				UInventoryDatabase::AddConsumableToDatabase(Cinfo);
 
-				if (!WorldGridItr->ServerOnly_GenerateGrid(Gamemode->GetMapName(), Gamemode->GetMapSize()))
+				bGenerateNewMap = true;
+			}
+		}
+
+		// Tell player states to load the area they need to display to the client
+		for (const auto& ps : PlayerArray)
+		{
+			APS_GameBuilder* currentPS = Cast<APS_GameBuilder>(ps);
+			if (currentPS)
+			{
+				if (bGenerateNewMap || !currentPS->LoadMap(Gamemode->GetMapName()))
 				{
-					UE_LOG(LogNotice, Warning, TEXT("<GameState Setup>: Failed to initialize grid"));
+					currentPS->GenerateEmptyMap(Gamemode->GetMapName(), Gamemode->GetMapSize());
 				}
 			}
 		}

@@ -100,6 +100,49 @@ enum class UNITS
 	YARDS,
 };
 
+struct BasicTransform
+{
+	BasicTransform() = default;
+	BasicTransform(const FTransform& transform)
+	{
+		const FRotator R(transform.Rotator());
+		const FVector T(transform.GetTranslation());
+		const FVector S(transform.GetScale3D());
+
+		ScaleX = S.X;
+		ScaleY = S.Y;
+		ScaleZ = S.Z;
+
+		Roll = R.Roll;
+		Pitch = R.Pitch;
+		Yaw = R.Yaw;
+
+		TransX = T.X;
+		TransY = T.Y;
+		TransZ = T.Z;
+	}
+
+	FTransform ToFTransform()const
+	{
+		return FTransform(FRotator(Pitch, Yaw, Roll), FVector(TransX, TransY, TransZ), FVector(ScaleX, ScaleY, ScaleZ));
+	}
+
+	FString ToString() const
+	{
+		return FString::Printf(TEXT("%f,%f,%f|%f,%f,%f|%f,%f,%f"), TransX, TransY, TransZ, Pitch, Yaw, Roll, ScaleX, ScaleY, ScaleZ);
+	}
+
+	float ScaleX = 0;
+	float ScaleY = 0;
+	float ScaleZ = 0;
+	float Roll = 0;
+	float Pitch = 0;
+	float Yaw = 0;
+	float TransX = 0;
+	float TransY = 0;
+	float TransZ = 0;
+};
+
 template <typename T>
 struct shared_ptr_compare
 {
@@ -301,19 +344,32 @@ class ADVENTURE_API UBasicFunctions : public UObject
 	
 public:
 
+	// Get all gave games in a given folder
 	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
 	static bool GetAllSaveGameSlotNames(TArray<FString>& Array, FString Ext);
 
+	// Save Game File that contains a different extension than the default .sav
 	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
-	static bool SaveFile(class USaveGame* SaveGameObject, const FString& SlotName);
+	static bool SaveGameEx(class USaveGame* SaveGameObject, const FString& SlotName);
 
+	// Load Save file that contains a different extension than the default .sav
 	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
-	static USaveGame* LoadFile(const FString& SlotName);
+	static USaveGame* LoadSaveGameEx(const FString& SlotName);
 
+	// Get Enum for session type that is blueprintable
 	static ESessionState ToBlueprintType(EOnlineSessionState::Type Type);
+
+	// Get Enum for session result type that is blueprintable
 	static EJoinSessionResults ToBlueprintType(EOnJoinSessionCompleteResult::Type Type);
 
+	// Trace Line 
 	static bool TraceLine(FVector Start, FVector End, UWorld* World, FHitResult& Hit, ETraceTypeQuery TraceChannel = ETraceTypeQuery::TraceTypeQuery1, AActor* Ignore = nullptr, bool bShowTrace = false);
+
+	// Loads a binary file
+	static bool LoadBinaryFile(const FString& FilePath, TArray<uint8>& Data);
+
+	// Saves a binary file
+	static bool SaveBinaryFile(const FString& FilePath, const TArray<uint8>& Data);
 };
 
 
