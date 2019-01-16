@@ -176,6 +176,7 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 	Data.Empty();
 	// How many bytes are left that have not been copied over
 	int remain = m_RawSaveFileServer.Num() - (m_NextPacketIndex * TRANSFER_DATA_SIZE);
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Sending location to player: Remaining = %i"), remain);
 	if (remain > 0)
 	{
 		// Get bytes needed to transfer
