@@ -18,6 +18,11 @@ struct FLocationStats
 	GENERATED_BODY()
 public:
 
+	int GetLocationSizeInBytes() const
+	{
+		return NameSize + HeightMapSize + TextureMapSize + ObjectsSize + (sizeof(BasicTransform) * ObjectTransformsSize) + sizeof(FGridCoordinate);
+	}
+
 	UPROPERTY()
 	int NameSize;
 
@@ -32,6 +37,9 @@ public:
 
 	UPROPERTY()
 	int ObjectTransformsSize;
+
+	UPROPERTY()
+	int BFFinished;
 };
 
 UENUM(BlueprintType)
@@ -104,14 +112,15 @@ private:
 
 	// Server
 	bool m_bMapDownloaded;
-	int m_NextPacketIndex;
+	int m_BFSent;
 	bool m_bNeedsNextPacket;
 	float m_TotalTime;
 	FMapLocation m_CurrentLocation;
 	TArray<uint8> m_RawSaveFileServer;
 
 	// Client
-	int m_CurrentDownloadPacketID;
+	int m_DownloadedSize;
+	int m_BFRecieved;
 	FLocationStats m_LocationStats;
 	TArray<uint8> m_RawSaveFileClient;
 	bool gotAuthority;
@@ -124,11 +133,11 @@ private:
 
 	// Server function sent from client to request more data from download
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_DownloadMap(int packetID);
+	void Server_DownloadMap(int BFRecieved);
 
 	// Client functin sent from server to give data to owning client
 	UFUNCTION(Client, Reliable)
-	void Client_RecievePacket(const TArray<uint8>& Data, bool LastPacket);
+	void Client_RecievePacket(const TArray<uint8>& Data, int Bitfield);
 
 	// Transfers location data to owning client so that it may generate a grid
 	UFUNCTION()
