@@ -179,12 +179,12 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 {
 	Data.Empty();
 	// How many bytes are left that have not been copied over
+	int sendAmnt = 0;
 	int remain = m_RawSaveFileServer.Num() - (m_NextPacketIndex * TRANSFER_DATA_SIZE);
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Sending location to player: Remaining = %i"), remain);
 	if (remain > 0)
 	{
 		// Get bytes needed to transfer
-		int sendAmnt = (remain > TRANSFER_DATA_SIZE) ? TRANSFER_DATA_SIZE : remain;
+		sendAmnt = (remain > TRANSFER_DATA_SIZE) ? TRANSFER_DATA_SIZE : remain;
 
 		// Should not be less than zero but just in case
 		LastPacket = (remain - sendAmnt <= 0);
@@ -199,6 +199,8 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 	{
 		LastPacket = true;
 	}
+
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Sending location to player: Remaining = %i, Sending = %i"), remain);
 }
 
 void APS_Multiplayer::LoadLocationDataFromBinary()
