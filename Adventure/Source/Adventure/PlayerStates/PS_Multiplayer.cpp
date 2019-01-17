@@ -277,7 +277,7 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		gotAuthority = true;
 	}
 
-	if (HasAuthority())
+	if (Role == ENetRole::ROLE_Authority)
 	{
 		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download canceled. Running on server"));
 		m_bMapDownloaded = true;
