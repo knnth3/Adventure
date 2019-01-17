@@ -5,7 +5,7 @@
 #include <string>
 
 #define TRANSFER_DATA_SIZE 64
-#define PACKET_TRANSFER_TIME_DELAY 0.0025f
+#define PACKET_TRANSFER_TIME_DELAY 0.005f
 
 APS_Multiplayer::APS_Multiplayer()
 {
@@ -288,7 +288,6 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 	{
 		int totalSize = m_LocationStats.NameSize + m_LocationStats.HeightMapSize + m_LocationStats.TextureMapSize + m_LocationStats.ObjectsSize + (sizeof(BasicTransform) * m_LocationStats.ObjectTransformsSize) + sizeof(FGridCoordinate);
 		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i)"), (m_CurrentDownloadPacketID * TRANSFER_DATA_SIZE), totalSize);
-		m_CurrentDownloadPacketID++;
 		m_RawSaveFileClient.Append(Data);
 
 		if (LastPacket)
@@ -302,7 +301,7 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		else if (!m_bMapDownloaded)
 		{
 			m_bNeedsNextPacket = true;
-			Server_DownloadMap(m_CurrentDownloadPacketID);
+			Server_DownloadMap(++m_CurrentDownloadPacketID);
 		}
 	}
 }
