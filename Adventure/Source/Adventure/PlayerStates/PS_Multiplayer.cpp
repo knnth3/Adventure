@@ -123,10 +123,10 @@ bool APS_Multiplayer::LoadMap(const FString& MapName)
 
 				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Begin map download..."));
 				// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-				bool lastPacket = false;
+
 				TArray<uint8> Data;
-				GetNextPacketData(Data, lastPacket);
-				Client_RecievePacket(Data, lastPacket);
+				GetNextPacketData(Data, m_bMapDownloaded);
+				Client_RecievePacket(Data, m_bMapDownloaded);
 
 				break;
 			}
@@ -153,15 +153,14 @@ void APS_Multiplayer::UpdateDataTransfer(float DeltaTime)
 	if (HasAuthority())
 	{
 		m_TotalTime += DeltaTime;
-		if (!m_bMapDownloaded && m_TotalTime >= PACKET_TRANSFER_TIME_DELAY && m_bNeedsNextPacket)
+		if (!m_bMapDownloaded && m_bNeedsNextPacket && m_TotalTime >= PACKET_TRANSFER_TIME_DELAY)
 		{
 			m_TotalTime = 0;
 
 			// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-			bool lastPacket = false;
 			TArray<uint8> Data;
-			GetNextPacketData(Data, lastPacket);
-			Client_RecievePacket(Data, lastPacket);
+			GetNextPacketData(Data, m_bMapDownloaded);
+			Client_RecievePacket(Data, m_bMapDownloaded);
 		}
 	}
 }
@@ -274,17 +273,9 @@ bool APS_Multiplayer::Server_DownloadMap_Validate(int packetID)
 
 void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& Data, bool LastPacket)
 {
-	if (!gotAuthority)
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState_Client>: Role: %s"), *GetStringOf(Role));
-		gotAuthority = true;
-	}
-
 	if (Role == ENetRole::ROLE_Authority)
 	{
 		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download canceled. Running on server"));
-		m_bMapDownloaded = true;
-		m_bNeedsNextPacket = false;
 		Client_GenerateGrid(m_CurrentLocation);
 	}
 	else
@@ -296,14 +287,11 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		if (LastPacket)
 		{
 			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete!"));
-			m_bMapDownloaded = true;
-			m_bNeedsNextPacket = false;
 			LoadLocationDataFromBinary();
 
 		}
-		else if (!m_bMapDownloaded)
+		else
 		{
-			m_bNeedsNextPacket = true;
 			Server_DownloadMap(++m_CurrentDownloadPacketID);
 		}
 	}

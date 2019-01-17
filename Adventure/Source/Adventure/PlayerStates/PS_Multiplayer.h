@@ -103,6 +103,7 @@ private:
 	int m_CurrentPlayerActive;
 
 	// Server
+	bool m_bMapDownloaded;
 	int m_NextPacketIndex;
 	bool m_bNeedsNextPacket;
 	float m_TotalTime;
@@ -111,7 +112,6 @@ private:
 
 	// Client
 	int m_CurrentDownloadPacketID;
-	bool m_bMapDownloaded;
 	FLocationStats m_LocationStats;
 	TArray<uint8> m_RawSaveFileClient;
 	bool gotAuthority;
