@@ -200,7 +200,7 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 		LastPacket = true;
 	}
 
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Sending location to player: Remaining = %i, Sending = %i"), remain, sendAmnt);
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Sending location to player: Remaining = %i, Sending = %i, PacketIndex = %i, LastPacket = %s"), remain, sendAmnt, m_NextPacketIndex, LastPacket? TEXT("True") : TEXT("False"));
 }
 
 void APS_Multiplayer::LoadLocationDataFromBinary()
