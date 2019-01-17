@@ -48,6 +48,13 @@ void AGS_Multiplayer::GenerateGrid()
 		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
 		if (Gamemode)
 		{
+			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+			if (WorldGrid)
+			{
+				WorldGrid->ServerOnly_SetMapName(Gamemode->GetMapName());
+				WorldGrid->ServerOnly_SetMapSize(Gamemode->GetMapSize());
+			}
+
 			FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *Gamemode->GetMapName());
 			if (!FPaths::FileExists(path))
 			{

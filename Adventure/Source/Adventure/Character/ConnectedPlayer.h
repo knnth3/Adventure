@@ -89,7 +89,9 @@ protected:
 
 private:
 
-	bool bRegistered;
+	float m_Time;
+	bool m_MapDNE;
+	bool m_bMapFirstBuild;
 	class AMapPawn* m_SelectedPawn;
 	class AWorldGrid* m_WorldGrid;
 	float m_CameraTransitionAcceleration;
@@ -109,5 +111,8 @@ private:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ClearPawnTargetLocation();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_BeginMapConstruction();
 
 };

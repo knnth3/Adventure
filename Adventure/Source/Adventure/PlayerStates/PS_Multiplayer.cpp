@@ -4,7 +4,7 @@
 #include "Grid/WorldGrid.h"
 #include <string>
 
-#define TRANSFER_DATA_SIZE 64
+#define TRANSFER_DATA_SIZE 256
 #define PACKET_TRANSFER_TIME_DELAY 0.005f
 
 APS_Multiplayer::APS_Multiplayer()
@@ -273,12 +273,12 @@ bool APS_Multiplayer::Server_DownloadMap_Validate(int packetID)
 
 void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& Data, bool LastPacket)
 {
-	if (Role == ENetRole::ROLE_Authority)
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download canceled. Running on server"));
-		Client_GenerateGrid(m_CurrentLocation);
-	}
-	else
+	//if (Role == ENetRole::ROLE_Authority)
+	//{
+	//	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download canceled. Running on server"));
+	//	Client_GenerateGrid(m_CurrentLocation);
+	//}
+	//else
 	{
 		int totalSize = m_LocationStats.NameSize + m_LocationStats.HeightMapSize + m_LocationStats.TextureMapSize + m_LocationStats.ObjectsSize + (sizeof(BasicTransform) * m_LocationStats.ObjectTransformsSize) + sizeof(FGridCoordinate);
 		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i)"), (m_CurrentDownloadPacketID * TRANSFER_DATA_SIZE), totalSize);
@@ -286,7 +286,7 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 
 		if (LastPacket)
 		{
-			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete!"));
+			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete! Packets recieved: %i"), m_RawSaveFileClient.Num());
 			LoadLocationDataFromBinary();
 
 		}

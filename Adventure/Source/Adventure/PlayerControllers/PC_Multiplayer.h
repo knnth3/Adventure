@@ -27,28 +27,9 @@ public:
 	// Gets player ID
 	int GetPlayerID()const;
 
-	// Ticks bool and start map download process(Owning client)
-	void ShouldDownloadMap(bool bHasMap);
-
 	// Exec function for debugging purposes
 	UFUNCTION(Exec, Category = ExecFunctions)
 	void ShowPathfindingDebugLines(bool Value);
-
-protected:
-
-	// Tick function
-	virtual void Tick(float DeltaTime) override;
-
-	// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-	void GetNextPacketData(TArray<uint8>& Data, bool& LastPacket);
-
-	// Server function sent from client to request more data from download
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_DownloadMap(int packetID);
-
-	// Client functin sent from server to give data to owning client
-	UFUNCTION(Client, Reliable)
-	void Client_RecievePacket(const TArray<uint8>& Data, bool LastPacket);
 
 private:
 	

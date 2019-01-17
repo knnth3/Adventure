@@ -21,26 +21,39 @@ class ADVENTURE_API AGM_Multiplayer : public AGameModeBase
 public:
 	AGM_Multiplayer();
 
+	// Gets the map size
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer")
 	FGridCoordinate GetMapSize()const;
 
+	// Gets the map name
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer")
 	FString GetMapName()const;
 
+	// Gets the PlayerID of the host
 	int GetHostID()const;
 
 protected:
+
+	// Intializes game with default settings
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+
+	// Callback for when player connects
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer) override;
+
+	// Callback for when player connects through seamless travel
 	virtual void HandleSeamlessTravelPlayer(AController *& C) override;
+
+	// Callback for when seamless travel is finished
 	virtual void PostSeamlessTravel() override;
 
 private:
 
+	// Generates a playerID to be able to refrence separate instances
 	int GeneratePlayerID();
-	void LoginConnectedPlayer(APlayerController *& Player);
 
-	bool m_MapDNE;
+	// Handles login attempt (ensure the function remains fast and simple or client will hang)
+	void LoginConnectedPlayer(AController * Player);
+
 	int m_PlayerIndexCount;
 	FString m_CurrentMapName;
 	FString m_HostUsername;

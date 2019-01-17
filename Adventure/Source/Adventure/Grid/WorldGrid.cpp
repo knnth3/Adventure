@@ -20,9 +20,23 @@ AWorldGrid::AWorldGrid()
 	m_GridDimensions = FGridCoordinate(10, 10);
 }
 
+//sets variables for replicaton over a network
+void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AWorldGrid, m_GridDimensions);
+	DOREPLIFETIME(AWorldGrid, m_MapName);
+}
+
 void AWorldGrid::ServerOnly_SetMapName(const FString & MapName)
 {
 	m_MapName = MapName;
+}
+
+void AWorldGrid::ServerOnly_SetMapSize(const FGridCoordinate & MapSize)
+{
+	m_GridDimensions = MapSize;
 }
 
 bool AWorldGrid::ServerOnly_SaveMap()
@@ -224,6 +238,16 @@ void AWorldGrid::BuildLocation(const struct FMapLocation& Data)
 void AWorldGrid::GenerateEmptyLocation(const FGridCoordinate& Size)
 {
 	GeneratePlayArea(Size);
+}
+
+FGridCoordinate AWorldGrid::GetMapSize() const
+{
+	return m_GridDimensions;
+}
+
+FString AWorldGrid::GetMapName() const
+{
+	return m_MapName;
 }
 
 void AWorldGrid::EndPlay(const EEndPlayReason::Type EndPlayReason)

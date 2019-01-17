@@ -17,9 +17,11 @@ AConnectedPlayer::AConnectedPlayer()
 {
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	bRegistered = false;
+	m_bMapFirstBuild = false;
+	m_MapDNE = false;
 	m_SelectedPawn = nullptr;
 	SpectatingPawnID = 0;
+	m_Time = 0;
 	m_CameraTransitionAcceleration = 5500.0f;
 	m_CameraType = CONNECTED_PLAYER_CAMERA::OVERVIEW;
 
@@ -49,6 +51,16 @@ AConnectedPlayer::AConnectedPlayer()
 void AConnectedPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (HasAuthority())
+	{
+		m_Time += DeltaTime;
+		if (!m_bMapFirstBuild && m_Time > 10)
+		{
+			m_bMapFirstBuild = true;
+			Server_BeginMapConstruction();
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -258,6 +270,22 @@ void AConnectedPlayer::Server_ClearPawnTargetLocation_Implementation()
 }
 
 bool AConnectedPlayer::Server_ClearPawnTargetLocation_Validate()
+{
+	return true;
+}
+
+void AConnectedPlayer::Server_BeginMapConstruction_Implementation()
+{
+	APS_Multiplayer* PS = Cast<APS_Multiplayer>(GetPlayerState());
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
+	{
+		m_MapDNE = true;
+		PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
+	}
+}
+
+bool AConnectedPlayer::Server_BeginMapConstruction_Validate()
 {
 	return true;
 }

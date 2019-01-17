@@ -41,6 +41,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ServerOnly_SetMapName(const FString& MapName);
 
+	// Set map name (used to save map)
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	void ServerOnly_SetMapSize(const FGridCoordinate& MapSize);
+
 	// Saves a map using the ActiveSaveFileName
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_SaveMap();
@@ -81,6 +85,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void GenerateEmptyLocation(const FGridCoordinate& Size);
 
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	FGridCoordinate GetMapSize() const;
+
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	FString GetMapName() const;
+
 protected:
 
 	// Called when actor is destroyed
@@ -119,10 +129,14 @@ private:
 	// Function called to edit cell texture
 	void EditCellTexture(const TArray<FVector>& EditBoxVertices, uint8 TextureIndex);
 
+	UPROPERTY(Replicated)
+	FGridCoordinate m_GridDimensions;
+
+	UPROPERTY(Replicated)
+	FString m_MapName;
+
 	bool m_bMapFileExists;
 	bool m_bMapIsLoaded;
-	FString m_MapName;
-	FGridCoordinate m_GridDimensions;
 	std::set<uint8> m_UsedCellIndices; 
 	std::set<uint8> m_UsedObjectIndices;
 	TArray<AMapPawn*> m_PawnInstances;
