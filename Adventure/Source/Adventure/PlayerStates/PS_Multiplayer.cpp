@@ -262,6 +262,7 @@ void APS_Multiplayer::LoadLocationDataFromBinary()
 
 void APS_Multiplayer::Server_DownloadMap_Implementation(int packetID)
 {
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Client request for packet #%i"), packetID);
 	m_NextPacketIndex = packetID;
 	m_bNeedsNextPacket = true;
 	m_TotalTime = 0;
@@ -275,6 +276,7 @@ bool APS_Multiplayer::Server_DownloadMap_Validate(int packetID)
 
 void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& Data, bool LastPacket)
 {
+	m_CurrentDownloadPacketID++;
 	//if (Role == ENetRole::ROLE_Authority)
 	//{
 	//	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download canceled. Running on server"));
@@ -294,7 +296,8 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		}
 		else
 		{
-			Server_DownloadMap(++m_CurrentDownloadPacketID);
+			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Client request for packet #%i"), m_CurrentDownloadPacketID);
+			Server_DownloadMap(m_CurrentDownloadPacketID);
 		}
 	}
 }
