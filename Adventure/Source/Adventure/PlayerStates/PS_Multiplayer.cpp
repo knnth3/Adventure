@@ -150,16 +150,19 @@ void APS_Multiplayer::GenerateEmptyMap(const FString& MapName, const FGridCoordi
 
 void APS_Multiplayer::UpdateDataTransfer(float DeltaTime)
 {
-	m_TotalTime += DeltaTime;
-	if (!m_bMapDownloaded && m_TotalTime >= PACKET_TRANSFER_TIME_DELAY && m_bNeedsNextPacket)
+	if (HasAuthority())
 	{
-		m_TotalTime = 0;
+		m_TotalTime += DeltaTime;
+		if (!m_bMapDownloaded && m_TotalTime >= PACKET_TRANSFER_TIME_DELAY && m_bNeedsNextPacket)
+		{
+			m_TotalTime = 0;
 
-		// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-		bool lastPacket = false;
-		TArray<uint8> Data;
-		GetNextPacketData(Data, lastPacket);
-		Client_RecievePacket(Data, lastPacket);
+			// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
+			bool lastPacket = false;
+			TArray<uint8> Data;
+			GetNextPacketData(Data, lastPacket);
+			Client_RecievePacket(Data, lastPacket);
+		}
 	}
 }
 
