@@ -266,15 +266,6 @@ void APS_Multiplayer::LoadLocationDataFromBinary()
 		return;
 	}
 
-	for (int x = 0; x < m_RawSaveFileClient.Num(); x++)
-	{
-		if (m_RawSaveFileServer[x] != m_RawSaveFileClient[x])
-		{
-			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloaded data is corrupted. last good packet index %i"), x);
-			return;
-		}
-	}
-
 	FMapLocation Data;
 	Data.Name.Reserve(m_LocationStats.NameSize);
 	Data.HeightMap.AddUninitialized(m_LocationStats.HeightMapSize);
