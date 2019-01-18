@@ -46,6 +46,9 @@ protected:
 	// Callback for when seamless travel is finished
 	virtual void PostSeamlessTravel() override;
 
+	// Callback for when seamless travel is finished
+	virtual void PostLogin(APlayerController * NewPlayer);
+
 private:
 
 	// Generates a playerID to be able to refrence separate instances
