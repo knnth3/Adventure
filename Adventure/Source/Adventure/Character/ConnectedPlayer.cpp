@@ -276,13 +276,13 @@ bool AConnectedPlayer::Server_ClearPawnTargetLocation_Validate()
 
 void AConnectedPlayer::Server_BeginMapConstruction_Implementation()
 {
-	APS_Multiplayer* PS = Cast<APS_Multiplayer>(GetPlayerState());
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
-	{
-		m_MapDNE = true;
-		PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
-	}
+	//APS_Multiplayer* PS = Cast<APS_Multiplayer>(GetPlayerState());
+	//TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	//if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
+	//{
+	//	m_MapDNE = true;
+	//	PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
+	//}
 }
 
 bool AConnectedPlayer::Server_BeginMapConstruction_Validate()

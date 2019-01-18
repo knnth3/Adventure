@@ -57,6 +57,7 @@ private:
 	// Handles login attempt (ensure the function remains fast and simple or client will hang)
 	void LoginConnectedPlayer(AController * Player);
 
+	bool m_MapDNE;
 	int m_PlayerIndexCount;
 	FString m_CurrentMapName;
 	FString m_HostUsername;
