@@ -119,7 +119,6 @@ private:
 	std::bitset<sizeof(int) * 8 * 2> m_BFSent;
 	bool m_bNeedsNextPacket;
 	float m_TotalTime;
-	FMapLocation m_CurrentLocation;
 	TArray<uint8> m_RawSaveFileServer;
 
 	// Client
@@ -132,8 +131,11 @@ private:
 	// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
 	void GetNextPacketData(TArray<uint8>& Data, bool& LastPacket);
 
-	// Converts raw data to Location data
-	void LoadLocationDataFromBinary();
+	// Retrieves the data in the client download buffer and deserializes it to an FMapLocation
+	bool GetLocationFromDownloadBuffer(FMapLocation& Location);
+
+	// Transfers location data to owning client so that it may generate a grid
+	void GenerateGrid(const FMapLocation& Data);
 
 	// Server function sent from client to request more data from download
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -142,10 +144,6 @@ private:
 	// Client functin sent from server to give data to owning client
 	UFUNCTION(Client, Reliable)
 	void Client_RecievePacket(const TArray<uint8>& Data, const TArray<int>& Bitfield);
-
-	// Transfers location data to owning client so that it may generate a grid
-	UFUNCTION()
-	void Client_GenerateGrid(const FMapLocation& Data);
 
 	// Tells client to create a new map
 	UFUNCTION(Client, Reliable)

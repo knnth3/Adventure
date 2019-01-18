@@ -78,13 +78,7 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 		{
 			if (loc.Name == CurrentLocation)
 			{
-				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map loaded: %s <%i, %i>"), *loc.Name, loc.Size.X, loc.Size.Y);
-				TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-				if (WorldGrid)
-				{
-					WorldGrid->BuildLocation(loc);
-				}
-
+				GenerateGrid(loc);
 				return true;
 			}
 		}
@@ -121,45 +115,14 @@ bool APS_Multiplayer::LoadMap(const FString& MapName)
 			CurrentLocation = Save->ActiveLocation;
 		}
 
-		for (const auto& loc : Save->Locations)
+		for (auto& loc : Save->Locations)
 		{
 			if (loc.Name == CurrentLocation)
 			{
-				m_CurrentLocation = loc;
-				uint32 indexOffset = 0;
-
-				// Write name to buffer
-				std::string temp(TCHAR_TO_UTF8(*loc.Name));
-				m_RawSaveFileServer.AddUninitialized(temp.size());
-				for (const auto& c : temp)
-				{
-					m_RawSaveFileServer[indexOffset++] = (uint8)c;
-				}
-
-				// Write Size
-				indexOffset = m_RawSaveFileServer.Num();
-				m_RawSaveFileServer.AddUninitialized(sizeof(loc.Size));
-				FMemory::Memcpy(m_RawSaveFileServer.GetData() + indexOffset, &loc.Size, sizeof(loc.Size));
-
-				// Write Height map to buffer
-				m_RawSaveFileServer.Append(loc.HeightMap);
-
-				// Write Texture map to buffer
-				m_RawSaveFileServer.Append(loc.TextureMap);
-
-				// Write Objects to buffer
-				m_RawSaveFileServer.Append(loc.Objects);
-
-				// Write Object transforms to buffer
-				indexOffset = m_RawSaveFileServer.Num();
-				m_RawSaveFileServer.AddUninitialized(loc.ObjectTransforms.Num() * sizeof(BasicTransform));
-
-				for (const auto& transform : loc.ObjectTransforms)
-				{
-					BasicTransform trans(transform);
-					FMemory::Memcpy(m_RawSaveFileServer.GetData() + indexOffset, &trans, sizeof(trans));
-					indexOffset += sizeof(trans);
-				}
+				// Serialize location to buffer
+				FBufferArchive Buffer(true);
+				FMapLocation::StaticStruct()->SerializeBin(Buffer, &loc);
+				m_RawSaveFileServer = Buffer;
 
 				FLocationStats stats;
 				stats.NameSize = loc.Name.Len();
@@ -169,10 +132,10 @@ bool APS_Multiplayer::LoadMap(const FString& MapName)
 				stats.ObjectTransformsSize = loc.ObjectTransforms.Num();
 
 				int packetCount = FMath::DivideAndRoundUp(stats.GetLocationSizeInBytes(), TRANSFER_DATA_SIZE);
-				std::bitset<sizeof(int) * 8 * 2> tempFinshed(pow(2, packetCount) - 1);
-				stats.BFFinished = BitsetToArray(tempFinshed);
+				std::bitset<sizeof(int) * 8 * 2> ResultantBitField(pow(2, packetCount) - 1);
+				stats.BFFinished = BitsetToArray(ResultantBitField);
 
-				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server has requested Location download: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(tempFinshed.to_string().c_str()));
+				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server has requested Location download: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
 
 				Client_GetLocationStats(stats);
 
@@ -279,61 +242,30 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 	}
 }
 
-void APS_Multiplayer::LoadLocationDataFromBinary()
+bool APS_Multiplayer::GetLocationFromDownloadBuffer(FMapLocation& Location)
 {
 	int totalSize = m_LocationStats.NameSize + m_LocationStats.HeightMapSize + m_LocationStats.TextureMapSize + m_LocationStats.ObjectsSize + (sizeof(BasicTransform) * m_LocationStats.ObjectTransformsSize) + sizeof(FGridCoordinate);
 	if (totalSize != m_RawSaveFileClient.Num())
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download does not match data info"));
-		return;
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download does not match data info: Predicted: %i, Actual: %i"), totalSize, m_RawSaveFileClient.Num());
 	}
 
-	FMapLocation Data;
-	Data.Name.Reserve(m_LocationStats.NameSize);
-	Data.HeightMap.AddUninitialized(m_LocationStats.HeightMapSize);
-	Data.TextureMap.AddUninitialized(m_LocationStats.TextureMapSize);
-	Data.Objects.AddUninitialized(m_LocationStats.ObjectsSize);
-	Data.ObjectTransforms.AddUninitialized(m_LocationStats.ObjectTransformsSize);
+	// Deserialize
+	FMemoryReader Reader(m_RawSaveFileClient, true);
+	Reader.Seek(0);
+	FMapLocation::StaticStruct()->SerializeBin(Reader, &Location);
 
-	uint32 indexOffset = 0;
+	return true;
+}
 
-	// Read name
-	std::string temp;
-	for (int x = 0; x < m_LocationStats.NameSize; x++)
+void APS_Multiplayer::GenerateGrid(const FMapLocation& Data)
+{
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map loaded: %s <%i, %i>"), *Data.Name, Data.Size.X, Data.Size.Y);
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
 	{
-		temp.push_back((char)m_RawSaveFileClient[x]);
+		WorldGrid->BuildLocation(Data);
 	}
-
-	Data.Name = FString(UTF8_TO_TCHAR(temp.c_str()));
-	indexOffset += m_LocationStats.NameSize;
-
-	// Read Size
-	FMemory::Memcpy(&Data.Size, m_RawSaveFileClient.GetData() + indexOffset, sizeof(Data.Size));
-	indexOffset += sizeof(Data.Size);
-
-	// Read Height map
-	FMemory::Memcpy(Data.HeightMap.GetData(), m_RawSaveFileClient.GetData() + indexOffset, m_LocationStats.HeightMapSize);
-	indexOffset += m_LocationStats.HeightMapSize;
-
-	// Read Texture map
-	FMemory::Memcpy(Data.TextureMap.GetData(), m_RawSaveFileClient.GetData() + indexOffset, m_LocationStats.TextureMapSize);
-	indexOffset += m_LocationStats.TextureMapSize;
-
-	// Read Objects
-	FMemory::Memcpy(Data.Objects.GetData(), m_RawSaveFileClient.GetData() + indexOffset, m_LocationStats.ObjectsSize);
-	indexOffset += m_LocationStats.ObjectsSize;
-
-	// Read Object transforms
-	for (int x = 0; x < m_LocationStats.ObjectTransformsSize; x++)
-	{
-		BasicTransform trans;
-		FMemory::Memcpy(&trans, m_RawSaveFileClient.GetData() + indexOffset, sizeof(BasicTransform));
-		indexOffset += sizeof(BasicTransform);
-
-		Data.ObjectTransforms[x] = trans.ToFTransform();
-	}
-
-	Client_GenerateGrid(Data);
 }
 
 void APS_Multiplayer::Server_DownloadMap_Implementation(const TArray<int>& BFRecieved)
@@ -350,16 +282,6 @@ bool APS_Multiplayer::Server_DownloadMap_Validate(const TArray<int>& BFRecieved)
 
 void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
 {
-
-	if (HasAuthority())
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download canceled. Running on server"));
-		m_bMapDownloaded = true;
-		m_bNeedsNextPacket = false;
-		Client_GenerateGrid(m_CurrentLocation);
-		return;
-	}
-
 	// If there are changes to be made
 	auto BFIncoming = ArrayToBitset(Bitfield);
 
@@ -396,8 +318,12 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		{
 			// Build the map
 			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete! Packets recieved: %i"), m_RawSaveFileClient.Num());
-			LoadLocationDataFromBinary();
 
+			FMapLocation TestResult;
+			if (GetLocationFromDownloadBuffer(TestResult))
+			{
+				GenerateGrid(TestResult);
+			}
 		}
 		else
 		{
@@ -405,16 +331,6 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Client request sent for packet %i"), (CurrentIndex / TRANSFER_DATA_SIZE) + 1);
 			Server_DownloadMap(BitsetToArray(BFIncoming));
 		}
-	}
-}
-
-void APS_Multiplayer::Client_GenerateGrid(const FMapLocation& Data)
-{
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map loaded: %s <%i, %i>"), *Data.Name, Data.Size.X, Data.Size.Y);
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (WorldGrid)
-	{
-		WorldGrid->BuildLocation(Data);
 	}
 }
 
