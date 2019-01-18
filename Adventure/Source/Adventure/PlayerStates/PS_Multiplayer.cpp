@@ -4,8 +4,8 @@
 #include "Grid/WorldGrid.h"
 #include <string>
 
-#define TRANSFER_DATA_SIZE 256
-#define PACKET_TRANSFER_TIME_DELAY 0.005f
+#define TRANSFER_DATA_SIZE 2048
+#define PACKET_TRANSFER_TIME_DELAY 0.02f
 
 APS_Multiplayer::APS_Multiplayer()
 {
@@ -123,31 +123,20 @@ bool APS_Multiplayer::LoadMap(const FString& MapName)
 				stats.ObjectsSize = loc.Objects.Num();
 				stats.ObjectTransformsSize = loc.ObjectTransforms.Num();
 
-				stats.BFFinished = 0;
 				int packetCount = FMath::DivideAndRoundUp(stats.GetLocationSizeInBytes(), TRANSFER_DATA_SIZE);
-				for (int x = 0; x < packetCount; x++)
-				{
-					stats.BFFinished = stats.BFFinished << 1;
-					stats.BFFinished++;
-				}
+				std::bitset<sizeof(int) * 8 * 2> tempFinshed(pow(2, packetCount) - 1);
+				stats.BFFinished = BitsetToArray(tempFinshed);
 
-				FString textBF;
-				int BF = stats.BFFinished;
-				while (BF != 0)
-				{
-					textBF = (BF % 2 == 0 ? "0" : "1") + textBF;
-					BF /= 2;
-				}
-
-				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Final bitfield: %s : Begin map download..."), *textBF);
+				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server has requested Location download: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(tempFinshed.to_string().c_str()));
 
 				Client_GetLocationStats(stats);
 
 				// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
 				m_BFSent = 0;
+				m_bMapDownloaded = false;
 				TArray<uint8> Data;
 				GetNextPacketData(Data, m_bMapDownloaded);
-				Client_RecievePacket(Data, m_BFSent);
+				Client_RecievePacket(Data, BitsetToArray(m_BFSent));
 
 				break;
 			}
@@ -181,7 +170,7 @@ void APS_Multiplayer::UpdateDataTransfer(float DeltaTime)
 			// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
 			TArray<uint8> Data;
 			GetNextPacketData(Data, m_bMapDownloaded);
-			Client_RecievePacket(Data, m_BFSent);
+			Client_RecievePacket(Data, BitsetToArray(m_BFSent));
 		}
 	}
 }
@@ -200,13 +189,13 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 {
 	Data.Empty();
 
-	int BF = m_BFSent;
+	auto BF = m_BFSent;
 	int dataIndex = 0;
 	// Get the index of the data to be send
-	for (int x = 0; x < sizeof(int) * 8; x++)
+	for (int x = 0; x < m_BFSent.size(); x++)
 	{
 		// find first open field
-		if (BF)
+		if (BF.to_ullong())
 		{
 			BF = BF >> 1;
 		}
@@ -243,18 +232,6 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 	{
 		LastPacket = true;
 	}
-
-	FString textBF;
-	int BFs = m_BFSent;
-	while (BFs != 0)
-	{
-		textBF = (BFs % 2 == 0 ? "0" : "1") + textBF;
-		BFs /= 2;
-	}
-
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Send Package bitfield: %s"), *textBF);
-
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Sending location to player: Remaining = %i, Sending = %i"), remain, Data.Num());
 }
 
 void APS_Multiplayer::LoadLocationDataFromBinary()
@@ -314,30 +291,19 @@ void APS_Multiplayer::LoadLocationDataFromBinary()
 	Client_GenerateGrid(Data);
 }
 
-void APS_Multiplayer::Server_DownloadMap_Implementation(int BFRecieved)
+void APS_Multiplayer::Server_DownloadMap_Implementation(const TArray<int>& BFRecieved)
 {
-	FString textBF;
-	int BF = BFRecieved;
-	while (BF != 0) 
-	{ 
-		textBF = (BF % 2 == 0 ? "0" : "1") + textBF;
-		BF /= 2;
-	}
-
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server download request recieved: Client bitfield: %s"), *textBF);
-
-	m_BFSent = BFRecieved;
 	m_bNeedsNextPacket = true;
 	m_TotalTime = 0;
 
 }
 
-bool APS_Multiplayer::Server_DownloadMap_Validate(int packetID)
+bool APS_Multiplayer::Server_DownloadMap_Validate(const TArray<int>& BFRecieved)
 {
 	return true;
 }
 
-void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& Data, int Bitfield)
+void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
 {
 
 	//if (Role == ENetRole::ROLE_Authority)
@@ -347,23 +313,16 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 	//}
 	//else
 
-	FString textBF;
-	int BF = Bitfield;
-	while (BF != 0)
-	{
-		textBF = (BF % 2 == 0 ? "0" : "1") + textBF;
-		BF /= 2;
-	}
-
 	// If there are changes to be made
-	if(m_BFRecieved^Bitfield)
+	auto BFIncoming = ArrayToBitset(Bitfield);
+
+	if((m_BFRecieved^BFIncoming).to_ullong())
 	{
-		m_DownloadedSize += Data.Num();
-		int BFcurrentPacket = (Bitfield | m_BFRecieved) & ~m_BFRecieved;
+		auto BFcurrentPacket = (BFIncoming | m_BFRecieved) & ~m_BFRecieved;
 
 		// Get the position in the buffer where the new data should go
 		int CurrentIndex = 0;
-		for (int x = 0; x < sizeof(int) * 8; x++)
+		for (int x = 0; x < sizeof(int) * 8 * 2; x++)
 		{
 			if (BFcurrentPacket == 1)
 			{
@@ -376,14 +335,17 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 			}
 		}
 
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i): Bitfield: %s"), m_DownloadedSize, m_LocationStats.GetLocationSizeInBytes(), *textBF);
+		m_DownloadedSize += Data.Num();
+		FString BitsetStr(BFIncoming.to_string().c_str());
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i): Bitfield: %s"), m_DownloadedSize, m_LocationStats.GetLocationSizeInBytes(), *BitsetStr);
 
 		// Transfer the nessesary data to the correct location in the buffer
 		FMemory::Memcpy(m_RawSaveFileClient.GetData() + CurrentIndex, Data.GetData(), Data.Num());
 
-		m_BFRecieved |= Bitfield;
+		m_BFRecieved |= BFIncoming;
 
-		if (m_LocationStats.BFFinished == m_BFRecieved)
+		auto BFfinished = ArrayToBitset(m_LocationStats.BFFinished);
+		if (BFfinished == m_BFRecieved)
 		{
 			// Build the map
 			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete! Packets recieved: %i"), m_RawSaveFileClient.Num());
@@ -394,14 +356,14 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		{
 			// Ask for more data
 			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Client request sent for packet %i"), (CurrentIndex / TRANSFER_DATA_SIZE) + 1);
-			Server_DownloadMap(m_BFRecieved);
+			Server_DownloadMap(BitsetToArray(BFIncoming));
 		}
 	}
 }
 
 void APS_Multiplayer::Client_GenerateGrid(const FMapLocation& Data)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map loaded: %s"), *Data.Name);
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map loaded: %s <%i, %i>"), *Data.Name, Data.Size.X, Data.Size.Y);
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{

@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <list>
+#include <bitset>
 
 #include "Adventure.h"
 #include "OnlineSubsystemTypes.h"
@@ -51,6 +52,35 @@ static FORCEINLINE FString ParseStringFor(const FString& Text, const FString& Co
 	}
 
 	return Result;
+}
+
+// Converts an array of 2 ints into a bitset
+static std::bitset<sizeof(int) * 8 * 2> ArrayToBitset(const TArray<int>& arr)
+{
+	std::bitset<sizeof(int) * 8 * 2> result(0);
+	if (arr.Num() == 2)
+	{
+		std::bitset<sizeof(int) * 8 * 2> secondHalf = (unsigned int)arr[1];
+		result = arr[0];
+		result = result << sizeof(int) * 8;
+		result |= secondHalf;
+	}
+
+	return result;
+}
+
+static TArray<int> BitsetToArray(const std::bitset< sizeof(int) * 8 * 2>& bitset)
+{
+	TArray<int> result;
+
+	auto t = bitset << sizeof(int) * 8;
+
+	std::bitset<sizeof(int) * 8> temp1 = (bitset >> sizeof(int) * 8).to_ulong();
+	std::bitset<sizeof(int) * 8> temp2 = (t >> sizeof(int) * 8).to_ulong();
+
+	result.Push(temp1.to_ulong());
+	result.Push(temp2.to_ulong());
+	return result;
 }
 
 UENUM()

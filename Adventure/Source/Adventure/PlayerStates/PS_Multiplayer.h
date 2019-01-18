@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <bitset>
 #include "Basics.h"
 #include "Saves/MapSaveFile.h"
 #include "CoreMinimal.h"
@@ -39,7 +40,7 @@ public:
 	int ObjectTransformsSize;
 
 	UPROPERTY()
-	int BFFinished;
+	TArray<int> BFFinished;
 };
 
 UENUM(BlueprintType)
@@ -112,7 +113,7 @@ private:
 
 	// Server
 	bool m_bMapDownloaded;
-	int m_BFSent;
+	std::bitset<sizeof(int) * 8 * 2> m_BFSent;
 	bool m_bNeedsNextPacket;
 	float m_TotalTime;
 	FMapLocation m_CurrentLocation;
@@ -120,7 +121,7 @@ private:
 
 	// Client
 	int m_DownloadedSize;
-	int m_BFRecieved;
+	std::bitset<sizeof(int) * 8 * 2> m_BFRecieved;
 	FLocationStats m_LocationStats;
 	TArray<uint8> m_RawSaveFileClient;
 	bool gotAuthority;
@@ -133,11 +134,11 @@ private:
 
 	// Server function sent from client to request more data from download
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_DownloadMap(int BFRecieved);
+	void Server_DownloadMap(const TArray<int>& BFRecieved);
 
 	// Client functin sent from server to give data to owning client
 	UFUNCTION(Client, Reliable)
-	void Client_RecievePacket(const TArray<uint8>& Data, int Bitfield);
+	void Client_RecievePacket(const TArray<uint8>& Data, const TArray<int>& Bitfield);
 
 	// Transfers location data to owning client so that it may generate a grid
 	UFUNCTION()
