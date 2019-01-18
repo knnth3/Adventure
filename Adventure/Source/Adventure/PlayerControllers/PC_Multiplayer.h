@@ -31,10 +31,6 @@ public:
 	UFUNCTION(Exec, Category = ExecFunctions)
 	void ShowPathfindingDebugLines(bool Value);
 
-protected:
-	virtual void AcknowledgePossession(APawn * P) override;
-	virtual void BeginPlayingState() override;
-
 private:
 	
 	UPROPERTY()

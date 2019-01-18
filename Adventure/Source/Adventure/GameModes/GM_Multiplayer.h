@@ -47,7 +47,7 @@ protected:
 	virtual void PostSeamlessTravel() override;
 
 	// Callback for when seamless travel is finished
-	virtual void PostLogin(APlayerController * NewPlayer) override;
+	virtual void PostLogin(APlayerController * NewPlayer);
 
 private:
 

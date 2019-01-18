@@ -40,19 +40,3 @@ void APC_Multiplayer::ShowPathfindingDebugLines(bool Value)
 {
 	FPathFinder::ShowDebugPathLines(Value);
 }
-
-void APC_Multiplayer::AcknowledgePossession(APawn * P)
-{
-	Super::AcknowledgePossession(P);
-
-	if (Role == ENetRole::ROLE_AutonomousProxy)
-		UE_LOG(LogNotice, Warning, TEXT("Map Built - PC Ack req"));
-}
-
-void APC_Multiplayer::BeginPlayingState()
-{
-	Super::BeginPlayingState();
-
-	if (Role == ENetRole::ROLE_AutonomousProxy)
-		UE_LOG(LogNotice, Warning, TEXT("Map Built - PC begin play state"));
-}

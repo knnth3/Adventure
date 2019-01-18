@@ -49,6 +49,8 @@ AConnectedPlayer::AConnectedPlayer()
 
 void AConnectedPlayer::BeginPlay()
 {
+	Super::BeginPlay();
+
 	if(Role == ENetRole::ROLE_AutonomousProxy)
 		UE_LOG(LogNotice, Warning, TEXT("Map Built - Begin Play"));
 }
