@@ -46,10 +46,55 @@ int APS_Multiplayer::GetGameID() const
 	return m_GameID;
 }
 
+bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
+{
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		WorldGrid->ServerOnly_SetMapName(MapName);
+	}
+
+	FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *MapName);
+	UMapSaveFile* Save = Cast<UMapSaveFile>(UBasicFunctions::LoadSaveGameEx(path));
+	if (Save)
+	{
+		FString CurrentLocation;
+		for (int x = 0; x < Save->Players.Num(); x++)
+		{
+			// User found
+			if (Save->Players[x] == GetPlayerName())
+			{
+				CurrentLocation = Save->PlayerLocationNames[x];
+				break;
+			}
+		}
+
+		if (CurrentLocation.IsEmpty())
+		{
+			CurrentLocation = Save->ActiveLocation;
+		}
+
+		for (const auto& loc : Save->Locations)
+		{
+			if (loc.Name == CurrentLocation)
+			{
+				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map loaded: %s <%i, %i>"), *loc.Name, loc.Size.X, loc.Size.Y);
+				TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+				if (WorldGrid)
+				{
+					WorldGrid->BuildLocation(loc);
+				}
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 bool APS_Multiplayer::LoadMap(const FString& MapName)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState_Server>: Role: %s"), *GetStringOf(Role));
-
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 	if (WorldGrid)
 	{

@@ -70,6 +70,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player State")
 	int GetGameID() const;
 
+	// Server only function to load map from file
+	bool ServerOnly_LoadMap(const FString& MapName);
+
 	// Sets the map that the player state will use to query locations that will be displayed
 	bool LoadMap(const FString& MapName);
 

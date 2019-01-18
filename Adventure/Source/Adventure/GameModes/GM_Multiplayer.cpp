@@ -61,6 +61,7 @@ void AGM_Multiplayer::PostSeamlessTravel()
 {
 	Super::PostSeamlessTravel();
 
+
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: All players from previous level have joined."));
 }
 
