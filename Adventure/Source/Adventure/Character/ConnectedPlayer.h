@@ -23,7 +23,6 @@ class ADVENTURE_API AConnectedPlayer : public APawn
 
 public:
 	AConnectedPlayer();
-	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -37,6 +36,12 @@ public:
 	CONNECTED_PLAYER_CAMERA GetCameraType()const;
 
 protected:
+
+	// Called at actor start
+	virtual void BeginPlay() override;
+
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
 
 	// Player Components
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")

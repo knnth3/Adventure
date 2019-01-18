@@ -47,15 +47,27 @@ AConnectedPlayer::AConnectedPlayer()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 }
 
+void AConnectedPlayer::BeginPlay()
+{
+	if(Role == ENetRole::ROLE_AutonomousProxy)
+		UE_LOG(LogNotice, Warning, TEXT("Map Built - Begin Play"));
+}
+
 // Called every frame
 void AConnectedPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (Role == ENetRole::ROLE_AutonomousProxy && !m_bMapFirstBuild)
+	{
+		m_bMapFirstBuild = true;
+		UE_LOG(LogNotice, Warning, TEXT("Map Built - Tick"));
+	}
+
 	if (HasAuthority())
 	{
 		m_Time += DeltaTime;
-		if (!m_bMapFirstBuild && m_Time > 0)
+		if (!m_bMapFirstBuild && m_Time > 10)
 		{
 			m_bMapFirstBuild = true;
 			Server_BeginMapConstruction();
