@@ -55,7 +55,7 @@ void AConnectedPlayer::Tick(float DeltaTime)
 	if (HasAuthority())
 	{
 		m_Time += DeltaTime;
-		if (!m_bMapFirstBuild && m_Time > 10)
+		if (!m_bMapFirstBuild && m_Time > 0)
 		{
 			m_bMapFirstBuild = true;
 			Server_BeginMapConstruction();

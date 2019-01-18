@@ -306,12 +306,14 @@ bool APS_Multiplayer::Server_DownloadMap_Validate(const TArray<int>& BFRecieved)
 void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
 {
 
-	//if (Role == ENetRole::ROLE_Authority)
-	//{
-	//	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download canceled. Running on server"));
-	//	Client_GenerateGrid(m_CurrentLocation);
-	//}
-	//else
+	if (HasAuthority())
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download canceled. Running on server"));
+		m_bMapDownloaded = true;
+		m_bNeedsNextPacket = false;
+		Client_GenerateGrid(m_CurrentLocation);
+		return;
+	}
 
 	// If there are changes to be made
 	auto BFIncoming = ArrayToBitset(Bitfield);
