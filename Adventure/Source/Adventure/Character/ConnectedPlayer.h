@@ -37,9 +37,6 @@ public:
 
 protected:
 
-	// Called at actor start
-	virtual void BeginPlay() override;
-
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 

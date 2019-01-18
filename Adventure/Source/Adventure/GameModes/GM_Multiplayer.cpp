@@ -63,11 +63,6 @@ void AGM_Multiplayer::PostSeamlessTravel()
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: All players from previous level have joined."));
 }
 
-void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
-{
-	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client is ready to recieve map download!"));
-}
-
 int AGM_Multiplayer::GeneratePlayerID()
 {
 	return m_PlayerIndexCount++;
