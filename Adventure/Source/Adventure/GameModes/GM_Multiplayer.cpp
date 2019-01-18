@@ -65,6 +65,8 @@ void AGM_Multiplayer::PostSeamlessTravel()
 
 void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 {
+	Super::PostLogin(NewPlayer);
+
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client is ready to recieve map download!"));
 }
 
