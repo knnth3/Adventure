@@ -37,6 +37,18 @@ struct ADVENTURE_API FMapLocation
 };
 
 UCLASS()
+class ADVENTURE_API ULocationSave : public USaveGame
+{
+	GENERATED_BODY()
+
+public:
+
+	// Location data to be serialized
+	UPROPERTY(BlueprintReadWrite)
+	FMapLocation LocationData;
+};
+
+UCLASS()
 class ADVENTURE_API UMapSaveFile : public USaveGame
 {
 	GENERATED_BODY()

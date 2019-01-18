@@ -386,6 +386,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
 	static USaveGame* LoadSaveGameEx(const FString& SlotName);
 
+	// Converts a savegame to binary
+	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
+	static bool ConvertSaveToBinary(class USaveGame* SaveGameObject, TArray<uint8>& Buffer);
+
+	// Loads savegame from buffer
+	UFUNCTION(BlueprintCallable, Category = "Basic Functions")
+	static USaveGame* LoadSaveGameFromBuffer(const TArray<uint8>& Buffer);
+
 	// Get Enum for session type that is blueprintable
 	static ESessionState ToBlueprintType(EOnlineSessionState::Type Type);
 

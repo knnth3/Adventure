@@ -19,28 +19,11 @@ struct FLocationStats
 	GENERATED_BODY()
 public:
 
-	int GetLocationSizeInBytes() const
-	{
-		return NameSize + HeightMapSize + TextureMapSize + ObjectsSize + (sizeof(BasicTransform) * ObjectTransformsSize) + sizeof(FGridCoordinate);
-	}
+	UPROPERTY()
+	int PackageSize;
 
 	UPROPERTY()
-	int NameSize;
-
-	UPROPERTY()
-	int HeightMapSize;
-
-	UPROPERTY()
-	int TextureMapSize;
-
-	UPROPERTY()
-	int ObjectsSize;
-
-	UPROPERTY()
-	int ObjectTransformsSize;
-
-	UPROPERTY()
-	TArray<int> BFFinished;
+	TArray<int> FinalizedBitField;
 };
 
 UENUM(BlueprintType)
@@ -116,20 +99,20 @@ private:
 
 	// Server
 	bool m_bMapDownloaded;
-	std::bitset<sizeof(int) * 8 * 2> m_BFSent;
+	std::bitset<sizeof(int) * 8 * 2> m_ServerSentBitfield;
 	bool m_bNeedsNextPacket;
 	float m_TotalTime;
 	TArray<uint8> m_RawSaveFileServer;
 
 	// Client
 	int m_DownloadedSize;
-	std::bitset<sizeof(int) * 8 * 2> m_BFRecieved;
+	std::bitset<sizeof(int) * 8 * 2> m_ClientRecievedBitfield;
 	FLocationStats m_LocationStats;
 	TArray<uint8> m_RawSaveFileClient;
 	bool gotAuthority;
 
 	// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-	void GetNextPacketData(TArray<uint8>& Data, bool& LastPacket);
+	std::bitset<sizeof(int) * 8 * 2> GetNextPacketData(TArray<uint8>& Data, bool& LastPacket);
 
 	// Retrieves the data in the client download buffer and deserializes it to an FMapLocation
 	bool GetLocationFromDownloadBuffer(FMapLocation& Location);
@@ -151,5 +134,5 @@ private:
 
 	// Tell Client the information to unpack new location data
 	UFUNCTION(Client, Reliable)
-	void Client_GetLocationStats(const FLocationStats& Stats);
+	void Client_SetLocationStats(const FLocationStats& Stats);
 };

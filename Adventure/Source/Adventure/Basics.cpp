@@ -444,6 +444,61 @@ USaveGame * UBasicFunctions::LoadSaveGameEx(const FString & SlotName)
 	return OutSaveGameObject;
 }
 
+bool UBasicFunctions::ConvertSaveToBinary(USaveGame * SaveGameObject, TArray<uint8>& Buffer)
+{
+
+	// If we have an object to save
+	if (SaveGameObject)
+	{
+		Buffer.Empty();
+		FMemoryWriter MemoryWriter(Buffer, true);
+
+		FSaveGameHeaderCopy SaveHeader(SaveGameObject->GetClass());
+		SaveHeader.Write(MemoryWriter);
+
+		// Then save the object state, replacing object refs and names with strings
+		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+		SaveGameObject->Serialize(Ar);
+
+		// Return true if buffer has been filled successfully
+		return true;
+	}
+
+	return false;
+}
+
+USaveGame * UBasicFunctions::LoadSaveGameFromBuffer(const TArray<uint8>& Buffer)
+{
+	USaveGame* OutSaveGameObject = NULL;
+
+	// Ensure there is data to be read
+	if (Buffer.Num())
+	{
+		FMemoryReader MemoryReader(Buffer, true);
+
+		FSaveGameHeaderCopy SaveHeader;
+		SaveHeader.Read(MemoryReader);
+
+		// Try and find it, and failing that, load it
+		UClass* SaveGameClass = FindObject<UClass>(ANY_PACKAGE, *SaveHeader.SaveGameClassName);
+		if (SaveGameClass == NULL)
+		{
+			SaveGameClass = LoadObject<UClass>(NULL, *SaveHeader.SaveGameClassName);
+		}
+
+		// If we have a class, try and load it.
+		if (SaveGameClass != NULL)
+		{
+			OutSaveGameObject = NewObject<USaveGame>(GetTransientPackage(), SaveGameClass);
+
+			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, true);
+			OutSaveGameObject->Serialize(Ar);
+		}
+	}
+
+	return OutSaveGameObject;
+}
+
 ESessionState UBasicFunctions::ToBlueprintType(EOnlineSessionState::Type Type)
 {
 	ESessionState State = ESessionState::NoSession;

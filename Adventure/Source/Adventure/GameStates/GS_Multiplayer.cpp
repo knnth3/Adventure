@@ -55,7 +55,7 @@ void AGS_Multiplayer::GenerateGrid()
 				WorldGrid->ServerOnly_SetMapSize(Gamemode->GetMapSize());
 
 				APS_Multiplayer* PS = Cast<APS_Multiplayer>(PlayerArray[0]);
-				if (PS && !PS->ServerOnly_LoadMap(Gamemode->GetMapName()))
+				if (PS && !PS->LoadMap(Gamemode->GetMapName()))
 				{
 					PS->GenerateEmptyMap(WorldGrid->GetMapName(), Gamemode->GetMapSize());
 				}

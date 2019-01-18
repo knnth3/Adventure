@@ -12,8 +12,8 @@ APS_Multiplayer::APS_Multiplayer()
 	SetActorTickEnabled(true);
 	m_GameID = -1;
 	m_DownloadedSize = 0;
-	m_BFSent = 0;
-	m_BFRecieved = 0;
+	m_ServerSentBitfield = 0;
+	m_ClientRecievedBitfield = 0;
 	m_CurrentPlayerActive = -1;
 	gotAuthority = false;
 	m_bMapDownloaded = false;
@@ -119,38 +119,40 @@ bool APS_Multiplayer::LoadMap(const FString& MapName)
 		{
 			if (loc.Name == CurrentLocation)
 			{
-				// Serialize location to buffer
-				FBufferArchive Buffer(true);
-				FMapLocation::StaticStruct()->SerializeBin(Buffer, &loc);
-				m_RawSaveFileServer = Buffer;
+				// Create a containter to store data that will be sent over
+				ULocationSave* Location = Cast<ULocationSave>(UGameplayStatics::CreateSaveGameObject(ULocationSave::StaticClass()));
+				Location->LocationData = loc;
 
-				FLocationStats stats;
-				stats.NameSize = loc.Name.Len();
-				stats.HeightMapSize = loc.HeightMap.Num();
-				stats.TextureMapSize = loc.TextureMap.Num();
-				stats.ObjectsSize = loc.Objects.Num();
-				stats.ObjectTransformsSize = loc.ObjectTransforms.Num();
+				// Pack data into a buffer
+				TArray<uint8> Buffer;
+				if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
+				{
+					// Store the packed data into the transfer buffer
+					m_RawSaveFileServer = Buffer;
 
-				int packetCount = FMath::DivideAndRoundUp(stats.GetLocationSizeInBytes(), TRANSFER_DATA_SIZE);
-				std::bitset<sizeof(int) * 8 * 2> ResultantBitField(pow(2, packetCount) - 1);
-				stats.BFFinished = BitsetToArray(ResultantBitField);
+					// Give server a heads up of the data it will be recieving
+					FLocationStats stats;
+					stats.PackageSize = Buffer.Num();
 
-				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server has requested Location download: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
+					int packetCount = FMath::DivideAndRoundUp(Buffer.Num(), TRANSFER_DATA_SIZE);
+					std::bitset<sizeof(int) * 8 * 2> ResultantBitField(pow(2, packetCount) - 1);
+					stats.FinalizedBitField = BitsetToArray(ResultantBitField);
 
-				Client_GetLocationStats(stats);
+					UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server has requested Location download: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
+					Client_SetLocationStats(stats);
 
-				// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-				m_BFSent = 0;
-				m_bMapDownloaded = false;
-				TArray<uint8> Data;
-				GetNextPacketData(Data, m_bMapDownloaded);
-				Client_RecievePacket(Data, BitsetToArray(m_BFSent));
+					// Begin packet transfer
+					m_ServerSentBitfield = 0;
+					m_bMapDownloaded = false;
+					TArray<uint8> Data;
+					auto NextBit = GetNextPacketData(Data, m_bMapDownloaded);
+					Client_RecievePacket(Data, BitsetToArray(m_ServerSentBitfield | NextBit));
 
-				break;
+					return true;
+				}
+
 			}
 		}
-
-		return true;
 	}
 
 	return false;
@@ -175,10 +177,10 @@ void APS_Multiplayer::UpdateDataTransfer(float DeltaTime)
 		{
 			m_TotalTime = 0;
 
-			// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
+			// Get the next packet that is going to be sent
 			TArray<uint8> Data;
-			GetNextPacketData(Data, m_bMapDownloaded);
-			Client_RecievePacket(Data, BitsetToArray(m_BFSent));
+			auto NextBit = GetNextPacketData(Data, m_bMapDownloaded);
+			Client_RecievePacket(Data, BitsetToArray(m_ServerSentBitfield | NextBit));
 		}
 	}
 }
@@ -193,28 +195,13 @@ TURN_BASED_STATE APS_Multiplayer::GetCurrentState() const
 	return m_CurrentState;
 }
 
-void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
+std::bitset<sizeof(int) * 8 * 2> APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 {
 	Data.Empty();
 
-	auto BF = m_BFSent;
-	int dataIndex = 0;
-	// Get the index of the data to be send
-	for (int x = 0; x < m_BFSent.size(); x++)
-	{
-		// find first open field
-		if (BF.to_ullong())
-		{
-			BF = BF >> 1;
-		}
-		else
-		{
-			dataIndex = x * TRANSFER_DATA_SIZE;
-			BF = 1;
-			BF = BF << x;
-			break;
-		}
-	}
+	// Get the next bit to represent outgoing package (assumes all bits before it are on)
+	std::bitset<sizeof(int) * 8 * 2> NextBit = (m_ServerSentBitfield.to_ullong() + 1);
+	int dataIndex = (int)FMath::CeilLogTwo64(NextBit.to_ullong()) * TRANSFER_DATA_SIZE;
 
 	// How many bytes are left that have not been copied over
 	int sendAmnt = 0;
@@ -232,30 +219,32 @@ void APS_Multiplayer::GetNextPacketData(TArray<uint8>& Data, bool & LastPacket)
 
 		// Copy memory from save binary to transfer data array
 		FMemory::Memcpy(Data.GetData(), m_RawSaveFileServer.GetData() + dataIndex, sendAmnt);
-
-		// Mark the bit as being sent
-		m_BFSent |= BF;
 	}
 	else
 	{
 		LastPacket = true;
 	}
+
+	return NextBit;
 }
 
 bool APS_Multiplayer::GetLocationFromDownloadBuffer(FMapLocation& Location)
 {
-	int totalSize = m_LocationStats.NameSize + m_LocationStats.HeightMapSize + m_LocationStats.TextureMapSize + m_LocationStats.ObjectsSize + (sizeof(BasicTransform) * m_LocationStats.ObjectTransformsSize) + sizeof(FGridCoordinate);
-	if (totalSize != m_RawSaveFileClient.Num())
+	if (m_LocationStats.PackageSize != m_RawSaveFileClient.Num())
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download does not match data info: Predicted: %i, Actual: %i"), totalSize, m_RawSaveFileClient.Num());
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download does not match data info: Predicted: %i, Actual: %i"), m_LocationStats.PackageSize, m_RawSaveFileClient.Num());
 	}
 
 	// Deserialize
-	FMemoryReader Reader(m_RawSaveFileClient, true);
-	Reader.Seek(0);
-	FMapLocation::StaticStruct()->SerializeBin(Reader, &Location);
+	ULocationSave* LocationSave = Cast<ULocationSave>(UBasicFunctions::LoadSaveGameFromBuffer(m_RawSaveFileClient));
+	if (LocationSave)
+	{
+		Location = LocationSave->LocationData;
+		return true;
+	}
 
-	return true;
+
+	return false;
 }
 
 void APS_Multiplayer::GenerateGrid(const FMapLocation& Data)
@@ -270,6 +259,7 @@ void APS_Multiplayer::GenerateGrid(const FMapLocation& Data)
 
 void APS_Multiplayer::Server_DownloadMap_Implementation(const TArray<int>& BFRecieved)
 {
+	m_ServerSentBitfield = ArrayToBitset(BFRecieved);
 	m_bNeedsNextPacket = true;
 	m_TotalTime = 0;
 
@@ -283,11 +273,11 @@ bool APS_Multiplayer::Server_DownloadMap_Validate(const TArray<int>& BFRecieved)
 void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
 {
 	// If there are changes to be made
-	auto BFIncoming = ArrayToBitset(Bitfield);
+	auto RecievedBitfield = ArrayToBitset(Bitfield);
 
-	if((m_BFRecieved^BFIncoming).to_ullong())
+	if((m_ClientRecievedBitfield^RecievedBitfield).to_ullong())
 	{
-		auto BFcurrentPacket = (BFIncoming | m_BFRecieved) & ~m_BFRecieved;
+		auto BFcurrentPacket = (RecievedBitfield | m_ClientRecievedBitfield) & ~m_ClientRecievedBitfield;
 
 		// Get the position in the buffer where the new data should go
 		int CurrentIndex = 0;
@@ -305,16 +295,16 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		}
 
 		m_DownloadedSize += Data.Num();
-		FString BitsetStr(BFIncoming.to_string().c_str());
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i): Bitfield: %s"), m_DownloadedSize, m_LocationStats.GetLocationSizeInBytes(), *BitsetStr);
+		FString BitsetStr(RecievedBitfield.to_string().c_str());
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i): Bitfield: %s"), m_DownloadedSize, m_LocationStats.PackageSize, *BitsetStr);
 
 		// Transfer the nessesary data to the correct location in the buffer
 		FMemory::Memcpy(m_RawSaveFileClient.GetData() + CurrentIndex, Data.GetData(), Data.Num());
 
-		m_BFRecieved |= BFIncoming;
+		m_ClientRecievedBitfield |= RecievedBitfield;
 
-		auto BFfinished = ArrayToBitset(m_LocationStats.BFFinished);
-		if (BFfinished == m_BFRecieved)
+		auto BFfinished = ArrayToBitset(m_LocationStats.FinalizedBitField);
+		if (BFfinished == m_ClientRecievedBitfield)
 		{
 			// Build the map
 			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete! Packets recieved: %i"), m_RawSaveFileClient.Num());
@@ -329,8 +319,14 @@ void APS_Multiplayer::Client_RecievePacket_Implementation(const TArray<uint8>& D
 		{
 			// Ask for more data
 			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Client request sent for packet %i"), (CurrentIndex / TRANSFER_DATA_SIZE) + 1);
-			Server_DownloadMap(BitsetToArray(BFIncoming));
+			Server_DownloadMap(BitsetToArray(RecievedBitfield));
 		}
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server packet ignored, data already sent!"));
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Current Bitfield: %s"), *FString(m_ClientRecievedBitfield.to_string().c_str()));
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Recievd Bitfield: %s"), *FString(RecievedBitfield.to_string().c_str()));
 	}
 }
 
@@ -344,11 +340,13 @@ void APS_Multiplayer::Client_GenerateEmptyGrid_Implementation(const FGridCoordin
 	}
 }
 
-void APS_Multiplayer::Client_GetLocationStats_Implementation(const FLocationStats& Stats)
+void APS_Multiplayer::Client_SetLocationStats_Implementation(const FLocationStats& Stats)
 {
+	m_ClientRecievedBitfield = 0;
 	m_DownloadedSize = 0;
 	m_LocationStats = Stats;
-	m_RawSaveFileClient.AddUninitialized(Stats.GetLocationSizeInBytes());
+	m_RawSaveFileClient.AddUninitialized(Stats.PackageSize);
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Location download has initialized: Download size: %i Bytes"), Stats.PackageSize);
 }
 
 
