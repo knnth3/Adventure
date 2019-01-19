@@ -70,13 +70,13 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client is ready to recieve map download!"));
-	APS_Multiplayer* PS = NewPlayer->GetPlayerState<APS_Multiplayer>();
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
-	{
-		m_MapDNE = true;
-		PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
-	}
+	//APS_Multiplayer* PS = NewPlayer->GetPlayerState<APS_Multiplayer>();
+	//TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	//if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
+	//{
+	//	m_MapDNE = true;
+	//	PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
+	//}
 }
 
 int AGM_Multiplayer::GeneratePlayerID()
