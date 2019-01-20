@@ -15,19 +15,19 @@ AGS_Multiplayer::AGS_Multiplayer()
 	m_CurrentActivePlayer = 0;
 }
 
-void AGS_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AGS_Multiplayer, m_ActivePlayerName);
-	DOREPLIFETIME(AGS_Multiplayer, m_PlayerNameArray);
-}
+//void AGS_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
+//{
+//	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+//
+//	//DOREPLIFETIME(AGS_Multiplayer, m_ActivePlayerName);
+//	//DOREPLIFETIME(AGS_Multiplayer, m_PlayerNameArray);
+//}
 
 void AGS_Multiplayer::HandleBeginPlay()
 {
 	Super::HandleBeginPlay();
-	SetActivePlayer(-1);
-	GenerateGrid();
+	//SetActivePlayer(-1);
+	//GenerateGrid();
 }
 
 void AGS_Multiplayer::AddNewPlayer(int PlayerID, FString PlayerName)

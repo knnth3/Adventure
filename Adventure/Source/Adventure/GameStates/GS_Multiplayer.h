@@ -44,10 +44,10 @@ protected:
 
 private:
 
-	UPROPERTY(Replicated)
+	//UPROPERTY(Replicated)
 	FString m_ActivePlayerName;
 
-	UPROPERTY(Replicated)
+	//UPROPERTY(Replicated)
 	TArray<FString> m_PlayerNameArray;
 
 	bool m_bFreeRoamActive;

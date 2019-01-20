@@ -47,7 +47,7 @@ void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController *
 {
 	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
 
-	LoginConnectedPlayer(NewPlayer);
+	// LoginConnectedPlayer(NewPlayer);
 }
 
 void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController *& C)
