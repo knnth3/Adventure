@@ -27,7 +27,7 @@ void AGS_Multiplayer::HandleBeginPlay()
 {
 	Super::HandleBeginPlay();
 	//SetActivePlayer(-1);
-	//GenerateGrid();
+	GenerateGrid();
 }
 
 void AGS_Multiplayer::AddNewPlayer(int PlayerID, FString PlayerName)

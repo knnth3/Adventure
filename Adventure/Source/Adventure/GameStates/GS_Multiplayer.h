@@ -41,7 +41,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Spawnables")
 	TSubclassOf<class AWorldGrid> GridClass;
 
-
 private:
 
 	//UPROPERTY(Replicated)

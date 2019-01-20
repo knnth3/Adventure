@@ -46,8 +46,7 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)
 {
 	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
-
-	// LoginConnectedPlayer(NewPlayer);
+	LoginConnectedPlayer(NewPlayer);
 }
 
 void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController *& C)
@@ -61,15 +60,13 @@ void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController *& C)
 void AGM_Multiplayer::PostSeamlessTravel()
 {
 	Super::PostSeamlessTravel();
-
-
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: All players from previous level have joined."));
 }
 
 APlayerController * AGM_Multiplayer::Login(UPlayer * NewPlayer, ENetRole InRemoteRole, const FString & Portal, const FString & Options, const FUniqueNetIdRepl & UniqueId, FString & ErrorMessage)
 {
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Logging in client: UniqueID: %s"), *UniqueId.ToString());
-	return Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);
+	return Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);;
 }
 
 void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
@@ -77,13 +74,13 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client is ready to recieve map download!"));
-	//APS_Multiplayer* PS = NewPlayer->GetPlayerState<APS_Multiplayer>();
-	//TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	//if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
-	//{
-	//	m_MapDNE = true;
-	//	PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
-	//}
+	APS_Multiplayer* PS = NewPlayer->GetPlayerState<APS_Multiplayer>();
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
+	{
+		m_MapDNE = true;
+		PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
+	}
 }
 
 void AGM_Multiplayer::Logout(AController * Exiting)
