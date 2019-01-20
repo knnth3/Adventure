@@ -43,6 +43,7 @@ void AGS_Multiplayer::GenerateGrid()
 {
 	if (HasAuthority())
 	{
+		UE_LOG(LogNotice, Warning, TEXT("<GameState>: Generate Grid"));
 		bool bGenerateNewMap = false;
 		// Ensure the map knows a a given map should be created
 		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
@@ -55,7 +56,7 @@ void AGS_Multiplayer::GenerateGrid()
 				WorldGrid->ServerOnly_SetMapSize(Gamemode->GetMapSize());
 
 				APS_Multiplayer* PS = Cast<APS_Multiplayer>(PlayerArray[0]);
-				if (PS && !PS->LoadMap(Gamemode->GetMapName()))
+				if (PS && !PS->ServerOnly_LoadMap(Gamemode->GetMapName()))
 				{
 					PS->GenerateEmptyMap(WorldGrid->GetMapName(), Gamemode->GetMapSize());
 				}

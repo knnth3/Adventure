@@ -40,6 +40,7 @@ void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options,
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	m_CurrentMapName = UGameplayStatics::ParseOption(Options, "SN");
+	UE_LOG(LogNotice, Warning, TEXT("<GameMode>: Game being initialized"));
 }
 
 void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)
@@ -65,6 +66,12 @@ void AGM_Multiplayer::PostSeamlessTravel()
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: All players from previous level have joined."));
 }
 
+APlayerController * AGM_Multiplayer::Login(UPlayer * NewPlayer, ENetRole InRemoteRole, const FString & Portal, const FString & Options, const FUniqueNetIdRepl & UniqueId, FString & ErrorMessage)
+{
+	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Logging in client: UniqueID: %s"), *UniqueId.ToString());
+	return Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);
+}
+
 void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
@@ -77,6 +84,12 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 	//	m_MapDNE = true;
 	//	PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
 	//}
+}
+
+void AGM_Multiplayer::Logout(AController * Exiting)
+{
+	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client has logged out"));
+	Super::Logout(Exiting);
 }
 
 int AGM_Multiplayer::GeneratePlayerID()

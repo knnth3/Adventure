@@ -46,8 +46,14 @@ protected:
 	// Callback for when seamless travel is finished
 	virtual void PostSeamlessTravel() override;
 
+	// Called to login new player
+	virtual APlayerController* Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+
 	// Callback for when seamless travel is finished
-	virtual void PostLogin(APlayerController * NewPlayer);
+	virtual void PostLogin(APlayerController * NewPlayer) override;
+
+	// Callback when a player logs out
+	virtual void Logout(AController * Exiting) override;
 
 private:
 
