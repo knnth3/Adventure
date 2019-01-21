@@ -81,11 +81,6 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 		m_MapDNE = true;
 		PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
 	}
-
-	if (WorldGrid)
-	{
-		WorldGrid->ServerOnly_BeginMapPing();
-	}
 }
 
 void AGM_Multiplayer::Logout(AController * Exiting)

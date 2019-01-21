@@ -18,6 +18,9 @@ AMapPawn::AMapPawn()
 	bWasPathingSucessfull = false;
 	bRotatePawn = false;
 	bHasTarget = false;
+	bNetLoadOnClient = true;
+	bReplicates = true;
+	bAlwaysRelevant = true;
 	m_CurrentRequest = nullptr;
 	m_PawnID = -1;
 	m_CelebrationAnimIndex = 0;
