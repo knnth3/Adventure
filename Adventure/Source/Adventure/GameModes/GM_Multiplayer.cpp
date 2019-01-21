@@ -11,11 +11,9 @@
 #include "Character/ConnectedPlayer.h"
 #include "Saves/MapSaveFile.h"
 #include "Widgets/W_GameBuilderUI.h"
-#include "Character/NetConnectionVerifyNode.h"
 
 AGM_Multiplayer::AGM_Multiplayer()
 {
-	m_VerifyNode = nullptr;
 	m_MapDNE = false;
 	bUseSeamlessTravel = true;
 	m_PlayerIndexCount = 0;
@@ -84,9 +82,9 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 		PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
 	}
 
-	if (!m_VerifyNode)
+	if (WorldGrid)
 	{
-		m_VerifyNode = GetWorld()->SpawnActor<ANetConnectionVerifyNode>();
+		WorldGrid->ServerOnly_BeginMapPing();
 	}
 }
 

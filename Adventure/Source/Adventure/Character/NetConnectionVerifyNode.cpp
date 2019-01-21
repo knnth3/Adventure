@@ -11,6 +11,8 @@ ANetConnectionVerifyNode::ANetConnectionVerifyNode()
 	m_ElapsedTime = 0.0f;
 	m_PingRecieved = false;
 	bNetLoadOnClient = true;
+	bReplicates = true;
+	bAlwaysRelevant = true;
 }
 
 // Called when the game starts or when spawned

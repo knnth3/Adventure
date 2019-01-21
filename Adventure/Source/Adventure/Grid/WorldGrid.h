@@ -37,6 +37,10 @@ public:
 
 	AWorldGrid();
 
+	// Ping clients until clients connect successfully
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	void ServerOnly_BeginMapPing();
+
 	// Set map name (used to save map)
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ServerOnly_SetMapName(const FString& MapName);
@@ -140,7 +144,7 @@ private:
 	std::set<uint8> m_UsedCellIndices; 
 	std::set<uint8> m_UsedObjectIndices;
 	TArray<AMapPawn*> m_PawnInstances;
-
+	class ANetConnectionVerifyNode* m_VerifyNode;
 
 	// Client specific information
 	FString m_CurrentLocation;

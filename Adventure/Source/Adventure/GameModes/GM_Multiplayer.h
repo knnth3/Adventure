@@ -57,8 +57,6 @@ protected:
 
 private:
 
-	class ANetConnectionVerifyNode* m_VerifyNode;
-
 	// Generates a playerID to be able to refrence separate instances
 	int GeneratePlayerID();
 

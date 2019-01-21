@@ -7,17 +7,28 @@
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "DataTables/PawnDatabase.h"
 #include "PlayerControllers/PC_Multiplayer.h"
+#include "Character/NetConnectionVerifyNode.h"
 
 using namespace std;
 
 AWorldGrid::AWorldGrid()
 {
+	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 	bAlwaysRelevant = true;
 	bReplicateMovement = false;
 	m_bMapIsLoaded = false;
 	m_bMapFileExists = false;
+	m_VerifyNode = nullptr;
 	m_GridDimensions = FGridCoordinate(10, 10);
+}
+
+void AWorldGrid::ServerOnly_BeginMapPing()
+{
+	if (!m_VerifyNode)
+	{
+		m_VerifyNode = GetWorld()->SpawnActor<ANetConnectionVerifyNode>();
+	}
 }
 
 //sets variables for replicaton over a network
