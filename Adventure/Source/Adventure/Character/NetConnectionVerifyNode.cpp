@@ -10,6 +10,7 @@ ANetConnectionVerifyNode::ANetConnectionVerifyNode()
 	PrimaryActorTick.bCanEverTick = true;
 	m_ElapsedTime = 0.0f;
 	m_PingRecieved = false;
+	bNetLoadOnClient = true;
 }
 
 // Called when the game starts or when spawned
