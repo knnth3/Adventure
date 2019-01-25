@@ -274,6 +274,21 @@ void UGI_Adventure::OnStartOnlineSessionComplete(FName SessionName, bool bWasSuc
 
 	//	UGameplayStatics::OpenLevel(GetWorld(), MAP_MULTIPLAYER, true, "listen");
 	//}
+
+			// Get the Online Subsystem to work with
+	//IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+
+	//if (OnlineSub)
+	//{
+	//	// Get the Session Interface, so we can call the "CreateSession" function on it
+	//	IOnlineSessionPtr Sessions = OnlineSub->GetSessionInterface();
+
+	//	if (Sessions.IsValid())
+	//	{
+	//		SessionSettings->bShouldAdvertise = true;
+	//		Sessions->UpdateSession(SessionName, *SessionSettings, true);
+	//	}
+	//}
 }
 
 void UGI_Adventure::OnFindOnlineSessionsComplete(bool bWasSuccessful)
@@ -507,7 +522,7 @@ void UGI_Adventure::LoadNextMap()
 				SessionSettings->NumPrivateConnections = 12;
 				SessionSettings->bAllowInvites = true;
 				SessionSettings->bAllowJoinInProgress = true;
-				SessionSettings->bShouldAdvertise = HostGameSettings.bJoinViaInviteOnly;
+				SessionSettings->bShouldAdvertise = true;
 				SessionSettings->bAllowJoinViaPresence = true;
 				SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
 				SessionSettings->Set(SETTING_SESSIONID, HostGameSettings.SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
