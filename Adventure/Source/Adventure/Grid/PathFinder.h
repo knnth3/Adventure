@@ -14,7 +14,7 @@
 
 #define OCCUPIED_CELL_COST 400
 #define TRACE_RADIUS 15
-#define STEP_HEIGHT 76.2f
+#define STEP_HEIGHT 110
 
 
 typedef std::shared_ptr<struct GridEntry> GridEntityPtr;

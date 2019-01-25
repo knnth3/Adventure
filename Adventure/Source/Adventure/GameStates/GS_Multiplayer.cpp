@@ -156,3 +156,15 @@ int AGS_Multiplayer::GetPlayerID(FString PlayerName) const
 
 	return ID;
 }
+
+void AGS_Multiplayer::ServerOnly_LoadMapOnClients(const FString& MapName) const
+{
+	for (const auto& PS : PlayerArray)
+	{
+		APS_Multiplayer* MPS = Cast<APS_Multiplayer>(PS);
+		if (MPS)
+		{
+			MPS->LoadMap(MapName);
+		}
+	}
+}

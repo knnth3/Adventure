@@ -36,6 +36,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Turn-Based Mechanics")
 	int GetPlayerID(FString PlayerName)const;
 
+	UFUNCTION(BlueprintCallable, Category = "Multiplayer Functions")
+	void ServerOnly_LoadMapOnClients(const FString& MapName)const;
+
 protected:
 
 	UPROPERTY(EditAnywhere, Category = "Spawnables")

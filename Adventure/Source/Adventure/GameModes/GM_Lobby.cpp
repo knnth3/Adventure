@@ -24,7 +24,12 @@ void AGM_Lobby::StartGame()
 		APS_Multiplayer* PS = Cast<APS_Multiplayer>(GS->PlayerArray[0]);
 		if (PS)
 		{
-			if (!PS->ServerOnly_LoadMap(m_CurrentMapName))
+			if (PS->ServerOnly_LoadMap(m_CurrentMapName))
+			{
+				m_bMapHasBeenQueued = true;
+				GS->ServerOnly_LoadMapOnClients(m_CurrentMapName);
+			}
+			else
 			{
 				PS->GenerateEmptyMap(m_CurrentMapName, FGridCoordinate(10, 10));
 			}
