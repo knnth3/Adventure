@@ -13,6 +13,8 @@
  * 
  */
 
+#define TRANSFER_BITFIELD_SIZE sizeof(int) * 8 * 5
+
 USTRUCT()
 struct FLocationStats
 {
@@ -99,20 +101,20 @@ private:
 
 	// Server
 	bool m_bMapDownloaded;
-	std::bitset<sizeof(int) * 8 * 2> m_ServerSentBitfield;
+	std::bitset<TRANSFER_BITFIELD_SIZE> m_ServerSentBitfield;
 	bool m_bNeedsNextPacket;
 	float m_TotalTime;
 	TArray<uint8> m_RawSaveFileServer;
 
 	// Client
 	int m_DownloadedSize;
-	std::bitset<sizeof(int) * 8 * 2> m_ClientRecievedBitfield;
+	std::bitset<TRANSFER_BITFIELD_SIZE> m_ClientRecievedBitfield;
 	FLocationStats m_LocationStats;
 	TArray<uint8> m_RawSaveFileClient;
 	bool gotAuthority;
 
 	// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-	std::bitset<sizeof(int) * 8 * 2> GetNextPacketData(TArray<uint8>& Data, bool& LastPacket);
+	std::bitset<TRANSFER_BITFIELD_SIZE> GetNextPacketData(TArray<uint8>& Data, bool& LastPacket);
 
 	// Retrieves the data in the client download buffer and deserializes it to an FMapLocation
 	bool GetLocationFromDownloadBuffer(FMapLocation& Location);

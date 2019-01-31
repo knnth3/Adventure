@@ -31,6 +31,21 @@ void AWorldGrid::ServerOnly_BeginMapPing()
 	}
 }
 
+void AWorldGrid::ServerOnly_AddToInventory(const TArray<FWeaponInfo>& Weapons, const TArray<FConsumableInfo>& Consumables)
+{
+	// Add all weapons
+	for (const auto& weapon : Weapons)
+	{
+		UInventoryDatabase::AddWeaponToDatabase(weapon);
+	}
+
+	// Add all consumables
+	for (const auto& consumable : Consumables)
+	{
+		UInventoryDatabase::AddConsumableToDatabase(consumable);
+	}
+}
+
 //sets variables for replicaton over a network
 void AWorldGrid::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {

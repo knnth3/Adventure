@@ -263,10 +263,10 @@ bool FPathFinder::AddIfAvailable(GridEntityPtr & Start, GridEntityPtr & End, std
 			{
 				FHitResult result;
 				ETraceTypeQuery traceChannel = ETraceTypeQuery::TraceTypeQuery1;
-				FVector s = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, StartHeight + (STEP_HEIGHT * 2.0f)));
-				FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, StartHeight - (STEP_HEIGHT * 2.0f)));
+				FVector s = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, StartHeight + (STEP_HEIGHT * 2)));
+				FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, StartHeight - (STEP_HEIGHT * 2)));
 				//FVector s = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, 10000));
-				//FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, 0));
+				//FVector f = UGridFunctions::GridToWorldLocation(FGridCoordinate(loc.X, loc.Y, 0));]
 				
 				bool traceComplete = false;
 				FThreadSafeBool taskComplete = false;

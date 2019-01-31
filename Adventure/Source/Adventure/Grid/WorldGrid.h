@@ -41,6 +41,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ServerOnly_BeginMapPing();
 
+	// Loads weapons and items to the inventory database
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	void ServerOnly_AddToInventory(const TArray<FWeaponInfo>& Weapons, const TArray<FConsumableInfo>& Consumables);
+
 	// Set map name (used to save map)
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	void ServerOnly_SetMapName(const FString& MapName);

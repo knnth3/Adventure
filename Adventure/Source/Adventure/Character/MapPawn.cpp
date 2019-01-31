@@ -36,7 +36,7 @@ AMapPawn::AMapPawn()
 	m_CameraSettings.AngularVelocity = 240.0f;
 	m_CameraSettings.ZoomSpeed = Conversions::Meters::ToCentimeters(50.0f);
 	m_CameraSettings.MaxUpRotation = -85.0f;
-	m_CameraSettings.MaxDownRotation = -25.0f;
+	m_CameraSettings.MaxDownRotation = -40.0f;
 	m_CameraSettings.MaxOutZoom = Conversions::Meters::ToCentimeters(8.0f);
 	m_CameraSettings.MaxInZoom = Conversions::Meters::ToCentimeters(2.0f);
 

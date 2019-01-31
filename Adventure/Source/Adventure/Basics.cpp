@@ -579,7 +579,7 @@ bool UBasicFunctions::TraceLine(FVector Start, FVector End, UWorld* World, FHitR
 			showTrace = EDrawDebugTrace::ForDuration;
 
 		//  do the line trace
-		return UKismetSystemLibrary::LineTraceSingle(World, Start, End, TraceChannel, false, IgnoreActors, showTrace, Hit, true, FLinearColor::Blue);
+		return UKismetSystemLibrary::LineTraceSingle(World, Start, End, TraceChannel, false, IgnoreActors, showTrace, Hit, true, FLinearColor::Blue, FLinearColor::Red);
 	}
 
 	return false;

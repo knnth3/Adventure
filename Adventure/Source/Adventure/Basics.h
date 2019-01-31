@@ -55,31 +55,56 @@ static FORCEINLINE FString ParseStringFor(const FString& Text, const FString& Co
 }
 
 // Converts an array of 2 ints into a bitset
-static std::bitset<sizeof(int) * 8 * 2> ArrayToBitset(const TArray<int>& arr)
+
+template <std::size_t T>
+static std::bitset<T> ArrayToBitset(const TArray<int>& arr)
 {
-	std::bitset<sizeof(int) * 8 * 2> result(0);
-	if (arr.Num() == 2)
+	// Get number of divisons the conversion will support
+	size_t Divs = T / (sizeof(int) * 8);
+	std::bitset<T> result(0);
+
+	// Validate start data
+	if (arr.Num() == Divs)
 	{
-		std::bitset<sizeof(int) * 8 * 2> secondHalf = (unsigned int)arr[1];
-		result = arr[0];
-		result = result << sizeof(int) * 8;
-		result |= secondHalf;
+		// The last division is where the final result will go so we will ignore it
+		for (int x = 0; x < Divs; x++)
+		{
+			std::bitset<T> Partial = (unsigned int)arr[x];
+
+			// Align the data to where it is supposed to fit
+			Partial = Partial << sizeof(int) * 8 * (Divs - x - 1);
+
+			// OR to the result
+			result |= Partial;
+		}
+
 	}
 
 	return result;
 }
 
-static TArray<int> BitsetToArray(const std::bitset< sizeof(int) * 8 * 2>& bitset)
+template <std::size_t T>
+static TArray<int> BitsetToArray(const std::bitset<T>& bitset)
 {
 	TArray<int> result;
 
-	auto t = bitset << sizeof(int) * 8;
+	// Get number of divisons the conversion will support
+	size_t Divs = T / (sizeof(int) * 8);
 
-	std::bitset<sizeof(int) * 8> temp1 = (bitset >> sizeof(int) * 8).to_ulong();
-	std::bitset<sizeof(int) * 8> temp2 = (t >> sizeof(int) * 8).to_ulong();
+	// Partition and add to the array
+	for (int x = 0; x < Divs; x++)
+	{
+		// Swizzle bit field to clear all other unessesary data
+		std::bitset<T> Partial = bitset << sizeof(int) * 8 * x;
+		Partial = Partial >> sizeof(int) * 8 * (Divs - 1);
 
-	result.Push(temp1.to_ulong());
-	result.Push(temp2.to_ulong());
+		// Cut off unessesary zeros
+		std::bitset<sizeof(int) * 8> temp = Partial.to_ulong();
+
+		// Add to array
+		result.Push(temp.to_ulong());
+	}
+	
 	return result;
 }
 

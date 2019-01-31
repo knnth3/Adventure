@@ -159,9 +159,10 @@ int AGS_Multiplayer::GetPlayerID(FString PlayerName) const
 
 void AGS_Multiplayer::ServerOnly_LoadMapOnClients(const FString& MapName) const
 {
-	for (const auto& PS : PlayerArray)
+	for (int x = 1; x < PlayerArray.Num(); x++)
 	{
-		APS_Multiplayer* MPS = Cast<APS_Multiplayer>(PS);
+
+		APS_Multiplayer* MPS = Cast<APS_Multiplayer>(PlayerArray[x]);
 		if (MPS)
 		{
 			MPS->LoadMap(MapName);
