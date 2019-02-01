@@ -226,6 +226,11 @@ void UGI_Adventure::OnEndLoadingScreen(UWorld * InLoadedWorld)
 		UVC_Adventure* ViewportClient = Cast<UVC_Adventure>(World->GetGameViewport());
 		if (ViewportClient)
 		{
+			if (CurrentState == ADVENTURE_STATE::CLIENT)
+			{
+				OnMultiplayerMapLoaded();
+			}
+
 			ViewportClient->Fade(2.0f, false);
 		}
 	}
