@@ -21,10 +21,6 @@
 			"Enabled": true
 		},
 		{
-			"Name": "WebBrowserWidget",
-			"Enabled": true
-		},
-		{
 			"Name": "Voxel",
 			"Enabled": false
 		},

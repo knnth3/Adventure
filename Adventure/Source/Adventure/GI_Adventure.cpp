@@ -13,7 +13,6 @@
 #define SESSION_NAME EName::NAME_GameSession
 #define SETTING_SESSIONID FName(TEXT("SESSION_ID"))
 
-const static FName MAP_MULTIPLAYER = "/Game/Maps/Multiplayer/Level_Multiplayer";
 const static FName MAP_MAIN_MENU = "/Game/Maps/MainMenu/Level_MainMenu";
 const static FName MAP_GAMEBUILDER = "/Game/Maps/GameBuilder/Level_GameBuilder";
 
