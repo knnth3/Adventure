@@ -11,8 +11,10 @@ ADownloadManager::ADownloadManager()
 	m_dataSize = 0;
 }
 
-void ADownloadManager::SetData(const TArray<uint8>& data)
+void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 {
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Start download process"));
+
 	// Empty old data
 	m_data.Empty();
 	m_dataSize = data.Num();
@@ -54,6 +56,11 @@ void ADownloadManager::OnDataReceived()
 	{
 		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Download completed"));
 	}
+}
+
+void ADownloadManager::OnDownloadRequested()
+{
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Download requested from server"));
 }
 
 void ADownloadManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

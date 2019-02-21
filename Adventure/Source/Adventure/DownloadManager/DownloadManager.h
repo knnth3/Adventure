@@ -36,7 +36,7 @@ public:
 	ADownloadManager();
 
 	UFUNCTION(BlueprintCallable, Category="Data Settings")
-	void SetData(const TArray<uint8>& data);
+	void ServerOnly_SetData(const TArray<uint8>& data);
 
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
 	TArray<uint8> GetUnpackedData() const;
@@ -46,7 +46,10 @@ private:
 	UFUNCTION()
 	void OnDataReceived();
 
-	UPROPERTY(Replicated)
+	UFUNCTION()
+	void OnDownloadRequested();
+
+	UPROPERTY(ReplicatedUsing = OnDownloadRequested)
 	int m_dataSize;
 
 	UPROPERTY(ReplicatedUsing = OnDataReceived)
