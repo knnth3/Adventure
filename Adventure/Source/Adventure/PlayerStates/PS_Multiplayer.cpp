@@ -81,21 +81,21 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 		{
 			if (loc.Name == CurrentLocation)
 			{
-				// Create a containter to store data that will be sent over
-				ULocationSave* Location = Cast<ULocationSave>(UGameplayStatics::CreateSaveGameObject(ULocationSave::StaticClass()));
-				Location->LocationData = loc;
+				//// Create a containter to store data that will be sent over
+				//ULocationSave* Location = Cast<ULocationSave>(UGameplayStatics::CreateSaveGameObject(ULocationSave::StaticClass()));
+				//Location->LocationData = loc;
 
-				// Pack data into a buffer
-				TArray<uint8> Buffer;
-				if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
-				{
-					// Send the data to the download manager
-					TActorIterator<ADownloadManager> DLManager(GetWorld());
-					if (DLManager)
-					{
-						DLManager->ServerOnly_SetData(Buffer);
-					}
-				}
+				//// Pack data into a buffer
+				//TArray<uint8> Buffer;
+				//if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
+				//{
+				//	// Send the data to the download manager
+				//	TActorIterator<ADownloadManager> DLManager(GetWorld());
+				//	if (DLManager)
+				//	{
+				//		DLManager->ServerOnly_SetData(Buffer);
+				//	}
+				//}
 
 				// Load the data on the server
 				GenerateGrid(loc);
@@ -109,79 +109,79 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 
 bool APS_Multiplayer::LoadMap(const FString& MapName)
 {
-	//TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-	//if (WorldGrid)
-	//{
-	//	WorldGrid->ServerOnly_SetMapName(MapName);
-	//}
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		WorldGrid->ServerOnly_SetMapName(MapName);
+	}
 
-	//FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *MapName);
-	//UMapSaveFile* Save = Cast<UMapSaveFile>(UBasicFunctions::LoadSaveGameEx(path));
-	//if (Save)
-	//{
-	//	FString CurrentLocation;
-	//	for (int x = 0; x < Save->Players.Num(); x++)
-	//	{
-	//		// User found
-	//		if (Save->Players[x] == GetPlayerName())
-	//		{
-	//			CurrentLocation = Save->PlayerLocationNames[x];
-	//			break;
-	//		}
-	//	}
+	FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *MapName);
+	UMapSaveFile* Save = Cast<UMapSaveFile>(UBasicFunctions::LoadSaveGameEx(path));
+	if (Save)
+	{
+		FString CurrentLocation;
+		for (int x = 0; x < Save->Players.Num(); x++)
+		{
+			// User found
+			if (Save->Players[x] == GetPlayerName())
+			{
+				CurrentLocation = Save->PlayerLocationNames[x];
+				break;
+			}
+		}
 
-	//	if (CurrentLocation.IsEmpty())
-	//	{
-	//		CurrentLocation = Save->ActiveLocation;
-	//	}
+		if (CurrentLocation.IsEmpty())
+		{
+			CurrentLocation = Save->ActiveLocation;
+		}
 
-	//	for (auto& loc : Save->Locations)
-	//	{
-	//		if (loc.Name == CurrentLocation)
-	//		{
-	//			// Create a containter to store data that will be sent over
-	//			ULocationSave* Location = Cast<ULocationSave>(UGameplayStatics::CreateSaveGameObject(ULocationSave::StaticClass()));
-	//			Location->LocationData = loc;
+		for (auto& loc : Save->Locations)
+		{
+			if (loc.Name == CurrentLocation)
+			{
+				// Create a containter to store data that will be sent over
+				ULocationSave* Location = Cast<ULocationSave>(UGameplayStatics::CreateSaveGameObject(ULocationSave::StaticClass()));
+				Location->LocationData = loc;
 
-	//			// Pack data into a buffer
-	//			TArray<uint8> Buffer;
-	//			if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
-	//			{
-	//				// Store the packed data into the transfer buffer
-	//				m_RawSaveFileServer = Buffer;
+				// Pack data into a buffer
+				TArray<uint8> Buffer;
+				if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
+				{
+					// Store the packed data into the transfer buffer
+					m_RawSaveFileServer = Buffer;
 
-	//				// Give server a heads up of the data it will be recieving
-	//				FLocationStats stats;
-	//				stats.PackageSize = Buffer.Num();
+					// Give server a heads up of the data it will be recieving
+					FLocationStats stats;
+					stats.PackageSize = Buffer.Num();
 
-	//				int packetCount = FMath::DivideAndRoundUp(Buffer.Num(), TRANSFER_DATA_SIZE);
+					int packetCount = FMath::DivideAndRoundUp(Buffer.Num(), TRANSFER_DATA_SIZE);
 
-	//				// File is too large to send over
-	//				if (packetCount > TRANSFER_BITFIELD_SIZE)
-	//				{
-	//					UE_LOG(LogNotice, Error, TEXT("<PlayerState>: Server failed to send location download. File was too large: Packet Count: %i"), packetCount);
-	//					return false;
-	//				}
+					// File is too large to send over
+					if (packetCount > TRANSFER_BITFIELD_SIZE)
+					{
+						UE_LOG(LogNotice, Error, TEXT("<PlayerState>: Server failed to send location download. File was too large: Packet Count: %i"), packetCount);
+						return false;
+					}
 
-	//				std::bitset<TRANSFER_BITFIELD_SIZE> ResultantBitField(pow(2, packetCount) - 1);
-	//				stats.FinalizedBitField = BitsetToArray<TRANSFER_BITFIELD_SIZE>(ResultantBitField);
+					std::bitset<TRANSFER_BITFIELD_SIZE> ResultantBitField(pow(2, packetCount) - 1);
+					stats.FinalizedBitField = BitsetToArray<TRANSFER_BITFIELD_SIZE>(ResultantBitField);
 
-	//				UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server has requested Location download: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
-	//				Client_SetLocationStats(stats);
+					UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server has requested Location download: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
+					Client_SetLocationStats(stats);
 
-	//				// Begin packet transfer
-	//				m_ServerSentBitfield = 0;
-	//				m_bMapDownloaded = false;
-	//				TArray<uint8> Data;
-	//				auto NextBit = GetNextPacketData(Data, m_bMapDownloaded);
-	//				Client_RecievePacket(Data, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_ServerSentBitfield | NextBit));
+					// Begin packet transfer
+					m_ServerSentBitfield = 0;
+					m_bMapDownloaded = false;
+					TArray<uint8> Data;
+					auto NextBit = GetNextPacketData(Data, m_bMapDownloaded);
+					Client_RecievePacket(Data, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_ServerSentBitfield | NextBit));
 
-	//				return true;
-	//			}
+					return true;
+				}
 
-	//		}
-	//	}
-	//}
+			}
+		}
+	}
 
 	return false;
 }
