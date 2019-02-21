@@ -13,7 +13,7 @@ ADownloadManager::ADownloadManager()
 
 void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Start download process"));
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Start download process. Download size: %i bytes"), data.Num());
 
 	// Empty old data
 	m_data.Empty();
