@@ -35,6 +35,8 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 		// Add chunk to download buffer
 		m_data.Push(newChunk);
 	}
+
+	OnDataReceived();
 }
 
 TArray<uint8> ADownloadManager::GetUnpackedData() const
