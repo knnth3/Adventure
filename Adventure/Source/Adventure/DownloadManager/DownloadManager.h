@@ -39,6 +39,9 @@ public:
 	void ServerOnly_SetData(const TArray<uint8>& data);
 
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
+	void Subscribe(const FString addr, int port);
+
+	UFUNCTION(BlueprintCallable, Category = "Data Settings")
 	TArray<uint8> GetUnpackedData() const;
 
 private:
@@ -52,6 +55,5 @@ private:
 	UPROPERTY(ReplicatedUsing = OnDownloadRequested)
 	int m_dataSize;
 
-	UPROPERTY(ReplicatedUsing = OnDataReceived)
 	TArray<FDownloadChunk> m_data;
 };

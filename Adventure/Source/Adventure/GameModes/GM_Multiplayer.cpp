@@ -6,6 +6,7 @@
 #include "GI_Adventure.h"
 #include "Adventure.h"
 #include "Grid/WorldGrid.h"
+#include "DownloadManager/DownloadManager.h"
 #include "Character/SpectatorMapPawn.h"
 #include "GameStates/GS_Multiplayer.h"
 #include "Character/ConnectedPlayer.h"
@@ -74,6 +75,13 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client is ready to recieve map download!"));
+
+	TActorIterator<ADownloadManager> DLManager(GetWorld());
+	if (DLManager)
+	{
+		DLManager->Subscribe(NewPlayer->NetConnection->LowLevelGetRemoteAddress(), 0);
+	}
+
 	APS_Multiplayer* PS = NewPlayer->GetPlayerState<APS_Multiplayer>();
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 

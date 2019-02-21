@@ -39,6 +39,11 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 	OnDataReceived();
 }
 
+void ADownloadManager::Subscribe(const FString addr, int port)
+{
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Download starting. Opening connection with %s:%i"), *addr, port);
+}
+
 TArray<uint8> ADownloadManager::GetUnpackedData() const
 {
 	TArray<uint8> Unpacked;
@@ -62,14 +67,13 @@ void ADownloadManager::OnDataReceived()
 
 void ADownloadManager::OnDownloadRequested()
 {
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Download requested from server"));
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New file have been made available on the server"));
 }
 
 void ADownloadManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ADownloadManager, m_data);
 	DOREPLIFETIME(ADownloadManager, m_dataSize);
 }
 
