@@ -44,11 +44,11 @@ void ADownloadManager::Subscribe(UNetConnection* connection)
 	// Set client and server with it's appropriate TCP Roles
 	if (HasAuthority())
 	{
-		m_ConnectionSocket = CreateListenSocket(connection);
+		m_ConnectionSocket = CreateServerSocket();
 	}
 	else
 	{
-		m_ConnectionSocket = CreateSendSocket(connection);
+		m_ConnectionSocket = CreateClientSocket(connection);
 	}
 }
 
@@ -63,7 +63,7 @@ TArray<uint8> ADownloadManager::GetUnpackedData() const
 	return Unpacked;
 }
 
-FSocket * ADownloadManager::CreateListenSocket(UNetConnection* connection)
+FSocket * ADownloadManager::CreateClientSocket(UNetConnection* connection)
 {
 	if (connection)
 	{
@@ -84,10 +84,15 @@ FSocket * ADownloadManager::CreateListenSocket(UNetConnection* connection)
 	return nullptr;
 }
 
-FSocket * ADownloadManager::CreateSendSocket(UNetConnection* connection)
+FSocket * ADownloadManager::CreateServerSocket()
 {
 	FString name = "default";
-	FIPv4Endpoint Endpoint(FIPv4Address(connection->GetAddrAsInt()), connection->GetAddrPort());
+	FString ip = "127.0.0.1";
+
+	uint8 IPv4Nums[4];
+	FormatIP4ToNumber(ip, IPv4Nums);
+
+	FIPv4Endpoint Endpoint(FIPv4Address(IPv4Nums[0], IPv4Nums[1], IPv4Nums[2], IPv4Nums[3]), 3478);
 	FSocket* listenSocket = FTcpSocketBuilder(*name).AsReusable().BoundToEndpoint(Endpoint).Listening(8);
 
 	if (listenSocket)
@@ -101,6 +106,26 @@ FSocket * ADownloadManager::CreateSendSocket(UNetConnection* connection)
 	}
 
 	return nullptr;
+}
+
+bool ADownloadManager::FormatIP4ToNumber(const FString & TheIP, uint8(&Out)[4])
+{
+	//IP Formatting
+	TheIP.Replace(TEXT(" "), TEXT(""));
+
+	//String Parts
+	TArray<FString> Parts;
+	TheIP.ParseIntoArray(Parts, TEXT("."), true);
+	if (Parts.Num() != 4)
+		return false;
+
+	//String to Number Parts
+	for (int32 i = 0; i < 4; ++i)
+	{
+		Out[i] = FCString::Atoi(*Parts[i]);
+	}
+
+	return true;
 }
 
 void ADownloadManager::OnDataReceived()
@@ -124,4 +149,3 @@ void ADownloadManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 	DOREPLIFETIME(ADownloadManager, m_dataSize);
 }
-

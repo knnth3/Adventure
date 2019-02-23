@@ -40,15 +40,16 @@ public:
 	void ServerOnly_SetData(const TArray<uint8>& data);
 
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
-	void Subscribe(UNetConnection* connection);
+	void Subscribe(UNetConnection* connection = nullptr);
 
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
 	TArray<uint8> GetUnpackedData() const;
 
 private:
 
-	FSocket* CreateListenSocket(UNetConnection* connection);
-	FSocket* CreateSendSocket(UNetConnection* connection);
+	FSocket* CreateClientSocket(UNetConnection* connection);
+	FSocket* CreateServerSocket();
+	bool FormatIP4ToNumber(const FString& TheIP, uint8(&Out)[4]);
 
 	UFUNCTION()
 	void OnDataReceived();
