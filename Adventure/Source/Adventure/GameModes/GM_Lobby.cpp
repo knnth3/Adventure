@@ -18,16 +18,6 @@ AGM_Lobby::AGM_Lobby()
 
 void AGM_Lobby::StartGame()
 {
-	TActorIterator<ADownloadManager> DLManager(GetWorld());
-	if (DLManager)
-	{
-		DLManager->Subscribe();
-	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: No valid download manager found in level."));
-	}
-
 	UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
 	auto GS = GetGameState<AGS_Multiplayer>();
 	if (GameInstance &&  GS)

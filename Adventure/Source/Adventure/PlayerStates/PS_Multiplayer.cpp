@@ -100,11 +100,32 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 
 bool APS_Multiplayer::SetupNetworking()
 {
-	FActorSpawnParameters params;
-	params.Owner = this;
+	APlayerController* Owner = nullptr;
+	for (TActorIterator<APlayerController> ControllerIter(GetWorld()); ControllerIter; ++ControllerIter)
+	{
+		// Found owning controller
+		if (ControllerIter && ControllerIter->PlayerState && ControllerIter->PlayerState->PlayerId == PlayerId)
+		{
+			Owner = *ControllerIter;
+			break;
+		}
+	}
 
-	//Instatiate a new ADownloadManager instance
-	m_DownloadManager = GetWorld()->SpawnActor<ADownloadManager>(params);
+	if (Owner)
+	{
+		FActorSpawnParameters params;
+		params.Owner = Owner;
+
+		//Instatiate a new ADownloadManager instance
+		m_DownloadManager = GetWorld()->SpawnActor<ADownloadManager>(params);
+
+		// Tell the instance that the data in the buffer has not been downloaded
+		m_DownloadManager->ServerOnly_NotifyDataChanged();
+	}
+	else
+	{
+		UE_LOG(LogNotice, Error, TEXT("<PlayerState>: Unable to find owning player controller when creating the download manager!"));
+	}
 
 	return true;
 }

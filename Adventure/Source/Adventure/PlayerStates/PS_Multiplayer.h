@@ -114,4 +114,5 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnDownloadManagerCreated)
 	ADownloadManager* m_DownloadManager;
+
 };

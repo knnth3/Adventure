@@ -226,7 +226,7 @@ std::bitset<TRANSFER_BITFIELD_SIZE> ADownloadManager::GetNextPacketData(TArray<u
 
 	if (dataIndex == 0 && NextBit.none())
 	{
-		UE_LOG(LogNotice, Error, TEXT("Byte buffer overload! Canceling download..."));
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Byte buffer overload! Canceling download..."));
 		return NextBit;
 	}
 
@@ -274,7 +274,7 @@ void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& 
 
 		m_DownloadedSize += Data.Num();
 		FString BitsetStr(RecievedBitfield.to_string().c_str());
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i): Bitfield: %s"), m_DownloadedSize, m_Data.Num(), *BitsetStr);
+		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Downloading (%i/%i): Bitfield: %s"), m_DownloadedSize, m_Data.Num(), *BitsetStr);
 
 		// Transfer the nessesary data to the correct location in the buffer
 		FMemory::Memcpy(m_Data.GetData() + CurrentIndex, Data.GetData(), Data.Num());
@@ -284,7 +284,7 @@ void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& 
 		if (m_DownloadedSize == m_Data.Num())
 		{
 			// Build the map
-			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete!"));
+			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Map download complete!"));
 			m_bDownloading = false;
 			m_bReadyToDownload = false;
 		}
@@ -292,7 +292,7 @@ void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& 
 	}
 	else
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: A packet was ignored, data already sent!"));
+		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: A packet was ignored, data already sent!"));
 	}
 }
 
