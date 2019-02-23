@@ -27,6 +27,11 @@ void ADownloadManager::Tick(float DeltaTime)
 		m_ElapsedTime += DeltaTime;
 		RequestPacket();
 	}
+	else if (HasAuthority() && m_bPacketRequested)
+	{
+		m_ElapsedTime += DeltaTime;
+		SendPacket();
+	}
 }
 
 void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
@@ -188,12 +193,19 @@ void ADownloadManager::RequestPacket()
 	auto NetConnection = controller->GetNetConnection();
 
 	// If the network is ready to send another packet
-	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+	if (NetConnection)
 	{
-		m_ElapsedTime = 0;
+		if (NetConnection->IsNetReady(false))
+		{
+			m_ElapsedTime = 0;
 
-		// Ask for the next packet
-		Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
+			// Ask for the next packet
+			Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
+		}
+		else
+		{
+			NetConnection->FlushNet();
+		}
 	}
 }
 
@@ -202,14 +214,21 @@ void ADownloadManager::SendPacket()
 	APlayerController* controller = Cast<APlayerController>(GetOwner());
 	auto NetConnection = controller->GetNetConnection();
 
-	m_bPacketRequested = false;
 	TArray<uint8> sendingData;
 	auto nextBit = GetNextPacketData(sendingData);
 
 	// Send the new data to the client (if any exists)
-	if (sendingData.Num())
+	if (sendingData.Num() && NetConnection)
 	{
-		Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+		if (NetConnection->IsNetReady(false))
+		{
+			m_bPacketRequested = false;
+			Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+		}
+		else
+		{
+			NetConnection->FlushNet();
+		}
 	}
 }
 
@@ -323,7 +342,6 @@ void ADownloadManager::Server_RequestPacket_Implementation(const TArray<int>& BF
 	// Set the bitfield to the one recieved from the client
 	m_Bitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(BFRecieved);
 	m_bPacketRequested = true;
-	SendPacket();
 }
 
 bool ADownloadManager::Server_RequestPacket_Validate(const TArray<int>& BFRecieved)
