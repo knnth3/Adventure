@@ -26,10 +26,6 @@ void ADownloadManager::Tick(float DeltaTime)
 		m_ElapsedTime += DeltaTime;
 		RequestPacket();
 	}
-	else if (HasAuthority() && m_bPacketRequested)
-	{
-		SendPacket();
-	}
 }
 
 void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
@@ -326,6 +322,7 @@ void ADownloadManager::Server_RequestPacket_Implementation(const TArray<int>& BF
 	// Set the bitfield to the one recieved from the client
 	m_Bitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(BFRecieved);
 	m_bPacketRequested = true;
+	SendPacket();
 }
 
 bool ADownloadManager::Server_RequestPacket_Validate(const TArray<int>& BFRecieved)
