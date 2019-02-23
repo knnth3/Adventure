@@ -65,6 +65,9 @@ private:
 	// Client function call to retrieve next packet from server
 	void RequestPacket();
 
+	// Server function call to send next packet to client
+	void SendPacket();
+
 	UFUNCTION()
 	void OnNewDataPosted();
 
@@ -84,6 +87,7 @@ private:
 
 	FNotifyDelegate m_NotifyFunc;
 	float m_ElapsedTime;
+	bool m_bPacketRequested;
 	bool m_bReadyToDownload;
 	bool m_bDownloading;
 	int m_DownloadedSize;

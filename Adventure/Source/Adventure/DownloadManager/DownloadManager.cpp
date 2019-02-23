@@ -3,8 +3,8 @@
 #include "DownloadManager.h"
 #include "Adventure.h"
 
-#define PACKET_SIZE 2048
-#define PACKET_TRANSFER_TIME_DELAY 0.02f
+#define PACKET_SIZE 65535
+#define PACKET_TRANSFER_TIME_DELAY 0.1f
 
 TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
 
@@ -12,10 +12,10 @@ ADownloadManager::ADownloadManager()
 {
 	m_ElapsedTime = 0;
 	bReplicates = true;
-	bNetLoadOnClient = true;
 	m_DownloadedSize = 0;
 	m_bDownloading = false;
 	m_bReadyToDownload = false;
+	m_bPacketRequested = false;
 	PrimaryActorTick.bCanEverTick = true;
 }
 
@@ -25,6 +25,10 @@ void ADownloadManager::Tick(float DeltaTime)
 	{
 		m_ElapsedTime += DeltaTime;
 		RequestPacket();
+	}
+	else if (HasAuthority() && m_bPacketRequested)
+	{
+		SendPacket();
 	}
 }
 
@@ -183,12 +187,36 @@ bool ADownloadManager::FormatIP4ToNumber(const FString & TheIP, uint8(&Out)[4])
 
 void ADownloadManager::RequestPacket()
 {
-	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+	APlayerController* controller = Cast<APlayerController>(GetOwner());
+	auto NetConnection = controller->GetNetConnection();
+
+	// If the network is ready to send another packet
+	if (NetConnection && NetConnection->IsNetReady(false))
 	{
 		m_ElapsedTime = 0;
 
 		// Ask for the next packet
 		Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
+	}
+}
+
+void ADownloadManager::SendPacket()
+{
+	APlayerController* controller = Cast<APlayerController>(GetOwner());
+	auto NetConnection = controller->GetNetConnection();
+
+	// If the network is ready to send another packet
+	if (NetConnection && NetConnection->IsNetReady(false))
+	{
+		m_bPacketRequested = false;
+		TArray<uint8> sendingData;
+		auto nextBit = GetNextPacketData(sendingData);
+
+		// Send the new data to the client (if any exists)
+		if (sendingData.Num())
+		{
+			Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+		}
 	}
 }
 
@@ -301,15 +329,7 @@ void ADownloadManager::Server_RequestPacket_Implementation(const TArray<int>& BF
 {
 	// Set the bitfield to the one recieved from the client
 	m_Bitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(BFRecieved);
-
-	TArray<uint8> sendingData;
-	auto nextBit = GetNextPacketData(sendingData);
-
-	// Send the new data to the client (if any exists)
-	if (sendingData.Num())
-	{
-		Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
-	}
+	m_bPacketRequested = true;
 }
 
 bool ADownloadManager::Server_RequestPacket_Validate(const TArray<int>& BFRecieved)
