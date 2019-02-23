@@ -76,12 +76,6 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client is ready to recieve map download!"));
 
-	TActorIterator<ADownloadManager> DLManager(GetWorld());
-	if (DLManager)
-	{
-		DLManager->Subscribe(NewPlayer->NetConnection->LowLevelGetRemoteAddress(), 0);
-	}
-
 	APS_Multiplayer* PS = NewPlayer->GetPlayerState<APS_Multiplayer>();
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 

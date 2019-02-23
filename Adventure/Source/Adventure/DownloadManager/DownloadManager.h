@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <map>
+#include "Networking.h"
 #include "Basics.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -39,12 +40,15 @@ public:
 	void ServerOnly_SetData(const TArray<uint8>& data);
 
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
-	void Subscribe(const FString addr, int port);
+	void Subscribe(UNetConnection* connection);
 
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
 	TArray<uint8> GetUnpackedData() const;
 
 private:
+
+	FSocket* CreateListenSocket(UNetConnection* connection);
+	FSocket* CreateSendSocket(UNetConnection* connection);
 
 	UFUNCTION()
 	void OnDataReceived();
@@ -56,4 +60,6 @@ private:
 	int m_dataSize;
 
 	TArray<FDownloadChunk> m_data;
+	FSocket* m_ConnectionSocket;
+	FIPv4Endpoint m_RemoteAddr;
 };

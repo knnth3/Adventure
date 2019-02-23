@@ -7,6 +7,7 @@
 #include "Widgets/HUD_MPLobby.h"
 #include "PlayerStates/PS_Multiplayer.h"
 #include "GameStates/GS_Multiplayer.h"
+#include "DownloadManager/DownloadManager.h"
 
 AGM_Lobby::AGM_Lobby()
 {
@@ -17,6 +18,25 @@ AGM_Lobby::AGM_Lobby()
 
 void AGM_Lobby::StartGame()
 {
+	TActorIterator<ADownloadManager> DLManager(GetWorld());
+	if (DLManager)
+	{
+		auto connection = GetNetConnection();
+		if (connection)
+		{
+			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Connecting to TCP"));
+			DLManager->Subscribe(connection);
+		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection addr not found for given player controller"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: No valid download manager found in level."));
+	}
+
 	UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
 	auto GS = GetGameState<AGS_Multiplayer>();
 	if (GameInstance &&  GS)

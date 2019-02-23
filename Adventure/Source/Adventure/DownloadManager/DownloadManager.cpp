@@ -39,9 +39,17 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 	OnDataReceived();
 }
 
-void ADownloadManager::Subscribe(const FString addr, int port)
+void ADownloadManager::Subscribe(UNetConnection* connection)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Download starting. Opening connection with %s:%i"), *addr, port);
+	// Set client and server with it's appropriate TCP Roles
+	if (HasAuthority())
+	{
+		m_ConnectionSocket = CreateListenSocket(connection);
+	}
+	else
+	{
+		m_ConnectionSocket = CreateSendSocket(connection);
+	}
 }
 
 TArray<uint8> ADownloadManager::GetUnpackedData() const
@@ -53,6 +61,46 @@ TArray<uint8> ADownloadManager::GetUnpackedData() const
 	}
 
 	return Unpacked;
+}
+
+FSocket * ADownloadManager::CreateListenSocket(UNetConnection* connection)
+{
+	if (connection)
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Estabishing connection"));
+
+		FSocket* listenSocket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("default"), false);
+
+		if (listenSocket)
+		{
+			if (listenSocket->Connect(*connection->GetInternetAddr()))
+			{
+				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Connection to TCP server established."));
+
+				return listenSocket;
+			}
+		}
+	}
+	return nullptr;
+}
+
+FSocket * ADownloadManager::CreateSendSocket(UNetConnection* connection)
+{
+	FString name = "default";
+	FIPv4Endpoint Endpoint(FIPv4Address(connection->GetAddrAsInt()), connection->GetAddrPort());
+	FSocket* listenSocket = FTcpSocketBuilder(*name).AsReusable().BoundToEndpoint(Endpoint).Listening(8);
+
+	if (listenSocket)
+	{
+		int32 newSize = 0;
+		listenSocket->SetReceiveBufferSize(PACKET_SIZE, newSize);
+
+		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Created server TCP"));
+
+		return listenSocket;
+	}
+
+	return nullptr;
 }
 
 void ADownloadManager::OnDataReceived()

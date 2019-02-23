@@ -386,6 +386,29 @@ void APS_Multiplayer::Client_GenerateEmptyGrid_Implementation(const FGridCoordin
 
 void APS_Multiplayer::Client_SetLocationStats_Implementation(const FLocationStats& Stats)
 {
+	if (first)
+	{
+		first = false;
+		TActorIterator<ADownloadManager> DLManager(GetWorld());
+		if (DLManager)
+		{
+			auto connection = GetNetConnection();
+			if (connection)
+			{
+				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Connecting to TCP"));
+				DLManager->Subscribe(connection);
+			}
+			else
+			{
+				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection addr not found for given player controller"));
+			}
+		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: No valid download manager found in level."));
+		}
+	}
+
 	m_ClientRecievedBitfield = 0;
 	m_DownloadedSize = 0;
 	m_LocationStats = Stats;

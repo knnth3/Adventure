@@ -107,6 +107,7 @@ private:
 	TArray<uint8> m_RawSaveFileServer;
 
 	// Client
+	bool first = true;
 	int m_DownloadedSize;
 	std::bitset<TRANSFER_BITFIELD_SIZE> m_ClientRecievedBitfield;
 	FLocationStats m_LocationStats;
@@ -127,7 +128,7 @@ private:
 	void Server_DownloadMap(const TArray<int>& BFRecieved);
 
 	// Client functin sent from server to give data to owning client
-	UFUNCTION(Client, Reliable)
+	UFUNCTION(Client, unreliable)
 	void Client_RecievePacket(const TArray<uint8>& Data, const TArray<int>& Bitfield);
 
 	// Tells client to create a new map
