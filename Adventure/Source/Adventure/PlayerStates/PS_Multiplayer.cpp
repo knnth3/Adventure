@@ -163,7 +163,12 @@ bool APS_Multiplayer::LoadMap(const FString& MapName)
 						return false;
 					}
 
-					std::bitset<TRANSFER_BITFIELD_SIZE> ResultantBitField(pow(2, packetCount) - 1);
+					std::bitset<TRANSFER_BITFIELD_SIZE> ResultantBitField;
+					for (int index = 0; index < packetCount; index++)
+					{
+						ResultantBitField[index] = true;
+					}
+
 					stats.FinalizedBitField = BitsetToArray<TRANSFER_BITFIELD_SIZE>(ResultantBitField);
 
 					UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Server has requested Location download: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
