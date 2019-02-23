@@ -73,7 +73,12 @@ FSocket * ADownloadManager::CreateClientSocket(UNetConnection* connection)
 
 		if (listenSocket)
 		{
-			if (listenSocket->Connect(*connection->GetInternetAddr()))
+			TSharedRef<FInternetAddr> addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
+			addr->SetIp(connection->GetAddrAsInt());
+			addr->SetPort(connection->GetAddrPort());
+
+			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Requesting connection with %i:%i"), connection->GetAddrAsInt(), connection->GetAddrPort());
+			if (listenSocket->Connect(*addr))
 			{
 				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Connection to TCP server established."));
 
