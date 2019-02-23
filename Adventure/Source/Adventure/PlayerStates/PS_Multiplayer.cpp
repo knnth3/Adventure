@@ -191,14 +191,14 @@ void APS_Multiplayer::OnNewDataAvailable()
 
 void APS_Multiplayer::OnDownloadManagerCreated()
 {
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download Manager created on client. Role: %s"), *GetStringOf(Role));
-
-	// Only run on owning client
-	if (Role == ROLE_AutonomousProxy || Role == ROLE_Authority)
+	if (m_DownloadManager)
 	{
-		// Register callback with the download manager
-		if (m_DownloadManager)
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download Manager created on client. Role: %s"), *GetStringOf(m_DownloadManager->Role));
+
+		// Only run on owning client
+		if (m_DownloadManager->Role == ROLE_AutonomousProxy || m_DownloadManager->Role == ROLE_Authority)
 		{
+			// Register callback with the download manager
 			FNotifyDelegate callback;
 			callback.BindUObject(this, &APS_Multiplayer::OnNewDataAvailable);
 			m_DownloadManager->SetOnDataPostedCallback(callback);
