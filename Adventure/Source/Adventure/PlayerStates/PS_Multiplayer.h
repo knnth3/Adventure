@@ -100,6 +100,10 @@ private:
 	UFUNCTION()
 	void OnDownloadManagerCreated();
 
+	// Tell client to attach to download manager
+	UFUNCTION(Client, Reliable)
+	void Client_SetAttachToDownloadManager();
+
 	// Unique identifier
 	UPROPERTY(Replicated)
 	int m_GameID;
@@ -114,5 +118,7 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnDownloadManagerCreated)
 	ADownloadManager* m_DownloadManager;
+
+	bool m_bAttachToDownloadManager;
 
 };

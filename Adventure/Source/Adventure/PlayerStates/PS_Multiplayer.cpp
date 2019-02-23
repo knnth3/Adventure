@@ -14,6 +14,7 @@ APS_Multiplayer::APS_Multiplayer()
 	m_CurrentPlayerActive = -1;
 	m_CurrentState = TURN_BASED_STATE::FREE_ROAM;
 	m_DownloadManager = nullptr;
+	m_bAttachToDownloadManager = false;
 }
 
 void APS_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -100,6 +101,8 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 
 bool APS_Multiplayer::SetupNetworking()
 {
+	Client_SetAttachToDownloadManager();
+
 	APlayerController* Owner = nullptr;
 	for (TActorIterator<APlayerController> ControllerIter(GetWorld()); ControllerIter; ++ControllerIter)
 	{
@@ -113,14 +116,20 @@ bool APS_Multiplayer::SetupNetworking()
 
 	if (Owner)
 	{
-		FActorSpawnParameters params;
-		params.Owner = Owner;
-
 		//Instatiate a new ADownloadManager instance
-		m_DownloadManager = GetWorld()->SpawnActor<ADownloadManager>(params);
+		auto newDownloadManager = GetWorld()->SpawnActor<ADownloadManager>();
 
-		// Tell the instance that the data in the buffer has not been downloaded
-		m_DownloadManager->ServerOnly_NotifyDataChanged();
+		if (newDownloadManager)
+		{
+			newDownloadManager->SetOwner(Owner);
+			m_DownloadManager = newDownloadManager;
+
+			// Tell the instance that the data in the buffer has not been downloaded
+			m_DownloadManager->ServerOnly_NotifyDataChanged();
+
+			UE_LOG(LogNotice, Error, TEXT("<PlayerState>: Created ADownloadManager instance for player controller: Authority: %s"), *GetStringOf(m_DownloadManager->Role));
+		}
+
 	}
 	else
 	{
@@ -191,17 +200,18 @@ void APS_Multiplayer::OnNewDataAvailable()
 
 void APS_Multiplayer::OnDownloadManagerCreated()
 {
-	if (m_DownloadManager)
+	if (m_DownloadManager && m_bAttachToDownloadManager)
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download Manager created on client. Role: %s"), *GetStringOf(m_DownloadManager->Role));
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download Manager created on client."));
 
-		// Only run on owning client
-		if (m_DownloadManager->Role == ROLE_AutonomousProxy || m_DownloadManager->Role == ROLE_Authority)
-		{
-			// Register callback with the download manager
-			FNotifyDelegate callback;
-			callback.BindUObject(this, &APS_Multiplayer::OnNewDataAvailable);
-			m_DownloadManager->SetOnDataPostedCallback(callback);
-		}
+		// Register callback with the download manager
+		FNotifyDelegate callback;
+		callback.BindUObject(this, &APS_Multiplayer::OnNewDataAvailable);
+		m_DownloadManager->SetOnDataPostedCallback(callback);
 	}
+}
+
+void APS_Multiplayer::Client_SetAttachToDownloadManager_Implementation()
+{
+	m_bAttachToDownloadManager = true;
 }

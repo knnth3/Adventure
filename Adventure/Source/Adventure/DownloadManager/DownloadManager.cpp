@@ -12,6 +12,7 @@ ADownloadManager::ADownloadManager()
 {
 	m_ElapsedTime = 0;
 	bReplicates = true;
+	bNetLoadOnClient = true;
 	m_DownloadedSize = 0;
 	m_bDownloading = false;
 	m_bReadyToDownload = false;
