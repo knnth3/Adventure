@@ -191,7 +191,7 @@ void ADownloadManager::RequestPacket()
 	auto NetConnection = controller->GetNetConnection();
 
 	// If the network is ready to send another packet
-	if (NetConnection && NetConnection->IsNetReady(false))
+	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
 	{
 		m_ElapsedTime = 0;
 
@@ -205,18 +205,14 @@ void ADownloadManager::SendPacket()
 	APlayerController* controller = Cast<APlayerController>(GetOwner());
 	auto NetConnection = controller->GetNetConnection();
 
-	// If the network is ready to send another packet
-	if (NetConnection && NetConnection->IsNetReady(false))
-	{
-		m_bPacketRequested = false;
-		TArray<uint8> sendingData;
-		auto nextBit = GetNextPacketData(sendingData);
+	m_bPacketRequested = false;
+	TArray<uint8> sendingData;
+	auto nextBit = GetNextPacketData(sendingData);
 
-		// Send the new data to the client (if any exists)
-		if (sendingData.Num())
-		{
-			Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
-		}
+	// Send the new data to the client (if any exists)
+	if (sendingData.Num())
+	{
+		Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
 	}
 }
 
