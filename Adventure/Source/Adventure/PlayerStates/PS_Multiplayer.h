@@ -99,43 +99,13 @@ private:
 	UPROPERTY(Replicated)
 	int m_CurrentPlayerActive;
 
-	// Server
-	bool m_bMapDownloaded;
-	std::bitset<TRANSFER_BITFIELD_SIZE> m_ServerSentBitfield;
-	bool m_bNeedsNextPacket;
-	float m_TotalTime;
-	TArray<uint8> m_RawSaveFileServer;
-
-	// Client
-	bool first = true;
-	int m_DownloadedSize;
-	std::bitset<TRANSFER_BITFIELD_SIZE> m_ClientRecievedBitfield;
-	FLocationStats m_LocationStats;
-	TArray<uint8> m_RawSaveFileClient;
-	bool gotAuthority;
-
-	// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-	std::bitset<TRANSFER_BITFIELD_SIZE> GetNextPacketData(TArray<uint8>& Data, bool& LastPacket);
+	// Receive packet from server
+	UFUNCTION(Client, Reliable)
+	void Client_BeginMapDownload();
 
 	// Retrieves the data in the client download buffer and deserializes it to an FMapLocation
 	bool GetLocationFromDownloadBuffer(FMapLocation& Location);
 
 	// Transfers location data to owning client so that it may generate a grid
 	void GenerateGrid(const FMapLocation& Data);
-
-	// Server function sent from client to request more data from download
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_DownloadMap(const TArray<int>& BFRecieved);
-
-	// Client functin sent from server to give data to owning client
-	UFUNCTION(Client, unreliable)
-	void Client_RecievePacket(const TArray<uint8>& Data, const TArray<int>& Bitfield);
-
-	// Tells client to create a new map
-	UFUNCTION(Client, Reliable)
-	void Client_GenerateEmptyGrid(const FGridCoordinate& MapSize);
-
-	// Tell Client the information to unpack new location data
-	UFUNCTION(Client, Reliable)
-	void Client_SetLocationStats(const FLocationStats& Stats);
 };

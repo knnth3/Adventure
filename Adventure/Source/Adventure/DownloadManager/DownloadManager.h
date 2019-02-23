@@ -15,17 +15,19 @@
  * 
  */
 
+#define TRANSFER_BITFIELD_SIZE sizeof(int) * 8 * 5
+
 USTRUCT()
-struct ADVENTURE_API FDownloadChunk
+struct FDownloadInfo
 {
 	GENERATED_BODY()
 public:
 
 	UPROPERTY()
-	int PacketID = 0;
+	int PackageSize;
 
 	UPROPERTY()
-	TArray<uint8> Data;
+	TArray<int> FinalizedBitField;
 };
 
 UCLASS()
@@ -35,6 +37,7 @@ class ADVENTURE_API ADownloadManager : public AActor
 	
 public:
 	ADownloadManager();
+	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION(BlueprintCallable, Category="Data Settings")
 	void ServerOnly_SetData(const TArray<uint8>& data);
@@ -42,8 +45,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
 	void Subscribe(UNetConnection* connection = nullptr);
 
-	UFUNCTION(BlueprintCallable, Category = "Data Settings")
-	TArray<uint8> GetUnpackedData() const;
+	UFUNCTION(BlueprintCallable, Category = "Download Manager")
+	void BeginDownload();
+
+	UFUNCTION(BlueprintCallable, Category = "Download Manager")
+	void GetDataFromBuffer(TArray<uint8>& Data);
 
 private:
 
@@ -51,16 +57,32 @@ private:
 	FSocket* CreateServerSocket();
 	bool FormatIP4ToNumber(const FString& TheIP, uint8(&Out)[4]);
 
-	UFUNCTION()
-	void OnDataReceived();
+	// Client function call to retrieve next packet from server
+	void RequestPacket();
 
 	UFUNCTION()
-	void OnDownloadRequested();
+	void OnNewDataPosted();
 
-	UPROPERTY(ReplicatedUsing = OnDownloadRequested)
-	int m_dataSize;
+	// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
+	std::bitset<TRANSFER_BITFIELD_SIZE> GetNextPacketData(TArray<uint8>& Data);
 
-	TArray<FDownloadChunk> m_data;
+	// Receive packet from server
+	UFUNCTION(Client, Unreliable)
+	void Client_PostNewPacket(const TArray<uint8>& Data, const TArray<int>& Bitfield);
+
+	// Request a packet from the server
+	UFUNCTION(Server, Unreliable, WithValidation)
+	void Server_RequestPacket(const TArray<int>& BFRecieved);
+
+	UPROPERTY(ReplicatedUsing = OnNewDataPosted)
+	FDownloadInfo m_DownloadInfo;
+
+	float m_ElapsedTime;
+	bool m_bReadyToDownload;
+	bool m_bDownloading;
+	int m_DownloadedSize;
+	TArray<uint8> m_Data;
 	FSocket* m_ConnectionSocket;
 	FIPv4Endpoint m_RemoteAddr;
+	std::bitset<TRANSFER_BITFIELD_SIZE> m_Bitfield;
 };

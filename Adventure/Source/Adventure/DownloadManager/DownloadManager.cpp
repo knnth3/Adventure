@@ -3,40 +3,56 @@
 #include "DownloadManager.h"
 #include "Adventure.h"
 
-#define PACKET_SIZE 1024
+#define PACKET_SIZE 2048
+#define PACKET_TRANSFER_TIME_DELAY 0.02f
 
 ADownloadManager::ADownloadManager()
 {
+	m_ElapsedTime = 0;
 	bReplicates = true;
-	m_dataSize = 0;
+	m_DownloadedSize = 0;
+	m_bDownloading = false;
+	m_bReadyToDownload = false;
+	PrimaryActorTick.bCanEverTick = true;
+}
+
+void ADownloadManager::Tick(float DeltaTime)
+{
+	if (!HasAuthority() && m_bDownloading)
+	{
+		m_ElapsedTime += DeltaTime;
+		RequestPacket();
+	}
 }
 
 void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Start download process. Download size: %i bytes"), data.Num());
-
-	// Empty old data
-	m_data.Empty();
-	m_dataSize = data.Num();
-
-	int unpackedCount = data.Num();
 	int packetCount = FMath::DivideAndRoundUp(data.Num(), PACKET_SIZE);
-	for (int index = 0; index < packetCount; index++)
+
+	// File is too large to send over
+	if (packetCount > TRANSFER_BITFIELD_SIZE)
 	{
-		// Calculate chunk data
-		int size = (unpackedCount < PACKET_SIZE) ? unpackedCount : PACKET_SIZE;
-		unpackedCount -= PACKET_SIZE;
-
-		// Create new chunk
-		FDownloadChunk newChunk;
-		newChunk.PacketID = index;
-		newChunk.Data.Insert(&data[index*PACKET_SIZE], size, 0);
-
-		// Add chunk to download buffer
-		m_data.Push(newChunk);
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>: Could not set data for download: File is too large."));
+		return;
 	}
 
-	OnDataReceived();
+	m_Data = data;
+	std::bitset<TRANSFER_BITFIELD_SIZE> ResultantBitField;
+	for (int index = 0; index < packetCount; index++)
+	{
+		ResultantBitField[index] = true;
+	}
+
+	// Create a struct to hold all the information that will be sent to the clients
+	FDownloadInfo newInfo;
+	newInfo.PackageSize = m_Data.Num();
+	newInfo.FinalizedBitField = BitsetToArray<TRANSFER_BITFIELD_SIZE>(ResultantBitField);
+
+	// Broadcast the new download information to every client
+	m_DownloadInfo = newInfo;
+
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Start download process. Download size: %i bytes"), data.Num());
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
 }
 
 void ADownloadManager::Subscribe(UNetConnection* connection)
@@ -52,15 +68,18 @@ void ADownloadManager::Subscribe(UNetConnection* connection)
 	}
 }
 
-TArray<uint8> ADownloadManager::GetUnpackedData() const
+void ADownloadManager::BeginDownload()
 {
-	TArray<uint8> Unpacked;
-	for (const auto& chunk : m_data)
+	if (m_bReadyToDownload)
 	{
-		Unpacked.Insert(chunk.Data, Unpacked.Num());
+		m_bReadyToDownload = false;
+		m_bDownloading = true;
 	}
+}
 
-	return Unpacked;
+void ADownloadManager::GetDataFromBuffer(TArray<uint8>& Data)
+{
+	Data = m_Data;
 }
 
 FSocket * ADownloadManager::CreateClientSocket(UNetConnection* connection)
@@ -133,24 +152,142 @@ bool ADownloadManager::FormatIP4ToNumber(const FString & TheIP, uint8(&Out)[4])
 	return true;
 }
 
-void ADownloadManager::OnDataReceived()
+void ADownloadManager::RequestPacket()
 {
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New Data received. Data size: %i"), m_data.Num());
-
-	if (m_dataSize == m_data.Num())
+	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Download completed"));
+		m_ElapsedTime = 0;
+
+		// Ask for the next packet
+		Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
 	}
 }
 
-void ADownloadManager::OnDownloadRequested()
+void ADownloadManager::OnNewDataPosted()
 {
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New file have been made available on the server"));
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: A new file has been made available on the server"));
+
+	m_Bitfield = 0;
+	m_DownloadedSize = 0;
+	m_bReadyToDownload = true;
+
+	// Resize the data buffer on the client to be able to hold the incoming data
+	m_Data.Empty();
+	m_Data.AddUninitialized(m_DownloadInfo.PackageSize);
+}
+
+std::bitset<TRANSFER_BITFIELD_SIZE> ADownloadManager::GetNextPacketData(TArray<uint8>& Data)
+{
+	Data.Empty();
+
+	// Get the next bit to represent outgoing package (assumes all bits before it are on)
+	int dataIndex = 0;
+	std::bitset<TRANSFER_BITFIELD_SIZE> NextBit = 0;
+	for (int index = 0; index < m_Bitfield.size(); index++)
+	{
+		if (m_Bitfield[index] == 0)
+		{
+			NextBit[index] = 1;
+			dataIndex = index * PACKET_SIZE;
+			break;
+		}
+	}
+
+	if (dataIndex == 0 && NextBit.none())
+	{
+		UE_LOG(LogNotice, Error, TEXT("Byte buffer overload! Canceling download..."));
+		return NextBit;
+	}
+
+	// How many bytes are left that have not been copied over
+	int sendAmnt = 0;
+	int remain = m_Data.Num() - dataIndex;
+	if (remain > 0)
+	{
+		// Get bytes needed to transfer
+		sendAmnt = (remain > PACKET_SIZE) ? PACKET_SIZE : remain;
+
+		// Reserve memory to hold send amount
+		Data.AddUninitialized(sendAmnt);
+
+		// Copy memory from save binary to transfer data array
+		FMemory::Memcpy(Data.GetData(), m_Data.GetData() + dataIndex, sendAmnt);
+	}
+
+	return NextBit;
+}
+
+void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
+{
+	// If there are changes to be made
+	auto RecievedBitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(Bitfield);
+
+	if (!(m_Bitfield^RecievedBitfield).none())
+	{
+		auto BFcurrentPacket = (RecievedBitfield | m_Bitfield) & ~m_Bitfield;
+
+		// Get the position in the buffer where the new data should go
+		int CurrentIndex = 0;
+		for (int x = 0; x < TRANSFER_BITFIELD_SIZE; x++)
+		{
+			if (BFcurrentPacket == 1)
+			{
+				CurrentIndex = x * PACKET_SIZE;
+				break;
+			}
+			else
+			{
+				BFcurrentPacket = BFcurrentPacket >> 1;
+			}
+		}
+
+		m_DownloadedSize += Data.Num();
+		FString BitsetStr(RecievedBitfield.to_string().c_str());
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Downloading (%i/%i): Bitfield: %s"), m_DownloadedSize, m_Data.Num(), *BitsetStr);
+
+		// Transfer the nessesary data to the correct location in the buffer
+		FMemory::Memcpy(m_Data.GetData() + CurrentIndex, Data.GetData(), Data.Num());
+
+		m_Bitfield |= RecievedBitfield;
+
+		if (m_DownloadedSize == m_Data.Num())
+		{
+			// Build the map
+			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Map download complete!"));
+			m_bDownloading = false;
+			m_bReadyToDownload = false;
+		}
+
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: A packet was ignored, data already sent!"));
+	}
+}
+
+void ADownloadManager::Server_RequestPacket_Implementation(const TArray<int>& BFRecieved)
+{
+	// Set the bitfield to the one recieved from the client
+	m_Bitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(BFRecieved);
+
+	TArray<uint8> sendingData;
+	auto nextBit = GetNextPacketData(sendingData);
+
+	// Send the new data to the client (if any exists)
+	if (sendingData.Num())
+	{
+		Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+	}
+}
+
+bool ADownloadManager::Server_RequestPacket_Validate(const TArray<int>& BFRecieved)
+{
+	return true;
 }
 
 void ADownloadManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ADownloadManager, m_dataSize);
+	DOREPLIFETIME(ADownloadManager, m_DownloadInfo);
 }
