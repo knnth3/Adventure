@@ -2,7 +2,6 @@
 
 #include "PS_Multiplayer.h"
 #include "Grid/WorldGrid.h"
-#include "DownloadManager/DownloadManager.h"
 #include <string>
 
 #define TRANSFER_DATA_SIZE 2048
@@ -14,15 +13,17 @@ APS_Multiplayer::APS_Multiplayer()
 	m_GameID = -1;
 	m_CurrentPlayerActive = -1;
 	m_CurrentState = TURN_BASED_STATE::FREE_ROAM;
+	m_DownloadManager = nullptr;
 }
 
 void APS_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
+	
 	DOREPLIFETIME(APS_Multiplayer, m_GameID);
 	DOREPLIFETIME(APS_Multiplayer, m_CurrentState);
 	DOREPLIFETIME(APS_Multiplayer, m_CurrentPlayerActive);
+	DOREPLIFETIME(APS_Multiplayer, m_DownloadManager);
 }
 
 void APS_Multiplayer::ServerOnly_SetGameID(const int ID)
@@ -84,11 +85,7 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 				if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
 				{
 					// Send the data to the download manager
-					TActorIterator<ADownloadManager> DLManager(GetWorld());
-					if (DLManager)
-					{
-						DLManager->ServerOnly_SetData(Buffer);
-					}
+					ADownloadManager::ServerOnly_SetData(Buffer);
 				}
 
 				// Load the data on the server
@@ -103,7 +100,12 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 
 bool APS_Multiplayer::SetupNetworking()
 {
-	Client_SetupNetworking();
+	FActorSpawnParameters params;
+	params.Owner = this;
+
+	//Instatiate a new ADownloadManager instance
+	m_DownloadManager = GetWorld()->SpawnActor<ADownloadManager>(params);
+
 	return true;
 }
 
@@ -166,14 +168,19 @@ void APS_Multiplayer::OnNewDataAvailable()
 	}
 }
 
-void APS_Multiplayer::Client_SetupNetworking_Implementation()
+void APS_Multiplayer::OnDownloadManagerCreated()
 {
-	// Register callback with the download manager
-	TActorIterator<ADownloadManager> DLManager(GetWorld());
-	if (DLManager)
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Download Manager created on client. Role: %s"), *GetStringOf(Role));
+
+	// Only run on owning client
+	if (Role == ROLE_AutonomousProxy || Role == ROLE_Authority)
 	{
-		FNotifyDelegate callback;
-		callback.BindUObject(this, &APS_Multiplayer::OnNewDataAvailable);
-		DLManager->SetOnDataPostedCallback(callback);
+		// Register callback with the download manager
+		if (m_DownloadManager)
+		{
+			FNotifyDelegate callback;
+			callback.BindUObject(this, &APS_Multiplayer::OnNewDataAvailable);
+			m_DownloadManager->SetOnDataPostedCallback(callback);
+		}
 	}
 }

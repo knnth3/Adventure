@@ -40,8 +40,10 @@ public:
 	ADownloadManager();
 	virtual void Tick(float DeltaTime) override;
 
-	UFUNCTION(BlueprintCallable, Category="Data Settings")
-	void ServerOnly_SetData(const TArray<uint8>& data);
+	static void ServerOnly_SetData(const TArray<uint8>& data);
+
+	UFUNCTION(BlueprintCallable, Category = "Data Settings")
+	void ServerOnly_NotifyDataChanged();
 
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
 	void Subscribe(UNetConnection* connection = nullptr);
@@ -85,7 +87,7 @@ private:
 	bool m_bReadyToDownload;
 	bool m_bDownloading;
 	int m_DownloadedSize;
-	TArray<uint8> m_Data;
+	static TArray<uint8> m_Data;
 	FSocket* m_ConnectionSocket;
 	FIPv4Endpoint m_RemoteAddr;
 	std::bitset<TRANSFER_BITFIELD_SIZE> m_Bitfield;

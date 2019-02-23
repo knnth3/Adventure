@@ -4,6 +4,7 @@
 
 #include <bitset>
 #include "Basics.h"
+#include "DownloadManager/DownloadManager.h"
 #include "Saves/MapSaveFile.h"
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
@@ -96,9 +97,8 @@ private:
 	UFUNCTION()
 	void OnNewDataAvailable();
 
-	// Receive packet from server
-	UFUNCTION(Client, Reliable)
-	void Client_SetupNetworking();
+	UFUNCTION()
+	void OnDownloadManagerCreated();
 
 	// Unique identifier
 	UPROPERTY(Replicated)
@@ -111,4 +111,7 @@ private:
 	// Current active player
 	UPROPERTY(Replicated)
 	int m_CurrentPlayerActive;
+
+	UPROPERTY(ReplicatedUsing = OnDownloadManagerCreated)
+	ADownloadManager* m_DownloadManager;
 };

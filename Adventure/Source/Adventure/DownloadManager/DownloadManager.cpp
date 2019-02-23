@@ -6,6 +6,8 @@
 #define PACKET_SIZE 2048
 #define PACKET_TRANSFER_TIME_DELAY 0.02f
 
+TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
+
 ADownloadManager::ADownloadManager()
 {
 	m_ElapsedTime = 0;
@@ -37,6 +39,19 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 	}
 
 	m_Data = data;
+}
+
+void ADownloadManager::ServerOnly_NotifyDataChanged()
+{
+	int packetCount = FMath::DivideAndRoundUp(m_Data.Num(), PACKET_SIZE);
+
+	// File is too large to send over
+	if (packetCount == 0)
+	{
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>: Could not set data for download: Buffer is empty"));
+		return;
+	}
+
 	std::bitset<TRANSFER_BITFIELD_SIZE> ResultantBitField;
 	for (int index = 0; index < packetCount; index++)
 	{
@@ -51,7 +66,7 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 	// Broadcast the new download information to every client
 	m_DownloadInfo = newInfo;
 
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New data posted. Size: %i bytes"), data.Num());
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New data posted. Size: %i bytes"), m_Data.Num());
 	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
 }
 
