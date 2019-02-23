@@ -3,7 +3,7 @@
 #include "DownloadManager.h"
 #include "Adventure.h"
 
-#define PACKET_SIZE 65535
+#define PACKET_SIZE 5000
 #define PACKET_TRANSFER_TIME_DELAY 0.1f
 
 TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();

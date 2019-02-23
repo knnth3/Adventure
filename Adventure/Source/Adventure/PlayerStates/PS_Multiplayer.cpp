@@ -127,7 +127,7 @@ bool APS_Multiplayer::SetupNetworking()
 			// Tell the instance that the data in the buffer has not been downloaded
 			m_DownloadManager->ServerOnly_NotifyDataChanged();
 
-			UE_LOG(LogNotice, Error, TEXT("<PlayerState>: Created ADownloadManager instance for player controller"));
+			UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Created ADownloadManager instance for player controller"));
 		}
 
 	}
