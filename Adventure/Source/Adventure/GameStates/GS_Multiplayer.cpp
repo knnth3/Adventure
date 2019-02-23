@@ -170,7 +170,7 @@ void AGS_Multiplayer::ServerOnly_LoadMapOnClients(const FString& MapName) const
 		APS_Multiplayer* MPS = Cast<APS_Multiplayer>(PlayerArray[x]);
 		if (MPS)
 		{
-			MPS->LoadMap(MapName);
+			MPS->SetupNetworking();
 		}
 	}
 }

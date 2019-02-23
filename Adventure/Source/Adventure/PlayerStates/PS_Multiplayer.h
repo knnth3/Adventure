@@ -58,8 +58,8 @@ public:
 	// Server only function to load map from file
 	bool ServerOnly_LoadMap(const FString& MapName);
 
-	// Sets the map that the player state will use to query locations that will be displayed
-	bool LoadMap(const FString& MapName);
+	// Sets up nessary backend calls to enable content downloads
+	bool SetupNetworking();
 
 	// Generates a new map with a given map size
 	void GenerateEmptyMap(const FString& MapName, const FGridCoordinate& MapSize);
@@ -87,6 +87,19 @@ protected:
 
 private:
 
+	// Retrieves the data in the client download buffer and deserializes it to an FMapLocation
+	bool GetLocationFromDownloadBuffer(FMapLocation& Location);
+
+	// Transfers location data to owning client so that it may generate a grid
+	void GenerateGrid(const FMapLocation& Data);
+
+	UFUNCTION()
+	void OnNewDataAvailable();
+
+	// Receive packet from server
+	UFUNCTION(Client, Reliable)
+	void Client_SetupNetworking();
+
 	// Unique identifier
 	UPROPERTY(Replicated)
 	int m_GameID;
@@ -98,14 +111,4 @@ private:
 	// Current active player
 	UPROPERTY(Replicated)
 	int m_CurrentPlayerActive;
-
-	// Receive packet from server
-	UFUNCTION(Client, Reliable)
-	void Client_BeginMapDownload();
-
-	// Retrieves the data in the client download buffer and deserializes it to an FMapLocation
-	bool GetLocationFromDownloadBuffer(FMapLocation& Location);
-
-	// Transfers location data to owning client so that it may generate a grid
-	void GenerateGrid(const FMapLocation& Data);
 };

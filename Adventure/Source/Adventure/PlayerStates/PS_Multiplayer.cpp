@@ -101,10 +101,10 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 	return false;
 }
 
-bool APS_Multiplayer::LoadMap(const FString& MapName)
+bool APS_Multiplayer::SetupNetworking()
 {
-	Client_BeginMapDownload();
-	return false;
+	Client_SetupNetworking();
+	return true;
 }
 
 void APS_Multiplayer::GenerateEmptyMap(const FString& MapName, const FGridCoordinate & MapSize)
@@ -123,11 +123,6 @@ void APS_Multiplayer::OverrideCurrentPlayersTurn(const int ID)
 TURN_BASED_STATE APS_Multiplayer::GetCurrentState() const
 {
 	return m_CurrentState;
-}
-
-void APS_Multiplayer::Client_BeginMapDownload_Implementation()
-{
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: This is where the PS would register a callback to respond to new posts."));
 }
 
 bool APS_Multiplayer::GetLocationFromDownloadBuffer(FMapLocation& Location)
@@ -158,5 +153,27 @@ void APS_Multiplayer::GenerateGrid(const FMapLocation& Data)
 	if (WorldGrid)
 	{
 		WorldGrid->BuildLocation(Data);
+	}
+}
+
+void APS_Multiplayer::OnNewDataAvailable()
+{
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerState>: Starting content download..."));
+	TActorIterator<ADownloadManager> DLManager(GetWorld());
+	if (DLManager)
+	{
+		DLManager->BeginDownload();
+	}
+}
+
+void APS_Multiplayer::Client_SetupNetworking_Implementation()
+{
+	// Register callback with the download manager
+	TActorIterator<ADownloadManager> DLManager(GetWorld());
+	if (DLManager)
+	{
+		FNotifyDelegate callback;
+		callback.BindUObject(this, &APS_Multiplayer::OnNewDataAvailable);
+		DLManager->SetOnDataPostedCallback(callback);
 	}
 }

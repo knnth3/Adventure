@@ -77,7 +77,7 @@ void AGM_Lobby::PostLogin(APlayerController* NewPlayer)
 		{
 			if (m_PlayerIndexCount > 1)
 			{
-				if (!PS->LoadMap(m_CurrentMapName))
+				if (!PS->SetupNetworking())
 				{
 					PS->GenerateEmptyMap(m_CurrentMapName, FGridCoordinate(10, 10));
 				}

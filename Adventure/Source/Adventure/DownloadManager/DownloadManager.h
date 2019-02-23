@@ -16,6 +16,7 @@
  */
 
 #define TRANSFER_BITFIELD_SIZE sizeof(int) * 8 * 5
+DECLARE_DELEGATE(FNotifyDelegate);
 
 USTRUCT()
 struct FDownloadInfo
@@ -51,6 +52,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Download Manager")
 	void GetDataFromBuffer(TArray<uint8>& Data);
 
+	void SetOnDataPostedCallback(const FNotifyDelegate& func);
+
 private:
 
 	FSocket* CreateClientSocket(UNetConnection* connection);
@@ -77,6 +80,7 @@ private:
 	UPROPERTY(ReplicatedUsing = OnNewDataPosted)
 	FDownloadInfo m_DownloadInfo;
 
+	FNotifyDelegate m_NotifyFunc;
 	float m_ElapsedTime;
 	bool m_bReadyToDownload;
 	bool m_bDownloading;

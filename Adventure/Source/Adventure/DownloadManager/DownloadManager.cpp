@@ -51,7 +51,7 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 	// Broadcast the new download information to every client
 	m_DownloadInfo = newInfo;
 
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Start download process. Download size: %i bytes"), data.Num());
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New data posted. Size: %i bytes"), data.Num());
 	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
 }
 
@@ -80,6 +80,19 @@ void ADownloadManager::BeginDownload()
 void ADownloadManager::GetDataFromBuffer(TArray<uint8>& Data)
 {
 	Data = m_Data;
+}
+
+void ADownloadManager::SetOnDataPostedCallback(const FNotifyDelegate & func)
+{
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Successfully bound callback"));
+	m_NotifyFunc = func;
+
+	// Check to see if data was posted before a callback was set
+	if (m_bReadyToDownload)
+	{
+		// Notify the client that new data is available
+		m_NotifyFunc.ExecuteIfBound();
+	}
 }
 
 FSocket * ADownloadManager::CreateClientSocket(UNetConnection* connection)
@@ -174,6 +187,9 @@ void ADownloadManager::OnNewDataPosted()
 	// Resize the data buffer on the client to be able to hold the incoming data
 	m_Data.Empty();
 	m_Data.AddUninitialized(m_DownloadInfo.PackageSize);
+
+	// Notify the client that new data is available
+	m_NotifyFunc.ExecuteIfBound();
 }
 
 std::bitset<TRANSFER_BITFIELD_SIZE> ADownloadManager::GetNextPacketData(TArray<uint8>& Data)

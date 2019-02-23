@@ -79,7 +79,7 @@ void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
 	APS_Multiplayer* PS = NewPlayer->GetPlayerState<APS_Multiplayer>();
 	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
 
-	if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
+	if (PS && WorldGrid && (m_MapDNE || !PS->SetupNetworking()))
 	{
 		m_MapDNE = true;
 		PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
