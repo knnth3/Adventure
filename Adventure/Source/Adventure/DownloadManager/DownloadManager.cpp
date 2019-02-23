@@ -4,7 +4,7 @@
 #include "Adventure.h"
 
 #define PACKET_SIZE 5000
-#define PACKET_TRANSFER_TIME_DELAY 0.1f
+#define PACKET_TRANSFER_TIME_DELAY 0.5f
 
 TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
 
@@ -28,6 +28,7 @@ void ADownloadManager::Tick(float DeltaTime)
 	}
 	else if (HasAuthority() && m_bPacketRequested)
 	{
+		m_ElapsedTime += DeltaTime;
 		SendPacket();
 	}
 }
@@ -191,7 +192,7 @@ void ADownloadManager::RequestPacket()
 	auto NetConnection = controller->GetNetConnection();
 
 	// If the network is ready to send another packet
-	if (NetConnection && NetConnection->IsNetReady(false))
+	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
 	{
 		m_ElapsedTime = 0;
 
@@ -206,8 +207,9 @@ void ADownloadManager::SendPacket()
 	auto NetConnection = controller->GetNetConnection();
 
 	// If the network is ready to send another packet
-	if (NetConnection && NetConnection->IsNetReady(false))
+	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
 	{
+		m_ElapsedTime = false;
 		m_bPacketRequested = false;
 		TArray<uint8> sendingData;
 		auto nextBit = GetNextPacketData(sendingData);
