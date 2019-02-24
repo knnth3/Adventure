@@ -4,7 +4,7 @@
 #include "Adventure.h"
 
 #define PACKET_SIZE 3072
-#define PACKET_TRANSFER_TIME_DELAY 0.1f
+#define PACKET_TRANSFER_TIME_DELAY 1.0f
 
 TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
 
@@ -22,15 +22,18 @@ ADownloadManager::ADownloadManager()
 
 void ADownloadManager::Tick(float DeltaTime)
 {
-	if (!HasAuthority() && m_bDownloading)
+	m_ElapsedTime += DeltaTime;
+	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
 	{
-		m_ElapsedTime += DeltaTime;
-		RequestPacket();
-	}
-	else if (HasAuthority() && m_bPacketRequested)
-	{
-		m_ElapsedTime += DeltaTime;
-		SendPacket();
+		m_ElapsedTime = 0;
+		if (HasAuthority())
+		{
+			RequestPacket();
+		}
+		else
+		{
+			SendPacket();
+		}
 	}
 }
 
@@ -195,17 +198,33 @@ void ADownloadManager::RequestPacket()
 	// If the network is ready to send another packet
 	if (NetConnection)
 	{
-		if (NetConnection->IsNetReady(false))
+		auto addr = NetConnection->GetInternetAddr();
+		if (addr)
 		{
-			m_ElapsedTime = 0;
+			uint32 var2 = 0;
+			addr->GetIp(var2);
+			auto var1 = addr->GetPlatformPort();
+			auto var3 = addr->GetPort();
+			auto var4 = addr->GetRawIp();
 
-			// Ask for the next packet
-			Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Polling connection Info:"));
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:IP: %i"), var2);
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Platform port: %i"), var1);
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Port: %i"), var3);
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Raw IP: %i"), var4.Num());
 		}
-		else
-		{
-			NetConnection->FlushNet();
-		}
+
+		//if (NetConnection->IsNetReady(false))
+		//{
+		//	m_ElapsedTime = 0;
+
+		//	// Ask for the next packet
+		//	Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
+		//}
+		//else
+		//{
+		//	NetConnection->FlushNet();
+		//}
 	}
 }
 
@@ -214,22 +233,42 @@ void ADownloadManager::SendPacket()
 	APlayerController* controller = Cast<APlayerController>(GetOwner());
 	auto NetConnection = controller->GetNetConnection();
 
-	TArray<uint8> sendingData;
-	auto nextBit = GetNextPacketData(sendingData);
-
-	// Send the new data to the client (if any exists)
-	if (sendingData.Num() && NetConnection)
+	// If the network is ready to send another packet
+	if (NetConnection)
 	{
-		if (NetConnection->IsNetReady(false))
+		auto addr = NetConnection->GetInternetAddr();
+		if (addr)
 		{
-			m_bPacketRequested = false;
-			Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
-		}
-		else
-		{
-			NetConnection->FlushNet();
+			uint32 var2 = 0;
+			addr->GetIp(var2);
+			auto var1 = addr->GetPlatformPort();
+			auto var3 = addr->GetPort();
+			auto var4 = addr->GetRawIp();
+
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Polling connection Info:"));
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:IP: %i"), var2);
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Platform port: %i"), var1);
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Port: %i"), var3);
+			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Raw IP: %i"), var4.Num());
 		}
 	}
+
+	//TArray<uint8> sendingData;
+	//auto nextBit = GetNextPacketData(sendingData);
+
+	//// Send the new data to the client (if any exists)
+	//if (sendingData.Num() && NetConnection)
+	//{
+	//	if (NetConnection->IsNetReady(false))
+	//	{
+	//		m_bPacketRequested = false;
+	//		Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+	//	}
+	//	else
+	//	{
+	//		NetConnection->FlushNet();
+	//	}
+	//}
 }
 
 void ADownloadManager::OnNewDataPosted()
