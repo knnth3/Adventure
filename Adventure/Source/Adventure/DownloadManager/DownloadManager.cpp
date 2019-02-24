@@ -3,7 +3,7 @@
 #include "DownloadManager.h"
 #include "Adventure.h"
 
-#define PACKET_SIZE 3072
+#define PACKET_SIZE 1024
 #define PACKET_TRANSFER_TIME_DELAY 1.0f
 
 TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
@@ -193,26 +193,14 @@ bool ADownloadManager::FormatIP4ToNumber(const FString & TheIP, uint8(&Out)[4])
 void ADownloadManager::RequestPacket()
 {
 	APlayerController* controller = Cast<APlayerController>(GetOwner());
-	auto NetConnection = controller->GetNetConnection();
+	UNetConnection* NetConnection = controller->GetNetConnection();
 
 	// If the network is ready to send another packet
 	if (NetConnection)
 	{
-		auto addr = NetConnection->GetInternetAddr();
-		if (addr)
-		{
-			uint32 var2 = 0;
-			addr->GetIp(var2);
-			auto var1 = addr->GetPlatformPort();
-			auto var3 = addr->GetPort();
-			auto var4 = addr->GetRawIp();
-
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Polling connection Info:"));
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:IP: %i"), var2);
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Platform port: %i"), var1);
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Port: %i"), var3);
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Raw IP: %i"), var4.Num());
-		}
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Polling connection Info:"));
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:IP: %i"), NetConnection->GetAddrAsInt());
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Port: %i"), NetConnection->GetAddrPort());
 
 		//if (NetConnection->IsNetReady(false))
 		//{
@@ -236,21 +224,9 @@ void ADownloadManager::SendPacket()
 	// If the network is ready to send another packet
 	if (NetConnection)
 	{
-		auto addr = NetConnection->GetInternetAddr();
-		if (addr)
-		{
-			uint32 var2 = 0;
-			addr->GetIp(var2);
-			auto var1 = addr->GetPlatformPort();
-			auto var3 = addr->GetPort();
-			auto var4 = addr->GetRawIp();
-
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Polling connection Info:"));
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:IP: %i"), var2);
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Platform port: %i"), var1);
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Port: %i"), var3);
-			UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Raw IP: %i"), var4.Num());
-		}
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Polling connection Info:"));
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:IP: %i"), NetConnection->GetAddrAsInt());
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Port: %i"), NetConnection->GetAddrPort());
 	}
 
 	//TArray<uint8> sendingData;
