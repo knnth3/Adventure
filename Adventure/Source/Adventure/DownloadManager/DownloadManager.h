@@ -78,6 +78,10 @@ private:
 	UFUNCTION(Client, Unreliable)
 	void Client_PostNewPacket(const TArray<uint8>& Data, const TArray<int>& Bitfield);
 
+	// Receive packet from server
+	UFUNCTION(Client, Reliable)
+	void Client_PostLastNewPacket(const TArray<uint8>& Data, const TArray<int>& Bitfield);
+
 	// Request a packet from the server
 	UFUNCTION(Server, Unreliable, WithValidation)
 	void Server_RequestPacket(const TArray<int>& BFRecieved);

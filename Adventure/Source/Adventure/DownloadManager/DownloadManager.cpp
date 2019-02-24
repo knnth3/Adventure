@@ -38,12 +38,12 @@ void ADownloadManager::Tick(float DeltaTime)
 		}
 		else
 		{
-			m_ElapsedTime += DeltaTime;
-			if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
-			{
-				m_ElapsedTime = 0;
-				RequestPacket();
-			}
+			//m_ElapsedTime += DeltaTime;
+			//if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+			//{
+			//	m_ElapsedTime = 0;
+			//	RequestPacket();
+			//}
 		}
 	}
 
@@ -215,29 +215,41 @@ void ADownloadManager::SendPacket(float DeltaTime)
 
 	if (NetConnection)
 	{
+		bool bLastPacket = false;
 		TArray<uint8> sendingData;
 		auto nextBit = GetNextPacketData(sendingData);
 
 		// Send the new data to the client (if any exists)
 		if (sendingData.Num())
 		{
-			// Fuckit why not
-			if (true)
+			if (bLastPacket)
 			{
-				Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
-				m_Bitfield |= nextBit;
-				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
+				Client_PostLastNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
 			}
 			else
 			{
-				m_ElapsedTime += DeltaTime;
-
-				if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
-				{
-					m_ElapsedTime = 0;
-					UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection is not ready to send file."));
-				}
+				Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
 			}
+
+			m_Bitfield |= nextBit;
+			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
+
+			//if (true)
+			//{
+			//	Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
+			//	m_Bitfield |= nextBit;
+			//	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
+			//}
+			//else
+			//{
+			//	m_ElapsedTime += DeltaTime;
+
+			//	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+			//	{
+			//		m_ElapsedTime = 0;
+			//		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection is not ready to send file."));
+			//	}
+			//}
 		}
 	}
 }
@@ -349,6 +361,18 @@ void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& 
 	{
 		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: A packet was ignored, data already sent!"));
 	}
+}
+
+void ADownloadManager::Client_PostLastNewPacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
+{
+	Client_PostNewPacket(Data, Bitfield);
+
+	// Reuqest the next batch
+	if (m_bDownloading)
+	{
+		RequestPacket();
+	}
+
 }
 
 void ADownloadManager::Server_RequestPacket_Implementation(const TArray<int>& BFRecieved)
