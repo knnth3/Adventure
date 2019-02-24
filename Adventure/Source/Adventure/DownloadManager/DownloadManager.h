@@ -38,6 +38,7 @@ class ADVENTURE_API ADownloadManager : public AActor
 	
 public:
 	ADownloadManager();
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
 	static void ServerOnly_SetData(const TArray<uint8>& data);

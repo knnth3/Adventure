@@ -20,20 +20,35 @@ ADownloadManager::ADownloadManager()
 	PrimaryActorTick.bCanEverTick = true;
 }
 
+void ADownloadManager::BeginPlay()
+{
+	Super::BeginPlay();
+
+	APlayerController* controller = Cast<APlayerController>(GetOwner());
+	UNetConnection* NetConnection = controller->GetNetConnection();
+	NetConnection->LowLevelSendDel.BindStatic([](void* data, int32 size, bool& success) {
+		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Pascket was sent"));
+		});
+}
+
 void ADownloadManager::Tick(float DeltaTime)
 {
-	m_ElapsedTime += DeltaTime;
-	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+	Super::Tick(DeltaTime);
+
+	//m_ElapsedTime += DeltaTime;
+	//if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+	//{
+	//	m_ElapsedTime = 0;
+
+	//}
+
+	if (HasAuthority() && m_bPacketRequested)
 	{
-		m_ElapsedTime = 0;
-		if (HasAuthority())
-		{
-			RequestPacket();
-		}
-		else
-		{
-			SendPacket();
-		}
+		SendPacket();
+	}
+	else if(!HasAuthority() && m_bDownloading)
+	{
+		RequestPacket();
 	}
 }
 
@@ -194,25 +209,24 @@ void ADownloadManager::RequestPacket()
 {
 	APlayerController* controller = Cast<APlayerController>(GetOwner());
 	UNetConnection* NetConnection = controller->GetNetConnection();
+	NetConnection->LowLevelSendDel.BindStatic([](void* data, int32 size, bool& success) {
+		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Pascket was sent"));
+		});
 
 	// If the network is ready to send another packet
 	if (NetConnection)
 	{
-		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Polling connection Info:"));
-		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:IP: %i"), NetConnection->GetAddrAsInt());
-		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Port: %i"), NetConnection->GetAddrPort());
+		if (NetConnection->IsNetReady(false))
+		{
+			m_ElapsedTime = 0;
 
-		//if (NetConnection->IsNetReady(false))
-		//{
-		//	m_ElapsedTime = 0;
-
-		//	// Ask for the next packet
-		//	Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
-		//}
-		//else
-		//{
-		//	NetConnection->FlushNet();
-		//}
+			// Ask for the next packet
+			Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
+		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection is not ready to send file."));
+		}
 	}
 }
 
@@ -221,30 +235,22 @@ void ADownloadManager::SendPacket()
 	APlayerController* controller = Cast<APlayerController>(GetOwner());
 	auto NetConnection = controller->GetNetConnection();
 
-	// If the network is ready to send another packet
-	if (NetConnection)
+	TArray<uint8> sendingData;
+	auto nextBit = GetNextPacketData(sendingData);
+
+	// Send the new data to the client (if any exists)
+	if (sendingData.Num() && NetConnection)
 	{
-		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Polling connection Info:"));
-		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:IP: %i"), NetConnection->GetAddrAsInt());
-		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>:Port: %i"), NetConnection->GetAddrPort());
+		if (NetConnection->IsNetReady(false))
+		{
+			m_bPacketRequested = false;
+			Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+		}
+		else
+		{
+			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection is not ready to send file."));
+		}
 	}
-
-	//TArray<uint8> sendingData;
-	//auto nextBit = GetNextPacketData(sendingData);
-
-	//// Send the new data to the client (if any exists)
-	//if (sendingData.Num() && NetConnection)
-	//{
-	//	if (NetConnection->IsNetReady(false))
-	//	{
-	//		m_bPacketRequested = false;
-	//		Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
-	//	}
-	//	else
-	//	{
-	//		NetConnection->FlushNet();
-	//	}
-	//}
 }
 
 void ADownloadManager::OnNewDataPosted()
