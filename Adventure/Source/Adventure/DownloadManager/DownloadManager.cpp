@@ -20,17 +20,6 @@ ADownloadManager::ADownloadManager()
 	PrimaryActorTick.bCanEverTick = true;
 }
 
-void ADownloadManager::BeginPlay()
-{
-	Super::BeginPlay();
-
-	APlayerController* controller = Cast<APlayerController>(GetOwner());
-	UNetConnection* NetConnection = controller->GetNetConnection();
-	NetConnection->LowLevelSendDel.BindStatic([](void* data, int32 size, bool& success) {
-		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Pascket was sent"));
-		});
-}
-
 void ADownloadManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
