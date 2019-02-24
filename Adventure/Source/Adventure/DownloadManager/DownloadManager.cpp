@@ -222,11 +222,11 @@ void ADownloadManager::SendPacket(float DeltaTime)
 		// Send the new data to the client (if any exists)
 		if (sendingData.Num())
 		{
-			if (bLastPacket)
-			{
-				Client_PostLastNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
-			}
-			else
+			//if (bLastPacket)
+			//{
+			//	Client_PostLastNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
+			//}
+			//else
 			{
 				Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
 			}
