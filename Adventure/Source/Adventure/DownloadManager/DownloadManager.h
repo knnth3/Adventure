@@ -62,8 +62,8 @@ private:
 	FSocket* CreateServerSocket();
 	bool FormatIP4ToNumber(const FString& TheIP, uint8(&Out)[4]);
 
-	// Client function call to retrieve next packet from server
-	void RequestPacket(float DeltaTime);
+	// Client function call to tell the server it wants the data
+	void RequestPacket();
 
 	// Server function call to send next packet to client
 	void SendPacket(float DeltaTime);
@@ -87,7 +87,6 @@ private:
 
 	FNotifyDelegate m_NotifyFunc;
 	float m_ElapsedTime;
-	bool m_bPacketRequested;
 	bool m_bReadyToDownload;
 	bool m_bDownloading;
 	int m_DownloadedSize;

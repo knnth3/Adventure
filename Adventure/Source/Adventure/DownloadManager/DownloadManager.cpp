@@ -16,7 +16,6 @@ ADownloadManager::ADownloadManager()
 	m_DownloadedSize = 0;
 	m_bDownloading = false;
 	m_bReadyToDownload = false;
-	m_bPacketRequested = false;
 	PrimaryActorTick.bCanEverTick = true;
 	NetPriority = 10;
 }
@@ -32,13 +31,9 @@ void ADownloadManager::Tick(float DeltaTime)
 
 	//}
 
-	if (HasAuthority() && m_bPacketRequested)
+	if (HasAuthority() && m_bDownloading)
 	{
 		SendPacket(DeltaTime);
-	}
-	else if(!HasAuthority() && m_bDownloading)
-	{
-		RequestPacket(DeltaTime);
 	}
 }
 
@@ -103,7 +98,7 @@ void ADownloadManager::BeginDownload()
 	if (m_bReadyToDownload)
 	{
 		m_bReadyToDownload = false;
-		m_bDownloading = true;
+		RequestPacket();
 	}
 }
 
@@ -195,34 +190,10 @@ bool ADownloadManager::FormatIP4ToNumber(const FString & TheIP, uint8(&Out)[4])
 	return true;
 }
 
-void ADownloadManager::RequestPacket(float DeltaTime)
+void ADownloadManager::RequestPacket()
 {
-	APlayerController* controller = Cast<APlayerController>(GetOwner());
-	UNetConnection* NetConnection = controller ? controller->GetNetConnection() : nullptr;
-
-	// If the network is ready to send another packet
-	if (NetConnection)
-	{
-		// ;)
-		if (true)
-		{
-			m_ElapsedTime = 0;
-
-			// Ask for the next packet
-			Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
-			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
-		}
-		else
-		{
-			m_ElapsedTime += DeltaTime;
-
-			if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
-			{
-				m_ElapsedTime = 0;
-				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection is not ready to send file."));
-			}
-		}
-	}
+	m_bDownloading = true;
+	Server_RequestPacket(BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield));
 }
 
 void ADownloadManager::SendPacket(float DeltaTime)
@@ -241,8 +212,8 @@ void ADownloadManager::SendPacket(float DeltaTime)
 			// Fuckit why not
 			if (true)
 			{
-				m_bPacketRequested = false;
 				Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+				m_Bitfield |= nextBit;
 				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
 			}
 			else
@@ -306,6 +277,12 @@ std::bitset<TRANSFER_BITFIELD_SIZE> ADownloadManager::GetNextPacketData(TArray<u
 		// Get bytes needed to transfer
 		sendAmnt = (remain > PACKET_SIZE) ? PACKET_SIZE : remain;
 
+		// Last packet is being sent
+		if (sendAmnt == remain)
+		{
+			m_bDownloading = false;
+		}
+
 		// Reserve memory to hold send amount
 		Data.AddUninitialized(sendAmnt);
 
@@ -366,9 +343,9 @@ void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& 
 
 void ADownloadManager::Server_RequestPacket_Implementation(const TArray<int>& BFRecieved)
 {
-	// Set the bitfield to the one recieved from the client
+	// Start the downloading process using the given bitfield
 	m_Bitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(BFRecieved);
-	m_bPacketRequested = true;
+	m_bDownloading = true;
 }
 
 bool ADownloadManager::Server_RequestPacket_Validate(const TArray<int>& BFRecieved)
