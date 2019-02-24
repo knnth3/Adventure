@@ -4,7 +4,7 @@
 #include "Adventure.h"
 
 #define PACKET_SIZE (int32)sizeof(FVector)
-#define PACKET_TRANSFER_TIME_DELAY 0.5f
+#define PACKET_TRANSFER_TIME_DELAY 3.0f
 
 TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
 
@@ -38,6 +38,7 @@ void ADownloadManager::Tick(float DeltaTime)
 		}
 		else
 		{
+			m_ElapsedTime += DeltaTime;
 			if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
 			{
 				m_ElapsedTime = 0;
@@ -352,6 +353,8 @@ void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& 
 
 void ADownloadManager::Server_RequestPacket_Implementation(const TArray<int>& BFRecieved)
 {
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Client request to download acknowldged"));
+
 	// Start the downloading process using the given bitfield
 	m_Bitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(BFRecieved);
 	m_bDownloading = true;
