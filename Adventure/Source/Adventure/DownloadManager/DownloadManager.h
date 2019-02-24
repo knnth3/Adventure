@@ -63,10 +63,10 @@ private:
 	bool FormatIP4ToNumber(const FString& TheIP, uint8(&Out)[4]);
 
 	// Client function call to retrieve next packet from server
-	void RequestPacket();
+	void RequestPacket(float DeltaTime);
 
 	// Server function call to send next packet to client
-	void SendPacket();
+	void SendPacket(float DeltaTime);
 
 	UFUNCTION()
 	void OnNewDataPosted();
