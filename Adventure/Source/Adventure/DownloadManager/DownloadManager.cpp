@@ -18,6 +18,7 @@ ADownloadManager::ADownloadManager()
 	m_bReadyToDownload = false;
 	m_bPacketRequested = false;
 	PrimaryActorTick.bCanEverTick = true;
+	NetPriority = 10;
 }
 
 void ADownloadManager::Tick(float DeltaTime)
@@ -197,12 +198,13 @@ bool ADownloadManager::FormatIP4ToNumber(const FString & TheIP, uint8(&Out)[4])
 void ADownloadManager::RequestPacket(float DeltaTime)
 {
 	APlayerController* controller = Cast<APlayerController>(GetOwner());
-	UNetConnection* NetConnection = controller->GetNetConnection();
+	UNetConnection* NetConnection = controller ? controller->GetNetConnection() : nullptr;
 
 	// If the network is ready to send another packet
 	if (NetConnection)
 	{
-		if (NetConnection->IsNetReady(false))
+		// ;)
+		if (true)
 		{
 			m_ElapsedTime = 0;
 
@@ -226,28 +228,32 @@ void ADownloadManager::RequestPacket(float DeltaTime)
 void ADownloadManager::SendPacket(float DeltaTime)
 {
 	APlayerController* controller = Cast<APlayerController>(GetOwner());
-	auto NetConnection = controller->GetNetConnection();
+	UNetConnection* NetConnection = controller ? controller->GetNetConnection() : nullptr;
 
-	TArray<uint8> sendingData;
-	auto nextBit = GetNextPacketData(sendingData);
-
-	// Send the new data to the client (if any exists)
-	if (sendingData.Num() && NetConnection)
+	if (NetConnection)
 	{
-		if (NetConnection->IsNetReady(false))
-		{
-			m_bPacketRequested = false;
-			Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
-			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
-		}
-		else
-		{
-			m_ElapsedTime += DeltaTime;
+		TArray<uint8> sendingData;
+		auto nextBit = GetNextPacketData(sendingData);
 
-			if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+		// Send the new data to the client (if any exists)
+		if (sendingData.Num())
+		{
+			// Fuckit why not
+			if (true)
 			{
-				m_ElapsedTime = 0;
-				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection is not ready to send file."));
+				m_bPacketRequested = false;
+				Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
+			}
+			else
+			{
+				m_ElapsedTime += DeltaTime;
+
+				if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+				{
+					m_ElapsedTime = 0;
+					UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection is not ready to send file."));
+				}
 			}
 		}
 	}
