@@ -4,7 +4,7 @@
 #include "Adventure.h"
 
 #define PACKET_SIZE (int32)sizeof(FVector)
-#define PACKET_TRANSFER_TIME_DELAY 1.0f
+#define PACKET_TRANSFER_TIME_DELAY 0.5f
 
 TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
 
@@ -30,11 +30,22 @@ void ADownloadManager::Tick(float DeltaTime)
 	//	m_ElapsedTime = 0;
 
 	//}
-
-	if (HasAuthority() && m_bDownloading)
+	if (m_bDownloading)
 	{
-		SendPacket(DeltaTime);
+		if (HasAuthority())
+		{
+			SendPacket(DeltaTime);
+		}
+		else
+		{
+			if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
+			{
+				m_ElapsedTime = 0;
+				RequestPacket();
+			}
+		}
 	}
+
 }
 
 void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
@@ -212,7 +223,7 @@ void ADownloadManager::SendPacket(float DeltaTime)
 			// Fuckit why not
 			if (true)
 			{
-				Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(m_Bitfield | nextBit));
+				Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
 				m_Bitfield |= nextBit;
 				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
 			}
@@ -295,36 +306,34 @@ std::bitset<TRANSFER_BITFIELD_SIZE> ADownloadManager::GetNextPacketData(TArray<u
 
 void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
 {
-	// If there are changes to be made
-	auto RecievedBitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(Bitfield);
+	// Reset timer that tracks whether the last packet was sent
+	m_ElapsedTime = 0;
 
-	if (!(m_Bitfield^RecievedBitfield).none())
+	// If there are changes to be made
+	auto RecievedPacketBit = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(Bitfield);
+
+	if (!(m_Bitfield^RecievedPacketBit).none())
 	{
-		auto BFcurrentPacket = (RecievedBitfield | m_Bitfield) & ~m_Bitfield;
+		auto BFcurrentPacket = RecievedPacketBit;
 
 		// Get the position in the buffer where the new data should go
 		int CurrentIndex = 0;
 		for (int x = 0; x < TRANSFER_BITFIELD_SIZE; x++)
 		{
-			if (BFcurrentPacket == 1)
+			if (BFcurrentPacket[x] == true)
 			{
 				CurrentIndex = x * PACKET_SIZE;
 				break;
 			}
-			else
-			{
-				BFcurrentPacket = BFcurrentPacket >> 1;
-			}
 		}
 
+		m_Bitfield |= RecievedPacketBit;
 		m_DownloadedSize += Data.Num();
-		FString BitsetStr(RecievedBitfield.to_string().c_str());
+		FString BitsetStr(m_Bitfield.to_string().c_str());
 		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Downloading (%i/%i): Bitfield: %s"), m_DownloadedSize, m_Data.Num(), *BitsetStr);
 
 		// Transfer the nessesary data to the correct location in the buffer
 		FMemory::Memcpy(m_Data.GetData() + CurrentIndex, Data.GetData(), Data.Num());
-
-		m_Bitfield |= RecievedBitfield;
 
 		if (m_DownloadedSize == m_Data.Num())
 		{
