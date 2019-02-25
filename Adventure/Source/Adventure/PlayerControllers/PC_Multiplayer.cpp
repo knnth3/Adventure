@@ -8,13 +8,26 @@ APC_Multiplayer::APC_Multiplayer()
 	UniqueID = -1;
 	m_ElapsedTime = 0;
 	m_bNewDownloadAvailable = false;
+	m_DownloadManager = nullptr;
 }
 
-void APC_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void APC_Multiplayer::BeginPlay()
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	Super::BeginPlay();
 
-	DOREPLIFETIME(APC_Multiplayer, m_DownloadManager);
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Creating a packet manager"), *GetName());
+		FActorSpawnParameters params;
+		params.Owner = this;
+
+		m_DownloadManager = World->SpawnActor<APacketManager>(params);
+
+		FNotifyDelegate del;
+		del.BindUObject(this, &APC_Multiplayer::OnNewDataAvailable);
+		m_DownloadManager->SetOnDataPostedCallback(del);
+	}
 }
 
 void APC_Multiplayer::Tick(float DeltaTime)
@@ -27,11 +40,24 @@ void APC_Multiplayer::Tick(float DeltaTime)
 	}
 
 	// Wait roughly 3 seconds before starting download
-	if (m_ElapsedTime >= 3)
+	if (HasAuthority())
 	{
-		m_ElapsedTime = 0;
-		m_bNewDownloadAvailable = false;
-		m_DownloadManager->BeginDownload();
+		if (m_ElapsedTime >= 3)
+		{
+			m_ElapsedTime = 0;
+			m_bNewDownloadAvailable = false;
+			m_DownloadManager->BeginDownload();
+		}
+
+		if (m_DownloadManager->IsDownloading())
+		{
+			TArray<uint8> Data;
+			TArray<int32> NextBit;
+			m_DownloadManager->GetSendPacket(Data, NextBit);
+
+			Client_PostPacket(FVector::ZeroVector, 0);
+		}
+
 	}
 }
 
@@ -41,18 +67,6 @@ void APC_Multiplayer::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		m_DownloadManager->CleanUp();
 		m_DownloadManager->Destroy();
-	}
-}
-
-void APC_Multiplayer::InitNetworkManager()
-{
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		FActorSpawnParameters params;
-		params.Owner = this;
-
-		m_DownloadManager = World->SpawnActor<ADownloadManager>(params);
 	}
 }
 
@@ -71,18 +85,17 @@ void APC_Multiplayer::ShowPathfindingDebugLines(bool Value)
 	FPathFinder::ShowDebugPathLines(Value);
 }
 
-void APC_Multiplayer::OnDownloadManagerCreated()
-{
-	if (m_DownloadManager)
-	{
-		FNotifyDelegate del;
-		del.BindUObject(this, &APC_Multiplayer::OnNewDataAvailable);
-		m_DownloadManager->SetOnDataPostedCallback(del);
-	}
-}
-
 void APC_Multiplayer::OnNewDataAvailable()
 {
 	UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: New data is available for download"));
 	m_bNewDownloadAvailable = true;
+}
+
+void APC_Multiplayer::Client_PostPacket_Implementation(const FVector & data, int packetNum)
+{
+	if (m_DownloadManager)
+	{
+		m_DownloadManager->AddPacket();
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Downloading %f%%"), m_DownloadManager->GetDataIntegrityPercentage());
+	}
 }

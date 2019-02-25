@@ -15,11 +15,9 @@ class ADVENTURE_API APC_Multiplayer : public APlayerController
 	GENERATED_BODY()
 public:
 	APC_Multiplayer();
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	// Initializes the network manager and notifies all incoming connections about changes
-	void InitNetworkManager();
 
 	//Sets player ID (Server)
 	void SetPlayerID(const int ID);
@@ -34,17 +32,16 @@ public:
 private:
 
 	UFUNCTION()
-	void OnDownloadManagerCreated();
-
-	UFUNCTION()
 	void OnNewDataAvailable();
+
+	// Receive packet from server
+	UFUNCTION(Client, Unreliable)
+	void Client_PostPacket(const FVector& data, int packetNum);
 	
 	UPROPERTY()
 	int UniqueID;
 
-	UPROPERTY(Replicated = OnDownloadManagerCreated)
-	ADownloadManager* m_DownloadManager;
-
 	float m_ElapsedTime;
 	bool m_bNewDownloadAvailable;
+	APacketManager* m_DownloadManager;
 };

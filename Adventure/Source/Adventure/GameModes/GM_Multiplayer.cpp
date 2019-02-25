@@ -27,7 +27,7 @@ void AGM_Multiplayer::StartGame()
 
 		TArray<uint8> tempData;
 		tempData.SetNumZeroed(1000);
-		ADownloadManager::ServerOnly_SetData(tempData);
+		APacketManager::ServerOnly_SetData(tempData);
 	}
 }
 
@@ -46,12 +46,6 @@ void AGM_Multiplayer::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: New player joined!"));
-
-	APC_Multiplayer* PlayerController = Cast<APC_Multiplayer>(NewPlayer);
-	if (PlayerController)
-	{
-		PlayerController->InitNetworkManager();
-	}
 }
 
 int AGM_Multiplayer::GeneratePlayerID()

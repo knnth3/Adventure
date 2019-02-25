@@ -19,22 +19,22 @@
 DECLARE_DELEGATE(FNotifyDelegate);
 
 USTRUCT()
-struct FDownloadInfo
+struct FPacketInfo
 {
 	GENERATED_BODY()
 public:
 
 	UPROPERTY()
-	int PackageSize;
+	int Size;
 };
 
 UCLASS()
-class ADVENTURE_API ADownloadManager : public AActor
+class ADVENTURE_API APacketManager : public AActor
 {
 	GENERATED_BODY()
 	
 public:
-	ADownloadManager();
+	APacketManager();
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
@@ -48,22 +48,27 @@ public:
 
 	void SetOnDataPostedCallback(const FNotifyDelegate& func);
 
+	bool IsDownloading()const;
+
+	float GetDataIntegrityPercentage() const;
+
+	FPacketInfo GetPacketInfo()const;
+
+	int GetVersion()const;
+
 	void CleanUp();
 
 	// Receive packet from server
 	UFUNCTION(Client, Unreliable)
 	void Client_Ping(const FVector& loc);
 
-private:
-
-	// Client function call to tell the server it wants the data
-	void RequestPacket();
-
 	// Server function call to send next packet to client
-	void SendPacket(float DeltaTime);
+	void GetSendPacket(TArray<uint8>& OutData, TArray<int32>& NextBit);
 
-	// Notifies clients that new data is available
-	void NotifyDataChanged();
+	// Client function to add incoming packet
+	void AddPacket();
+
+private:
 
 	UFUNCTION()
 	void OnNewDataPosted();
@@ -84,15 +89,14 @@ private:
 	void Server_RequestPacket(const TArray<int>& BFRecieved);
 
 	UPROPERTY(ReplicatedUsing = OnNewDataPosted)
-	FDownloadInfo m_DownloadInfo;
+	FPacketInfo m_DownloadInfo;
 
 	FNotifyDelegate m_NotifyFunc;
 	float m_ElapsedTime;
 	bool m_bReadyToDownload;
 	bool m_bDownloading;
 	int m_DownloadedSize;
-	int m_localVer;
-	static int m_GlobalVer;
+	static int m_Version;
 	static TArray<uint8> m_Data;
 	FSocket* m_ConnectionSocket;
 	FIPv4Endpoint m_RemoteAddr;
