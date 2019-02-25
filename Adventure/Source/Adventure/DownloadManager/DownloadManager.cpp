@@ -54,11 +54,7 @@ void APacketManager::ServerOnly_SetData(const TArray<uint8>& data)
 
 void APacketManager::BeginDownload()
 {
-	if (m_bReadyToDownload)
-	{
-		m_bDownloading = true;
-		m_bReadyToDownload = false;
-	}
+	m_bDownloading = true;
 }
 
 void APacketManager::GetDataFromBuffer(TArray<uint8>& Data)
@@ -72,7 +68,7 @@ void APacketManager::SetOnDataPostedCallback(const FNotifyDelegate & func)
 	m_NotifyFunc = func;
 
 	// Check to see if data was posted before a callback was set
-	if (m_bReadyToDownload)
+	if (NewPacketAvailable())
 	{
 		// Notify the client that new data is available
 		m_NotifyFunc.ExecuteIfBound();
@@ -106,7 +102,7 @@ bool APacketManager::NewPacketAvailable() const
 
 float APacketManager::GetDataIntegrityPercentage() const
 {
-	return (float)m_DownloadedSize / m_Data.Num();
+	return m_Data.Num() ? (float)m_DownloadedSize / m_Data.Num() : 0;
 }
 
 FPacketInfo APacketManager::GetPacketInfo() const
