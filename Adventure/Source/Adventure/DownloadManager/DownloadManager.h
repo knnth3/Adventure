@@ -48,7 +48,11 @@ public:
 
 	void SetOnDataPostedCallback(const FNotifyDelegate& func);
 
+	void SetIncomingDataInfo(const FPacketInfo& info);
+
 	bool IsDownloading()const;
+
+	bool NewPacketAvailable()const;
 
 	float GetDataIntegrityPercentage() const;
 
@@ -70,6 +74,8 @@ public:
 
 private:
 
+	void NotifyNewDownload();
+
 	UFUNCTION()
 	void OnNewDataPosted();
 
@@ -88,14 +94,13 @@ private:
 	UFUNCTION(Server, Unreliable, WithValidation)
 	void Server_RequestPacket(const TArray<int>& BFRecieved);
 
-	UPROPERTY(ReplicatedUsing = OnNewDataPosted)
 	FPacketInfo m_DownloadInfo;
-
 	FNotifyDelegate m_NotifyFunc;
 	float m_ElapsedTime;
 	bool m_bReadyToDownload;
 	bool m_bDownloading;
 	int m_DownloadedSize;
+	int m_LocalVersion;
 	static int m_Version;
 	static TArray<uint8> m_Data;
 	FSocket* m_ConnectionSocket;

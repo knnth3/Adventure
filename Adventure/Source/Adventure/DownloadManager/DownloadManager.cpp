@@ -11,6 +11,7 @@ int APacketManager::m_Version = 0;
 
 APacketManager::APacketManager()
 {
+	m_LocalVersion = 0;
 	m_ElapsedTime = 0;
 	m_DownloadedSize = 0;
 	bReplicates = false;
@@ -29,12 +30,9 @@ void APacketManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (m_bDownloading)
+	if (NewPacketAvailable())
 	{
-		if (HasAuthority())
-		{
-			Client_Ping(FVector::ZeroVector);
-		}
+		NotifyNewDownload();
 	}
 }
 
@@ -81,9 +79,29 @@ void APacketManager::SetOnDataPostedCallback(const FNotifyDelegate & func)
 	}
 }
 
+void APacketManager::SetIncomingDataInfo(const FPacketInfo & info)
+{
+	UE_LOG(LogNotice, Warning, TEXT("<%s>: A new file has been made available on the server"), *GetName());
+	if (!HasAuthority())
+	{
+		m_Bitfield = 0;
+		m_DownloadedSize = 0;
+		m_bReadyToDownload = true;
+
+		// Resize the data buffer on the client to be able to hold the incoming data
+		m_Data.Empty();
+		m_Data.AddUninitialized(m_DownloadInfo.Size);
+	}
+}
+
 bool APacketManager::IsDownloading() const
 {
 	return m_bDownloading;
+}
+
+bool APacketManager::NewPacketAvailable() const
+{
+	return m_LocalVersion != m_Version;
 }
 
 float APacketManager::GetDataIntegrityPercentage() const
@@ -130,6 +148,15 @@ void APacketManager::GetSendPacket(TArray<uint8>& OutData, TArray<int32>& NextBi
 
 void APacketManager::AddPacket()
 {
+}
+
+void APacketManager::NotifyNewDownload()
+{
+	m_LocalVersion = m_Version;
+	m_DownloadInfo.Size = m_Data.Num();
+
+	// Notify the client that new data is available
+	m_NotifyFunc.ExecuteIfBound();
 }
 
 void APacketManager::OnNewDataPosted()
@@ -257,11 +284,4 @@ void APacketManager::Server_RequestPacket_Implementation(const TArray<int>& BFRe
 bool APacketManager::Server_RequestPacket_Validate(const TArray<int>& BFRecieved)
 {
 	return true;
-}
-
-void APacketManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(APacketManager, m_DownloadInfo);
 }

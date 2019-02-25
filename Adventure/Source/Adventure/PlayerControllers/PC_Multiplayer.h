@@ -34,6 +34,10 @@ private:
 	UFUNCTION()
 	void OnNewDataAvailable();
 
+	// Start download
+	UFUNCTION(Client, Reliable)
+	void Client_StartDownload(const FPacketInfo& info);
+
 	// Receive packet from server
 	UFUNCTION(Client, Unreliable)
 	void Client_PostPacket(const FVector& data, int packetNum);
