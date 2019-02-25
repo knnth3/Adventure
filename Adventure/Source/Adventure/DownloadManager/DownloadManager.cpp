@@ -18,8 +18,13 @@ ADownloadManager::ADownloadManager()
 	m_bDownloading = false;
 	m_bReadyToDownload = false;
 	PrimaryActorTick.bCanEverTick = true;
-	NetPriority = 10;
 	m_localVer = 0;
+}
+
+void ADownloadManager::BeginPlay()
+{
+	Super::BeginPlay();
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: A new download manager has been created"));
 }
 
 void ADownloadManager::Tick(float DeltaTime)
@@ -37,7 +42,7 @@ void ADownloadManager::Tick(float DeltaTime)
 	{
 		if (HasAuthority())
 		{
-			SendPacket(DeltaTime);
+			Client_Ping(FVector::ZeroVector);
 		}
 	}
 }
@@ -63,7 +68,7 @@ void ADownloadManager::BeginDownload()
 	if (m_bReadyToDownload)
 	{
 		m_bReadyToDownload = false;
-		// RequestPacket();
+		RequestPacket();
 	}
 }
 
@@ -87,6 +92,11 @@ void ADownloadManager::SetOnDataPostedCallback(const FNotifyDelegate & func)
 
 void ADownloadManager::CleanUp()
 {
+}
+
+void ADownloadManager::Client_Ping_Implementation(const FVector & loc)
+{
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Ping!"));
 }
 
 void ADownloadManager::RequestPacket()
