@@ -103,7 +103,7 @@ void APC_Multiplayer::OnBeginDownload()
 		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Starting Download..."));
 		if (m_DownloadManager)
 		{
-			m_DownloadManager->SetIncomingDataInfo(info);
+			m_DownloadManager->SetIncomingDataInfo(m_DLPacketInfo);
 		}
 	}
 }
