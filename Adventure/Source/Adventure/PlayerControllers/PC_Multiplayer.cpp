@@ -87,13 +87,18 @@ void APC_Multiplayer::ShowPathfindingDebugLines(bool Value)
 
 void APC_Multiplayer::OnNewDataAvailable()
 {
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: New data is available for download"));
-	m_bNewDownloadAvailable = true;
-	Client_StartDownload(m_DownloadManager->GetPacketInfo());
+	// Run on anything other than the host's player controller
+	if (GetRemoteRole() != Role)
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: New data is available for download"));
+		m_bNewDownloadAvailable = true;
+		Client_StartDownload(m_DownloadManager->GetPacketInfo());
+	}
 }
 
 void APC_Multiplayer::Client_StartDownload_Implementation(const FPacketInfo & info)
 {
+	UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Starting Download..."));
 	if (m_DownloadManager)
 	{
 		m_DownloadManager->SetIncomingDataInfo(info);
@@ -106,5 +111,9 @@ void APC_Multiplayer::Client_PostPacket_Implementation(const FVector & data, int
 	{
 		m_DownloadManager->AddPacket();
 		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Downloading %f%%"), m_DownloadManager->GetDataIntegrityPercentage());
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: No packet manager available"));
 	}
 }

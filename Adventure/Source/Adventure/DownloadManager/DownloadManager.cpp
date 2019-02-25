@@ -30,7 +30,7 @@ void APacketManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (NewPacketAvailable())
+	if (HasAuthority() && NewPacketAvailable())
 	{
 		NotifyNewDownload();
 	}
@@ -49,7 +49,7 @@ void APacketManager::ServerOnly_SetData(const TArray<uint8>& data)
 
 	m_Data = data;
 	m_Version = (m_Version + 1) % MAX_int32;
-	UE_LOG(LogNotice, Warning, TEXT("<PacketManager>: New data has been maid available to download: Size: %i bytes"), m_Data.Num());
+	UE_LOG(LogNotice, Warning, TEXT("<PacketManager>: New data has been made available to download: Size: %i bytes"), m_Data.Num());
 }
 
 void APacketManager::BeginDownload()
