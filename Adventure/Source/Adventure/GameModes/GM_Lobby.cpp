@@ -57,23 +57,24 @@ void AGM_Lobby::PostLogin(APlayerController* NewPlayer)
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: New player joined!"));
 
 	// Assign a unique ID for the game
-	LoginConnectedPlayer(NewPlayer);
+	//LoginConnectedPlayer(NewPlayer);
 
-	if (m_bMapHasBeenQueued)
-	{
-		// Load the map if server or download the map if client
-		APS_Multiplayer* PS = Cast<APS_Multiplayer>(NewPlayer->PlayerState);
-		if (PS)
-		{
-			if (m_PlayerIndexCount > 1)
-			{
-				if (!PS->SetupNetworking())
-				{
-					PS->GenerateEmptyMap(m_CurrentMapName, FGridCoordinate(10, 10));
-				}
-			}
-		}
-	}
+	//if (m_bMapHasBeenQueued)
+	//{
+	//	// Load the map if server or download the map if client
+	//	APS_Multiplayer* PS = Cast<APS_Multiplayer>(NewPlayer->PlayerState);
+	//	if (PS)
+	//	{
+	//		PS->SetupNetworking();
+	//		if (m_PlayerIndexCount > 1)
+	//		{
+	//			if (!PS->SetupNetworking())
+	//			{
+	//				PS->GenerateEmptyMap(m_CurrentMapName, FGridCoordinate(10, 10));
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 int AGM_Lobby::GeneratePlayerID()

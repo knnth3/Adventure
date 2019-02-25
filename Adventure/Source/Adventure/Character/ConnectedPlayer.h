@@ -7,7 +7,6 @@
 #include "GameFramework/Pawn.h"
 #include "ConnectedPlayer.generated.h"
 
-
 UENUM(BlueprintType)
 enum class CONNECTED_PLAYER_CAMERA : uint8
 {
@@ -91,16 +90,8 @@ protected:
 
 private:
 
-	class AMapPawn* m_SelectedPawn;
-	class AWorldGrid* m_WorldGrid;
-	float m_CameraTransitionAcceleration;
-	CONNECTED_PLAYER_CAMERA m_CameraType;
-
 	void SetCameraToOverview();
 	void SetCameraToCharacter();
-
-	UPROPERTY(Replicated)
-	int SpectatingPawnID;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_MovePlayer(const int PawnID, const FVector& Location, const FVector& Destination);
@@ -111,4 +102,15 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ClearPawnTargetLocation();
 
+	UFUNCTION(Client, Reliable)
+	void Client_Ping(const FVector& data);
+
+	UPROPERTY(Replicated)
+	int SpectatingPawnID;
+
+	float m_ElapsedTime;
+	class AMapPawn* m_SelectedPawn;
+	class AWorldGrid* m_WorldGrid;
+	float m_CameraTransitionAcceleration;
+	CONNECTED_PLAYER_CAMERA m_CameraType;
 };

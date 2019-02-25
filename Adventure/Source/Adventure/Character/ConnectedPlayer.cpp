@@ -42,12 +42,21 @@ AConnectedPlayer::AConnectedPlayer()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+
+	m_ElapsedTime = 0;
 }
 
 // Called every frame
 void AConnectedPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	m_ElapsedTime += DeltaTime;
+
+	if (m_ElapsedTime >= 3)
+	{
+		Client_Ping(FVector::ZeroVector);
+	}
 }
 
 // Called to bind functionality to input
@@ -259,4 +268,12 @@ void AConnectedPlayer::Server_ClearPawnTargetLocation_Implementation()
 bool AConnectedPlayer::Server_ClearPawnTargetLocation_Validate()
 {
 	return true;
+}
+
+void AConnectedPlayer::Client_Ping_Implementation(const FVector & data)
+{
+	if (!HasAuthority())
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerPawn>: Ping"));
+	}
 }

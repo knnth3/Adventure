@@ -46,7 +46,7 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 	}
 
 	m_Data = data;
-	UE_LOG(LogNotice, Error, TEXT("<DownloadManager>: Data set success"));
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Data set success"));
 }
 
 void ADownloadManager::ServerOnly_NotifyDataChanged()
