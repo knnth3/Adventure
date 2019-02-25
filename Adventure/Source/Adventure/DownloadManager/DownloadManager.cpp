@@ -83,7 +83,7 @@ void ADownloadManager::BeginDownload()
 	if (m_bReadyToDownload)
 	{
 		m_bReadyToDownload = false;
-		RequestPacket();
+		// RequestPacket();
 	}
 }
 
