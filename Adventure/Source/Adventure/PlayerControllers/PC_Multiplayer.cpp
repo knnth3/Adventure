@@ -92,16 +92,19 @@ void APC_Multiplayer::OnNewDataAvailable()
 	{
 		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: New data is available for download"));
 		m_bNewDownloadAvailable = true;
-		Client_StartDownload(m_DownloadManager->GetPacketInfo());
+		m_DLPacketInfo = m_DownloadManager->GetPacketInfo();
 	}
 }
 
-void APC_Multiplayer::Client_StartDownload_Implementation(const FPacketInfo & info)
+void APC_Multiplayer::OnBeginDownload()
 {
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Starting Download..."));
-	if (m_DownloadManager)
+	if (!HasAuthority())
 	{
-		m_DownloadManager->SetIncomingDataInfo(info);
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Starting Download..."));
+		if (m_DownloadManager)
+		{
+			m_DownloadManager->SetIncomingDataInfo(info);
+		}
 	}
 }
 

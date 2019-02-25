@@ -34,9 +34,8 @@ private:
 	UFUNCTION()
 	void OnNewDataAvailable();
 
-	// Start download
-	UFUNCTION(Client, Reliable)
-	void Client_StartDownload(const FPacketInfo& info);
+	UFUNCTION()
+	void OnBeginDownload();
 
 	// Receive packet from server
 	UFUNCTION(Client, Unreliable)
@@ -44,6 +43,9 @@ private:
 	
 	UPROPERTY()
 	int UniqueID;
+
+	UPROPERTY(ReplicatedUsing = OnBeginDownload)
+	FPacketInfo m_DLPacketInfo;
 
 	float m_ElapsedTime;
 	bool m_bNewDownloadAvailable;
