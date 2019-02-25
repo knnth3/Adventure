@@ -11,6 +11,14 @@ APC_Multiplayer::APC_Multiplayer()
 	m_DownloadManager = nullptr;
 }
 
+//sets variables for replicaton over a network
+void APC_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(APC_Multiplayer, m_DLPacketInfo);
+}
+
 void APC_Multiplayer::BeginPlay()
 {
 	Super::BeginPlay();
