@@ -45,9 +45,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Data Settings")
 	void ServerOnly_NotifyDataChanged();
 
-	UFUNCTION(BlueprintCallable, Category = "Data Settings")
-	void Subscribe(UNetConnection* connection = nullptr);
-
 	UFUNCTION(BlueprintCallable, Category = "Download Manager")
 	void BeginDownload();
 
@@ -57,10 +54,6 @@ public:
 	void SetOnDataPostedCallback(const FNotifyDelegate& func);
 
 private:
-
-	FSocket* CreateClientSocket(UNetConnection* connection);
-	FSocket* CreateServerSocket();
-	bool FormatIP4ToNumber(const FString& TheIP, uint8(&Out)[4]);
 
 	// Client function call to tell the server it wants the data
 	void RequestPacket();

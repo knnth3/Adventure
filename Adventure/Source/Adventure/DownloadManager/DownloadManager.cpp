@@ -24,26 +24,11 @@ void ADownloadManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	//m_ElapsedTime += DeltaTime;
-	//if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
-	//{
-	//	m_ElapsedTime = 0;
-
-	//}
 	if (m_bDownloading)
 	{
 		if (HasAuthority())
 		{
 			SendPacket(DeltaTime);
-		}
-		else
-		{
-			//m_ElapsedTime += DeltaTime;
-			//if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
-			//{
-			//	m_ElapsedTime = 0;
-			//	RequestPacket();
-			//}
 		}
 	}
 
@@ -61,6 +46,7 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 	}
 
 	m_Data = data;
+	UE_LOG(LogNotice, Error, TEXT("<DownloadManager>: Data set success"));
 }
 
 void ADownloadManager::ServerOnly_NotifyDataChanged()
@@ -70,7 +56,7 @@ void ADownloadManager::ServerOnly_NotifyDataChanged()
 	// File is too large to send over
 	if (packetCount == 0)
 	{
-		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>: Could not set data for download: Buffer is empty"));
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>: Notify not sent. Buffer was empty!"));
 		return;
 	}
 
@@ -90,19 +76,6 @@ void ADownloadManager::ServerOnly_NotifyDataChanged()
 
 	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New data posted. Size: %i bytes"), m_Data.Num());
 	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
-}
-
-void ADownloadManager::Subscribe(UNetConnection* connection)
-{
-	// Set client and server with it's appropriate TCP Roles
-	if (HasAuthority())
-	{
-		m_ConnectionSocket = CreateServerSocket();
-	}
-	else
-	{
-		m_ConnectionSocket = CreateClientSocket(connection);
-	}
 }
 
 void ADownloadManager::BeginDownload()
@@ -132,76 +105,6 @@ void ADownloadManager::SetOnDataPostedCallback(const FNotifyDelegate & func)
 	}
 }
 
-FSocket * ADownloadManager::CreateClientSocket(UNetConnection* connection)
-{
-	if (connection)
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Estabishing connection"));
-
-		FSocket* listenSocket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("default"), false);
-
-		if (listenSocket)
-		{
-			TSharedRef<FInternetAddr> addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
-			addr->SetIp(connection->GetAddrAsInt());
-			addr->SetPort(connection->GetAddrPort());
-
-			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Requesting connection with %i:%i"), connection->GetAddrAsInt(), connection->GetAddrPort());
-			if (listenSocket->Connect(*addr))
-			{
-				UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Connection to TCP server established."));
-
-				return listenSocket;
-			}
-		}
-	}
-	return nullptr;
-}
-
-FSocket * ADownloadManager::CreateServerSocket()
-{
-	FString name = "default";
-	FString ip = "127.0.0.1";
-
-	uint8 IPv4Nums[4];
-	FormatIP4ToNumber(ip, IPv4Nums);
-
-	FIPv4Endpoint Endpoint(FIPv4Address(IPv4Nums[0], IPv4Nums[1], IPv4Nums[2], IPv4Nums[3]), 3478);
-	FSocket* listenSocket = FTcpSocketBuilder(*name).AsReusable().BoundToEndpoint(Endpoint).Listening(8);
-
-	if (listenSocket)
-	{
-		int32 newSize = 0;
-		listenSocket->SetReceiveBufferSize(PACKET_SIZE, newSize);
-
-		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Created server TCP"));
-
-		return listenSocket;
-	}
-
-	return nullptr;
-}
-
-bool ADownloadManager::FormatIP4ToNumber(const FString & TheIP, uint8(&Out)[4])
-{
-	//IP Formatting
-	TheIP.Replace(TEXT(" "), TEXT(""));
-
-	//String Parts
-	TArray<FString> Parts;
-	TheIP.ParseIntoArray(Parts, TEXT("."), true);
-	if (Parts.Num() != 4)
-		return false;
-
-	//String to Number Parts
-	for (int32 i = 0; i < 4; ++i)
-	{
-		Out[i] = FCString::Atoi(*Parts[i]);
-	}
-
-	return true;
-}
-
 void ADownloadManager::RequestPacket()
 {
 	m_bDownloading = true;
@@ -222,34 +125,9 @@ void ADownloadManager::SendPacket(float DeltaTime)
 		// Send the new data to the client (if any exists)
 		if (sendingData.Num())
 		{
-			//if (bLastPacket)
-			//{
-			//	Client_PostLastNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
-			//}
-			//else
-			{
-				Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
-			}
-
+			Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
 			m_Bitfield |= nextBit;
 			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
-
-			//if (true)
-			//{
-			//	Client_PostNewPacket(sendingData, BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit));
-			//	m_Bitfield |= nextBit;
-			//	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
-			//}
-			//else
-			//{
-			//	m_ElapsedTime += DeltaTime;
-
-			//	if (m_ElapsedTime >= PACKET_TRANSFER_TIME_DELAY)
-			//	{
-			//		m_ElapsedTime = 0;
-			//		UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection is not ready to send file."));
-			//	}
-			//}
 		}
 	}
 }
@@ -350,7 +228,6 @@ void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& 
 
 		if (m_DownloadedSize == m_Data.Num())
 		{
-			// Build the map
 			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Map download complete!"));
 			m_bDownloading = false;
 			m_bReadyToDownload = false;
@@ -366,13 +243,6 @@ void ADownloadManager::Client_PostNewPacket_Implementation(const TArray<uint8>& 
 void ADownloadManager::Client_PostLastNewPacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
 {
 	Client_PostNewPacket(Data, Bitfield);
-
-	// Reuqest the next batch
-	if (m_bDownloading)
-	{
-		RequestPacket();
-	}
-
 }
 
 void ADownloadManager::Server_RequestPacket_Implementation(const TArray<int>& BFRecieved)
