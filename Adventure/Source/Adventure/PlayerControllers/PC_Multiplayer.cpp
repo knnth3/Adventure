@@ -6,18 +6,18 @@
 APC_Multiplayer::APC_Multiplayer()
 {
 	UniqueID = -1;
-	m_NextPacket = 0;
-	m_bMapDownloaded = true;
-	m_bNeedsNextPacket = false;
-	m_TotalTime = 0;
-	m_CurrentDownloadPacketID = 0;
+	m_ElapsedTime = 0;
 }
 
-void APC_Multiplayer::ServerOnly_SetActiveMapSave(const FString& Path)
+void APC_Multiplayer::Tick(float DeltaTime)
 {
-	if (UBasicFunctions::LoadBinaryFile(Path, m_RawSaveFile))
+	Super::Tick(DeltaTime);
+
+	m_ElapsedTime += DeltaTime;
+
+	if (m_ElapsedTime >= 3)
 	{
-		UE_LOG(LogNotice, Log, TEXT("<PlayerController>: Current map binary loaded into memory"));
+		Client_Ping(FVector::ZeroVector);
 	}
 }
 
@@ -39,4 +39,12 @@ int APC_Multiplayer::GetPlayerID() const
 void APC_Multiplayer::ShowPathfindingDebugLines(bool Value)
 {
 	FPathFinder::ShowDebugPathLines(Value);
+}
+
+void APC_Multiplayer::Client_Ping_Implementation(const FVector & data)
+{
+	if (!HasAuthority())
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<PlayerPawn>: Ping"));
+	}
 }

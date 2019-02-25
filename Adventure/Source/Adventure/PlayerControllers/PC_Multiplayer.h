@@ -14,6 +14,7 @@ class ADVENTURE_API APC_Multiplayer : public APlayerController
 	GENERATED_BODY()
 public:
 	APC_Multiplayer();
+	virtual void Tick(float DeltaTime) override;
 
 	// Sets the active save file(Server only)
 	void ServerOnly_SetActiveMapSave(const FString& Path);
@@ -32,19 +33,15 @@ public:
 	void ShowPathfindingDebugLines(bool Value);
 
 private:
+
+	UFUNCTION(Client, Reliable)
+	void Client_Ping(const FVector& data);
 	
 	UPROPERTY()
 	int UniqueID;
 
 	FString m_MapName;
 	TArray<uint8> m_RawSaveFile;
-	
-	// Client
-	int m_CurrentDownloadPacketID;
-	bool m_bMapDownloaded;
 
-	// Server
-	int m_NextPacket;
-	bool m_bNeedsNextPacket;
-	float m_TotalTime;
+	float m_ElapsedTime;
 };

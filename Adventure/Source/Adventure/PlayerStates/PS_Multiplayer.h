@@ -10,9 +10,6 @@
 #include "GameFramework/PlayerState.h"
 #include "PS_Multiplayer.generated.h"
 
-/**
- * 
- */
 
 #define TRANSFER_BITFIELD_SIZE sizeof(int) * 8 * 5
 
@@ -56,12 +53,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player State")
 	int GetGameID() const;
 
-	// Server only function to load map from file
-	bool ServerOnly_LoadMap(const FString& MapName);
-
-	// Sets up nessary backend calls to enable content downloads
-	bool SetupNetworking();
-
 	// Generates a new map with a given map size
 	void GenerateEmptyMap(const FString& MapName, const FGridCoordinate& MapSize);
 
@@ -70,9 +61,6 @@ protected:
 	// Sets the turn based player order
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn-Based Settings")
 	TArray<int> InitiativePlayerOrder;
-
-	UFUNCTION(BlueprintCallable, Category = "Player State")
-	void UpdateDataTransfer(float DeltaTime);
 
 	// Override for server to change player order
 	UFUNCTION(BlueprintCallable, Category = "Turn-Based Settings")
@@ -94,16 +82,6 @@ private:
 	// Transfers location data to owning client so that it may generate a grid
 	void GenerateGrid(const FMapLocation& Data);
 
-	UFUNCTION()
-	void OnNewDataAvailable();
-
-	UFUNCTION()
-	void OnDownloadManagerCreated();
-
-	// Tell client to attach to download manager
-	UFUNCTION(Client, Reliable)
-	void Client_SetAttachToDownloadManager();
-
 	// Unique identifier
 	UPROPERTY(Replicated)
 	int m_GameID;
@@ -115,10 +93,4 @@ private:
 	// Current active player
 	UPROPERTY(Replicated)
 	int m_CurrentPlayerActive;
-
-	UPROPERTY(ReplicatedUsing = OnDownloadManagerCreated)
-	ADownloadManager* m_DownloadManager;
-
-	bool m_bAttachToDownloadManager;
-
 };

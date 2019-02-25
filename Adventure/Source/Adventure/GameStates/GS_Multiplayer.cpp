@@ -41,46 +41,6 @@ void AGS_Multiplayer::AddNewPlayer(int PlayerID, FString PlayerName)
 
 void AGS_Multiplayer::GenerateGrid()
 {
-	if (HasAuthority())
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<GameState>: Generate Grid"));
-		bool bGenerateNewMap = false;
-		// Ensure the map knows a a given map should be created
-		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
-		if (Gamemode)
-		{
-			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-			if (WorldGrid)
-			{
-				WorldGrid->ServerOnly_SetMapName(Gamemode->GetMapName());
-				WorldGrid->ServerOnly_SetMapSize(Gamemode->GetMapSize());
-
-				APS_Multiplayer* PS = Cast<APS_Multiplayer>(PlayerArray[0]);
-				if (PS && !PS->ServerOnly_LoadMap(Gamemode->GetMapName()))
-				{
-					PS->GenerateEmptyMap(WorldGrid->GetMapName(), Gamemode->GetMapSize());
-				}
-			}
-
-			FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *Gamemode->GetMapName());
-			if (!FPaths::FileExists(path))
-			{
-				FWeaponInfo Winfo;
-				Winfo.Name = TEXT("Basic Sword");
-				Winfo.Description = TEXT("Ye ol faithful");
-				Winfo.VisualIndex = 1;
-				UInventoryDatabase::AddWeaponToDatabase(Winfo);
-
-				FConsumableInfo Cinfo;
-				Cinfo.Name = TEXT("Cake");
-				Cinfo.Description = TEXT("Delicious!");
-				Cinfo.HealthBonus = 1;
-				UInventoryDatabase::AddConsumableToDatabase(Cinfo);
-
-				bGenerateNewMap = true;
-			}
-		}
-	}
 }
 
 void AGS_Multiplayer::SetActivePlayer(const int ID)
@@ -160,17 +120,4 @@ int AGS_Multiplayer::GetPlayerID(FString PlayerName) const
 	}
 
 	return ID;
-}
-
-void AGS_Multiplayer::ServerOnly_LoadMapOnClients(const FString& MapName) const
-{
-	for (int x = 1; x < PlayerArray.Num(); x++)
-	{
-
-		APS_Multiplayer* MPS = Cast<APS_Multiplayer>(PlayerArray[x]);
-		if (MPS)
-		{
-			MPS->SetupNetworking();
-		}
-	}
 }

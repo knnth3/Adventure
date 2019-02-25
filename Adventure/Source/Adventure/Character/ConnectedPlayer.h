@@ -102,13 +102,9 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ClearPawnTargetLocation();
 
-	UFUNCTION(Client, Reliable)
-	void Client_Ping(const FVector& data);
-
 	UPROPERTY(Replicated)
 	int SpectatingPawnID;
 
-	float m_ElapsedTime;
 	class AMapPawn* m_SelectedPawn;
 	class AWorldGrid* m_WorldGrid;
 	float m_CameraTransitionAcceleration;
