@@ -7,6 +7,7 @@
 #include "Widgets/HUD_MPLobby.h"
 #include "PlayerStates/PS_Multiplayer.h"
 #include "GameStates/GS_Multiplayer.h"
+#include "PlayerControllers/PC_Multiplayer.h"
 #include "DownloadManager/DownloadManager.h"
 
 AGM_Multiplayer::AGM_Multiplayer()
@@ -23,6 +24,10 @@ void AGM_Multiplayer::StartGame()
 	{
 		UE_LOG(LogNotice, Warning, TEXT("<GameMode>: Map set and is ready for game start"));
 		GameInstance->StartSession();
+
+		TArray<uint8> tempData;
+		tempData.SetNumZeroed(1000);
+		ADownloadManager::ServerOnly_SetData(tempData);
 	}
 }
 
@@ -41,6 +46,12 @@ void AGM_Multiplayer::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: New player joined!"));
+
+	APC_Multiplayer* PlayerController = Cast<APC_Multiplayer>(NewPlayer);
+	if (PlayerController)
+	{
+		PlayerController->InitNetworkManager();
+	}
 }
 
 int AGM_Multiplayer::GeneratePlayerID()

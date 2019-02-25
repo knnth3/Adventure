@@ -26,9 +26,6 @@ public:
 
 	UPROPERTY()
 	int PackageSize;
-
-	UPROPERTY()
-	TArray<int> FinalizedBitField;
 };
 
 UCLASS()
@@ -42,9 +39,6 @@ public:
 
 	static void ServerOnly_SetData(const TArray<uint8>& data);
 
-	UFUNCTION(BlueprintCallable, Category = "Data Settings")
-	void ServerOnly_NotifyDataChanged();
-
 	UFUNCTION(BlueprintCallable, Category = "Download Manager")
 	void BeginDownload();
 
@@ -53,6 +47,8 @@ public:
 
 	void SetOnDataPostedCallback(const FNotifyDelegate& func);
 
+	void CleanUp();
+
 private:
 
 	// Client function call to tell the server it wants the data
@@ -60,6 +56,9 @@ private:
 
 	// Server function call to send next packet to client
 	void SendPacket(float DeltaTime);
+
+	// Notifies clients that new data is available
+	void NotifyDataChanged();
 
 	UFUNCTION()
 	void OnNewDataPosted();
@@ -87,6 +86,8 @@ private:
 	bool m_bReadyToDownload;
 	bool m_bDownloading;
 	int m_DownloadedSize;
+	int m_localVer;
+	static int m_GlobalVer;
 	static TArray<uint8> m_Data;
 	FSocket* m_ConnectionSocket;
 	FIPv4Endpoint m_RemoteAddr;

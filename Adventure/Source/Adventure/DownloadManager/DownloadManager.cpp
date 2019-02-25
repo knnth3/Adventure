@@ -7,6 +7,7 @@
 #define PACKET_TRANSFER_TIME_DELAY 3.0f
 
 TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
+int ADownloadManager::m_GlobalVer = 0;
 
 ADownloadManager::ADownloadManager()
 {
@@ -18,11 +19,19 @@ ADownloadManager::ADownloadManager()
 	m_bReadyToDownload = false;
 	PrimaryActorTick.bCanEverTick = true;
 	NetPriority = 10;
+	m_localVer = 0;
 }
 
 void ADownloadManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// Check if any updates are available
+	if (HasAuthority() && m_GlobalVer != m_localVer)
+	{
+		m_localVer = m_GlobalVer;
+		NotifyDataChanged();
+	}
 
 	if (m_bDownloading)
 	{
@@ -31,7 +40,6 @@ void ADownloadManager::Tick(float DeltaTime)
 			SendPacket(DeltaTime);
 		}
 	}
-
 }
 
 void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
@@ -46,36 +54,8 @@ void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 	}
 
 	m_Data = data;
+	m_GlobalVer = (m_GlobalVer + 1) % MAX_int32;
 	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Data set success"));
-}
-
-void ADownloadManager::ServerOnly_NotifyDataChanged()
-{
-	int packetCount = FMath::DivideAndRoundUp(m_Data.Num(), PACKET_SIZE);
-
-	// File is too large to send over
-	if (packetCount == 0)
-	{
-		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>: Notify not sent. Buffer was empty!"));
-		return;
-	}
-
-	std::bitset<TRANSFER_BITFIELD_SIZE> ResultantBitField;
-	for (int index = 0; index < packetCount; index++)
-	{
-		ResultantBitField[index] = true;
-	}
-
-	// Create a struct to hold all the information that will be sent to the clients
-	FDownloadInfo newInfo;
-	newInfo.PackageSize = m_Data.Num();
-	newInfo.FinalizedBitField = BitsetToArray<TRANSFER_BITFIELD_SIZE>(ResultantBitField);
-
-	// Broadcast the new download information to every client
-	m_DownloadInfo = newInfo;
-
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New data posted. Size: %i bytes"), m_Data.Num());
-	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Total packet count: %i,  Final Bitfield: %s"), packetCount, *FString(ResultantBitField.to_string().c_str()));
 }
 
 void ADownloadManager::BeginDownload()
@@ -105,6 +85,10 @@ void ADownloadManager::SetOnDataPostedCallback(const FNotifyDelegate & func)
 	}
 }
 
+void ADownloadManager::CleanUp()
+{
+}
+
 void ADownloadManager::RequestPacket()
 {
 	m_bDownloading = true;
@@ -130,6 +114,35 @@ void ADownloadManager::SendPacket(float DeltaTime)
 			UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Net connection sent packet"));
 		}
 	}
+}
+
+void ADownloadManager::NotifyDataChanged()
+{
+	int packetCount = FMath::DivideAndRoundUp(m_Data.Num(), PACKET_SIZE);
+
+	// File is too large to send over
+	if (packetCount == 0)
+	{
+		UE_LOG(LogNotice, Error, TEXT("<DownloadManager>: Notify not sent. Buffer was empty!"));
+		return;
+	}
+
+	//std::bitset<TRANSFER_BITFIELD_SIZE> ResultantBitField;
+	//for (int index = 0; index < packetCount; index++)
+	//{
+	//	ResultantBitField[index] = true;
+	//}
+
+	// Create a struct to hold all the information that will be sent to the clients
+	FDownloadInfo newInfo;
+	newInfo.PackageSize = m_Data.Num();
+	// newInfo.FinalizedBitField = BitsetToArray<TRANSFER_BITFIELD_SIZE>(ResultantBitField);
+
+	// Broadcast the new download information to every client
+	m_DownloadInfo = newInfo;
+
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New data posted. Size: %i bytes"), m_Data.Num());
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: Total packet count: %i"), packetCount);
 }
 
 void ADownloadManager::OnNewDataPosted()

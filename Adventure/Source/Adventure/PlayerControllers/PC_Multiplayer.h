@@ -4,6 +4,7 @@
 
 #include <vector>
 #include "CoreMinimal.h"
+#include "DownloadManager/DownloadManager.h"
 #include "GameFramework/PlayerController.h"
 #include "PC_Multiplayer.generated.h"
 
@@ -15,12 +16,10 @@ class ADVENTURE_API APC_Multiplayer : public APlayerController
 public:
 	APC_Multiplayer();
 	virtual void Tick(float DeltaTime) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	// Sets the active save file(Server only)
-	void ServerOnly_SetActiveMapSave(const FString& Path);
-
-	// Sets the map name (Used when downloading finishes on client)
-	void SetMapName(const FString& Name);
+	// Initializes the network manager and notifies all incoming connections about changes
+	void InitNetworkManager();
 
 	//Sets player ID (Server)
 	void SetPlayerID(const int ID);
@@ -34,14 +33,18 @@ public:
 
 private:
 
-	UFUNCTION(Client, Reliable)
-	void Client_Ping(const FVector& data);
+	UFUNCTION()
+	void OnDownloadManagerCreated();
+
+	UFUNCTION()
+	void OnNewDataAvailable();
 	
 	UPROPERTY()
 	int UniqueID;
 
-	FString m_MapName;
-	TArray<uint8> m_RawSaveFile;
+	UPROPERTY(Replicated = OnDownloadManagerCreated)
+	ADownloadManager* m_DownloadManager;
 
 	float m_ElapsedTime;
+	bool m_bNewDownloadAvailable;
 };
