@@ -34,9 +34,6 @@ public:
 	FString GetPlayerName(int PlayerID) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Turn-Based Mechanics")
-	TArray<FString> GetAllPlayerNames() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Turn-Based Mechanics")
 	int GetPlayerID(FString PlayerName)const;
 
 	UFUNCTION(BlueprintCallable, Category = "Multiplayer Functions")
@@ -49,10 +46,10 @@ protected:
 
 private:
 
-	UPROPERTY(Replicated)
+	//UPROPERTY(Replicated)
 	FString m_ActivePlayerName;
 
-	UPROPERTY(Replicated)
+	//UPROPERTY(Replicated)
 	TArray<FString> m_PlayerNameArray;
 
 	bool m_bFreeRoamActive;

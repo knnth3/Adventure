@@ -75,9 +75,6 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Multiplayer")
 	void OnLoadMultiplayerMap();
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Multiplayer")
-	void OnMultiplayerMapLoaded();
-
 	void LoadNextMap();
 
 protected:
