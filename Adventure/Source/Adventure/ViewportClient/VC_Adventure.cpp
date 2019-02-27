@@ -62,7 +62,7 @@ void UVC_Adventure::DrawScreenFade(UCanvas* Canvas)
 
 				if (bLoadNewLevel && Alpha == 1.f)
 				{
-					UE_LOG(LogNotice, Warning, TEXT("Begining no fade transition."));
+					UE_LOG(LogNotice, Warning, TEXT("<ViewportClient>: Begining map transition."));
 					bLoadNewLevel = false;
 					UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
 					if (GameInstance)

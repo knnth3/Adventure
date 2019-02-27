@@ -15,13 +15,13 @@ AGS_Multiplayer::AGS_Multiplayer()
 	m_CurrentActivePlayer = 0;
 }
 
-//void AGS_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
-//{
-//	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-//
-//	//DOREPLIFETIME(AGS_Multiplayer, m_ActivePlayerName);
-//	//DOREPLIFETIME(AGS_Multiplayer, m_PlayerNameArray);
-//}
+void AGS_Multiplayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AGS_Multiplayer, m_ActivePlayerName);
+	DOREPLIFETIME(AGS_Multiplayer, m_PlayerNameArray);
+}
 
 void AGS_Multiplayer::HandleBeginPlay()
 {
@@ -140,6 +140,11 @@ FString AGS_Multiplayer::GetPlayerName(int PlayerID) const
 	}
 
 	return "None";
+}
+
+TArray<FString> AGS_Multiplayer::GetAllPlayerNames() const
+{
+	return m_PlayerNameArray;
 }
 
 int AGS_Multiplayer::GetPlayerID(FString PlayerName) const
