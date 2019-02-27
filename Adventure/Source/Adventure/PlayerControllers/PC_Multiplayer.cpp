@@ -42,29 +42,24 @@ void APC_Multiplayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (m_bNewDownloadAvailable)
-	{
-		m_ElapsedTime += DeltaTime;
-	}
+	m_ElapsedTime += DeltaTime;
 
 	// Wait roughly 3 seconds before starting download
-	if (HasAuthority())
+	if (HasAuthority() && !GetWorld()->IsServer())
 	{
-		if (m_ElapsedTime >= 3)
+		if (m_ElapsedTime >= 3 && m_DownloadManager)
 		{
-			m_ElapsedTime = 0;
-			m_bNewDownloadAvailable = false;
-			m_DownloadManager->BeginDownload();
-		}
-
-		if (m_DownloadManager->IsDownloading())
-		{
-			TArray<uint8> Data;
-			TArray<int32> NextBit;
-			m_DownloadManager->GetSendPacket(Data, NextBit);
-
 			Client_PostPacket(FVector::ZeroVector, 0);
 		}
+
+		//if (m_ElapsedTime >= 3)
+		//{
+		//	TArray<uint8> Data;
+		//	TArray<int32> NextBit;
+		//	m_DownloadManager->GetSendPacket(Data, NextBit);
+
+		//	Client_PostPacket(FVector::ZeroVector, 0);
+		//}
 
 	}
 }
