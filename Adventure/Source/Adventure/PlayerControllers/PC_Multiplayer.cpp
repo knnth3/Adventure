@@ -44,14 +44,14 @@ void APC_Multiplayer::Tick(float DeltaTime)
 
 	m_ElapsedTime += DeltaTime;
 
-	// Wait roughly 3 seconds before starting download
-	if (HasAuthority() && !GetWorld()->IsServer())
-	{
-		if (m_ElapsedTime >= 3)
-		{
-			Client_PostPacket(FVector::ZeroVector, 0);
-		}
-	}
+	//// Wait roughly 3 seconds before starting download
+	//if (HasAuthority() && !GetWorld()->IsServer())
+	//{
+	//	if (m_ElapsedTime >= 3)
+	//	{
+	//		Client_PostPacket(FVector::ZeroVector, 0);
+	//	}
+	//}
 }
 
 void APC_Multiplayer::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -100,17 +100,17 @@ void APC_Multiplayer::ShowPathfindingDebugLines(bool Value)
 //		}
 //	}
 //}
-
-void APC_Multiplayer::Client_PostPacket_Implementation(const FVector & data, int packetNum)
-{
-	UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Hello World"));
-	//if (m_DownloadManager)
-	//{
-	//	m_DownloadManager->AddPacket();
-	//	UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Downloading %f%%"), m_DownloadManager->GetDataIntegrityPercentage());
-	//}
-	//else
-	//{
-	//	UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: No packet manager available"));
-	//}
-}
+//
+//void APC_Multiplayer::Client_PostPacket_Implementation(const FVector & data, int packetNum)
+//{
+//	UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Hello World"));
+//	if (m_DownloadManager)
+//	{
+//		m_DownloadManager->AddPacket();
+//		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: Downloading %f%%"), m_DownloadManager->GetDataIntegrityPercentage());
+//	}
+//	else
+//	{
+//		UE_LOG(LogNotice, Warning, TEXT("<PlayerController>: No packet manager available"));
+//	}
+//}

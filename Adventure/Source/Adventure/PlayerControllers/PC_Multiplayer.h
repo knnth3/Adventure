@@ -38,8 +38,8 @@ private:
 	//void OnBeginDownload();
 
 	// Receive packet from server
-	UFUNCTION(Client, Unreliable)
-	void Client_PostPacket(const FVector& data, int packetNum);
+	//UFUNCTION(Client, Unreliable)
+	//void Client_PostPacket(const FVector& data, int packetNum);
 	
 	UPROPERTY()
 	int UniqueID;
