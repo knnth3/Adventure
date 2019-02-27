@@ -1,7 +1,8 @@
 // By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
-
+//
 #include "PS_Multiplayer.h"
 #include "Grid/WorldGrid.h"
+#include "DownloadManager/DownloadManager.h"
 #include <string>
 
 #define TRANSFER_DATA_SIZE 2048
@@ -80,6 +81,23 @@ bool APS_Multiplayer::ServerOnly_LoadMap(const FString & MapName)
 		{
 			if (loc.Name == CurrentLocation)
 			{
+				//// Create a containter to store data that will be sent over
+				//ULocationSave* Location = Cast<ULocationSave>(UGameplayStatics::CreateSaveGameObject(ULocationSave::StaticClass()));
+				//Location->LocationData = loc;
+
+				//// Pack data into a buffer
+				//TArray<uint8> Buffer;
+				//if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
+				//{
+				//	// Send the data to the download manager
+				//	TActorIterator<ADownloadManager> DLManager(GetWorld());
+				//	if (DLManager)
+				//	{
+				//		DLManager->ServerOnly_SetData(Buffer);
+				//	}
+				//}
+
+				// Load the data on the server
 				GenerateGrid(loc);
 				return true;
 			}
