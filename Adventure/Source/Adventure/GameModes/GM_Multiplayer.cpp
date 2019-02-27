@@ -25,9 +25,9 @@ void AGM_Multiplayer::StartGame()
 		UE_LOG(LogNotice, Warning, TEXT("<GameMode>: Map set and is ready for game start"));
 		GameInstance->StartSession();
 
-		TArray<uint8> tempData;
-		tempData.SetNumZeroed(1000);
-		APacketManager::ServerOnly_SetData(tempData);
+		//TArray<uint8> tempData;
+		//tempData.SetNumZeroed(1000);
+		//APacketManager::ServerOnly_SetData(tempData);
 	}
 }
 
