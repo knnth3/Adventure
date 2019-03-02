@@ -4,27 +4,31 @@
 #include "Adventure.h"
 
 #define PACKET_SIZE 256
+#define DOWNLOAD_TIME_DELAY 3.0f
 
-TArray<uint8> APacketManager::m_Data = TArray<uint8>();
-int APacketManager::m_Version = 0;
+TArray<uint8> ADownloadManager::m_Data = TArray<uint8>();
+int ADownloadManager::m_Version = 0;
 
-APacketManager::APacketManager()
+ADownloadManager::ADownloadManager()
 {
+	m_bPendingDownload = false;
+	m_bDownloading = false;
 	m_BytesDownloaded = 0;
 	m_nextPacketID = 0;
 	m_NotifiedVersionNo = 0;
 	m_LocalVersion = 0;
-	bReplicates = false;
+	bReplicates = true;
+	bAlwaysRelevant = true;
 	PrimaryActorTick.bCanEverTick = true;
 }
 
-void APacketManager::BeginPlay()
+void ADownloadManager::BeginPlay()
 {
 	Super::BeginPlay();
 	UE_LOG(LogNotice, Warning, TEXT("<%s>: A new download manager has been created"), *GetName());
 }
 
-void APacketManager::Tick(float DeltaTime)
+void ADownloadManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
@@ -32,50 +36,38 @@ void APacketManager::Tick(float DeltaTime)
 	{
 		NotifyNewDownload();
 	}
+
+	if (m_bDownloading)
+	{
+		SendNextPacketToClient();
+	}
 }
 
-void APacketManager::ServerOnly_SetData(const TArray<uint8>& data)
+void ADownloadManager::ServerOnly_SetData(const TArray<uint8>& data)
 {
 	int packetCount = FMath::DivideAndRoundUp(data.Num(), PACKET_SIZE);
 
 	m_Data = data;
 	m_Version = (m_Version + 1) % MAX_int32;
-	UE_LOG(LogNotice, Warning, TEXT("<PacketManager>: New data has been made available to download: Size: %i bytes"), m_Data.Num());
+	UE_LOG(LogNotice, Warning, TEXT("<DownloadManager>: New data has been made available to download: Size: %i bytes"), m_Data.Num());
 }
 
-bool APacketManager::BeginDownload()
-{
-	if (NewPacketAvailable())
-	{
-		m_LocalVersion = m_Version;
-
-		return true;
-	}
-
-	return false;
-}
-
-void APacketManager::GetDataFromBuffer(TArray<uint8>& Data)
+void ADownloadManager::GetDataFromBuffer(TArray<uint8>& Data)
 {
 	Data = m_Data;
 }
 
-void APacketManager::SetOnDataPostedCallback(const FNotifyDelegate & func)
+void ADownloadManager::SetOnDownloadFinishedCallback(const FNotifyDelegate & func)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<%s>: Current Version: %i, Local Version: %i, Notified Version: %i"), *GetName(), m_Version, m_LocalVersion, m_NotifiedVersionNo);
-	m_NotifyFunc = func;
+	m_DownloadFinishedDel = func;
 
-	if (m_NotifyFunc.IsBound())
+	if (!m_DownloadFinishedDel.IsBound())
 	{
-		UE_LOG(LogNotice, Warning, TEXT("<%s>: Callback bind success"), *GetName());
-	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<%s>: Callback bind fail"), *GetName());
+		UE_LOG(LogNotice, Error, TEXT("<%s>: Download finished callback bind fail"), *GetName());
 	}
 }
 
-void APacketManager::SetIncomingDataInfo(const FPacketInfo & info)
+void ADownloadManager::SetIncomingDataInfo(const FPacketInfo & info)
 {
 	CleanUp();
 	m_DownloadInfo = info;
@@ -87,7 +79,7 @@ void APacketManager::SetIncomingDataInfo(const FPacketInfo & info)
 	UE_LOG(LogNotice, Warning, TEXT("<%s>: A new file has been made available on the server. Size: %i, Final Size: %i"), *GetName(), info.Size, m_Data.Num());
 }
 
-bool APacketManager::FinalizeDownload()
+bool ADownloadManager::FinalizeDownload()
 {
 	if (m_Data.Num() != m_BytesDownloaded)
 		return false;
@@ -114,35 +106,35 @@ bool APacketManager::FinalizeDownload()
 	return true;
 }
 
-bool APacketManager::NewPacketAvailable() const
+bool ADownloadManager::NewPacketAvailable() const
 {
 	return m_LocalVersion != m_Version;
 }
 
-bool APacketManager::FinishedDownloading() const
+bool ADownloadManager::FinishedDownloading() const
 {
 	UE_LOG(LogNotice, Warning, TEXT("<%s>: Downloaded: %i, Total Size: %i"), *GetName(), m_BytesDownloaded, m_Data.Num());
 	return (m_Data.Num() == m_BytesDownloaded);
 }
 
-float APacketManager::GetDataIntegrityPercentage() const
+float ADownloadManager::GetDataIntegrityPercentage() const
 {
 	return m_Data.Num() ? ((float)m_BytesDownloaded / m_Data.Num()) * 100.0f : 0;
 }
 
-FPacketInfo APacketManager::GetPacketInfo() const
+FPacketInfo ADownloadManager::GetPacketInfo() const
 {
 	FPacketInfo newInfo;
 	newInfo.Size = m_Data.Num();
 	return newInfo;
 }
 
-int APacketManager::GetVersion() const
+int ADownloadManager::GetVersion() const
 {
 	return m_Version;
 }
 
-void APacketManager::CleanUp()
+void ADownloadManager::CleanUp()
 {
 	m_Data.Empty();
 	m_DownloadMap.clear();
@@ -150,7 +142,7 @@ void APacketManager::CleanUp()
 	m_nextPacketID = 0;
 }
 
-bool APacketManager::GetNextPacket(TArray<uint8>& Data, int& packetNum)
+bool ADownloadManager::GetNextPacket(TArray<uint8>& Data, int& packetNum)
 {
 	Data.Empty();
 
@@ -181,7 +173,7 @@ bool APacketManager::GetNextPacket(TArray<uint8>& Data, int& packetNum)
 	return false;
 }
 
-bool APacketManager::AddPacket(const TArray<uint8>& Data, int packetNum)
+bool ADownloadManager::AddPacket(const TArray<uint8>& Data, int packetNum)
 {
 	// Get the array index of the next packet
 	int dataIndex = m_nextPacketID * PACKET_SIZE;
@@ -196,60 +188,93 @@ bool APacketManager::AddPacket(const TArray<uint8>& Data, int packetNum)
 	m_DownloadMap[packetNum] = Data;
 
 	return true;
-
-	//// Reset timer that tracks whether the last packet was sent
-	//m_ElapsedTime = 0;
-
-	//// If there are changes to be made
-	//auto RecievedPacketBit = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(Bitfield);
-
-	//if (!(m_Bitfield^RecievedPacketBit).none())
-	//{
-	//	auto BFcurrentPacket = RecievedPacketBit;
-
-	//	// Get the position in the buffer where the new data should go
-	//	int CurrentIndex = 0;
-	//	for (int x = 0; x < TRANSFER_BITFIELD_SIZE; x++)
-	//	{
-	//		if (BFcurrentPacket[x] == true)
-	//		{
-	//			CurrentIndex = x * PACKET_SIZE;
-	//			break;
-	//		}
-	//	}
-
-	//	m_Bitfield |= RecievedPacketBit;
-	//	m_DownloadedSize += Data.Num();
-	//	FString BitsetStr(m_Bitfield.to_string().c_str());
-	//	UE_LOG(LogNotice, Warning, TEXT("<%s>: Downloading (%i/%i): Bitfield: %s"), *GetName(), m_DownloadedSize, m_Data.Num(), *BitsetStr);
-
-	//	// Transfer the nessesary data to the correct location in the buffer
-	//	FMemory::Memcpy(m_Data.GetData() + CurrentIndex, Data.GetData(), Data.Num());
-
-	//	if (m_DownloadedSize == m_Data.Num())
-	//	{
-	//		UE_LOG(LogNotice, Warning, TEXT("<%s>: Map download complete!"), *GetName());
-	//		m_bDownloading = false;
-	//		m_bReadyToDownload = false;
-	//	}
-
-	//}
-	//else
-	//{
-	//	UE_LOG(LogNotice, Warning, TEXT("<%s>: A packet was ignored, data already sent!"), *GetName());
-	//}
 }
 
-void APacketManager::NotifyNewDownload()
+void ADownloadManager::NotifyNewDownload()
 {
 	if (m_NotifiedVersionNo != m_Version)
 	{
 		m_NotifiedVersionNo = m_Version;
 		m_DownloadInfo.Size = m_Data.Num();
 
-		UE_LOG(LogNotice, Warning, TEXT("<%s>: Calling notify..."), *GetName());
-
 		// Notify the client that new data is available
-		m_NotifyFunc.ExecuteIfBound();
+		Client_NotifyNewPacketAvailable(GetPacketInfo());
 	}
+}
+
+void ADownloadManager::StartDownload()
+{
+	m_bDownloading = true;
+	m_LocalVersion = m_Version;
+}
+
+void ADownloadManager::SendNextPacketToClient()
+{
+	int packetNum = 0;
+	TArray<uint8> SendData;
+	if (GetNextPacket(SendData, packetNum))
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Sending packet to client. ID: %i"), *GetName(), packetNum);
+		Client_PostPacket(SendData, packetNum);
+	}
+	else
+	{
+		// Downloading has finished
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Download has finished"), *GetName());
+		m_bDownloading = false;
+	}
+}
+
+void ADownloadManager::Client_NotifyNewPacketAvailable_Implementation(const FPacketInfo & info)
+{
+	// Dont run on host
+	if (!GetWorld()->IsServer())
+	{
+		SetIncomingDataInfo(info);
+		Server_StartDownload();
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: File exists locally, Download Finished!"), *GetName());
+		m_DownloadFinishedDel.ExecuteIfBound();
+	}
+}
+
+void ADownloadManager::Client_PostPacket_Implementation(const TArray<uint8>& data, int packetNum)
+{
+	if (AddPacket(data, packetNum))
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Recieved packet #%i, Byte count: %i. Downloading %f%%"), *GetName(), packetNum, data.Num(), GetDataIntegrityPercentage());
+
+		if (FinishedDownloading())
+		{
+			if (FinalizeDownload())
+			{
+				UE_LOG(LogNotice, Warning, TEXT("<%s>: Download Success!"));
+				m_DownloadFinishedDel.ExecuteIfBound();
+			}
+			else
+			{
+				UE_LOG(LogNotice, Error, TEXT("<%s>: Download failed to finalize!"), *GetName());
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Recieved packet but was unable to add it. PacketNum: %i"), *GetName(), packetNum);
+	}
+}
+
+void ADownloadManager::Server_StartDownload_Implementation()
+{
+	UE_LOG(LogNotice, Warning, TEXT("<%s>: Client wants to start downloading..."), *GetName());
+	if(NewPacketAvailable())
+		GetWorld()->GetTimerManager().SetTimer(m_BeginDownloadTimer, this, &ADownloadManager::StartDownload, 1.0f, false, DOWNLOAD_TIME_DELAY);
+	else
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Download canceled, no data exists to be sent"), *GetName());
+}
+
+bool ADownloadManager::Server_StartDownload_Validate()
+{
+	return true;
 }

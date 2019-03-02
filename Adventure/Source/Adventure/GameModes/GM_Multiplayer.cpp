@@ -43,11 +43,7 @@ void AGM_Multiplayer::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: New player joined!"));
-	APC_Multiplayer* player = Cast<APC_Multiplayer>(NewPlayer);
-	if (player)
-	{
-		player->SetupPacketManager();
-	}
+	LoginConnectedPlayer(NewPlayer);
 }
 
 int AGM_Multiplayer::GeneratePlayerID()
@@ -115,7 +111,7 @@ bool AGM_Multiplayer::LoadMap(const FString& MapName)
 				TArray<uint8> Buffer;
 				if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
 				{
-					APacketManager::ServerOnly_SetData(Buffer);
+					ADownloadManager::ServerOnly_SetData(Buffer);
 
 					return true;
 				}

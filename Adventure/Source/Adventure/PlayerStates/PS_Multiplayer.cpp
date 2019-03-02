@@ -54,7 +54,7 @@ TURN_BASED_STATE APS_Multiplayer::GetCurrentState() const
 bool APS_Multiplayer::GetLocationFromDownloadBuffer(FMapLocation& Location)
 {
 	// Send the data to the download manager
-	TActorIterator<APacketManager> DLManager(GetWorld());
+	TActorIterator<ADownloadManager> DLManager(GetWorld());
 	if (DLManager)
 	{
 		TArray<uint8> LocationData;
