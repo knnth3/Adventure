@@ -3,20 +3,18 @@
 #include "DownloadManager.h"
 #include "Adventure.h"
 
-#define PACKET_SIZE (int32)sizeof(FVector)
-#define PACKET_TRANSFER_TIME_DELAY 3.0f
+#define PACKET_SIZE 256
 
 TArray<uint8> APacketManager::m_Data = TArray<uint8>();
 int APacketManager::m_Version = 0;
 
 APacketManager::APacketManager()
 {
+	m_BytesDownloaded = 0;
+	m_nextPacketID = 0;
+	m_NotifiedVersionNo = 0;
 	m_LocalVersion = 0;
-	m_ElapsedTime = 0;
-	m_DownloadedSize = 0;
 	bReplicates = false;
-	m_bDownloading = false;
-	m_bReadyToDownload = false;
 	PrimaryActorTick.bCanEverTick = true;
 }
 
@@ -40,21 +38,21 @@ void APacketManager::ServerOnly_SetData(const TArray<uint8>& data)
 {
 	int packetCount = FMath::DivideAndRoundUp(data.Num(), PACKET_SIZE);
 
-	// File is too large to send over
-	if (packetCount > TRANSFER_BITFIELD_SIZE)
-	{
-		UE_LOG(LogNotice, Error, TEXT("<PacketManager>: Could not set data for download: File is too large."));
-		return;
-	}
-
 	m_Data = data;
 	m_Version = (m_Version + 1) % MAX_int32;
 	UE_LOG(LogNotice, Warning, TEXT("<PacketManager>: New data has been made available to download: Size: %i bytes"), m_Data.Num());
 }
 
-void APacketManager::BeginDownload()
+bool APacketManager::BeginDownload()
 {
-	m_bDownloading = true;
+	if (NewPacketAvailable())
+	{
+		m_LocalVersion = m_Version;
+
+		return true;
+	}
+
+	return false;
 }
 
 void APacketManager::GetDataFromBuffer(TArray<uint8>& Data)
@@ -64,35 +62,56 @@ void APacketManager::GetDataFromBuffer(TArray<uint8>& Data)
 
 void APacketManager::SetOnDataPostedCallback(const FNotifyDelegate & func)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<%s>: Successfully bound callback"), *GetName());
+	UE_LOG(LogNotice, Warning, TEXT("<%s>: Current Version: %i, Local Version: %i, Notified Version: %i"), *GetName(), m_Version, m_LocalVersion, m_NotifiedVersionNo);
 	m_NotifyFunc = func;
 
-	// Check to see if data was posted before a callback was set
-	if (NewPacketAvailable())
+	if (m_NotifyFunc.IsBound())
 	{
-		// Notify the client that new data is available
-		m_NotifyFunc.ExecuteIfBound();
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Callback bind success"), *GetName());
+	}
+	else
+	{
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Callback bind fail"), *GetName());
 	}
 }
 
 void APacketManager::SetIncomingDataInfo(const FPacketInfo & info)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<%s>: A new file has been made available on the server"), *GetName());
-	if (!HasAuthority())
-	{
-		m_Bitfield = 0;
-		m_DownloadedSize = 0;
-		m_bReadyToDownload = true;
+	CleanUp();
+	m_DownloadInfo = info;
 
-		// Resize the data buffer on the client to be able to hold the incoming data
-		m_Data.Empty();
-		m_Data.AddUninitialized(m_DownloadInfo.Size);
-	}
+	// Resize the data buffer on the client to be able to hold the incoming data
+	m_Data.Empty();
+	m_Data.AddUninitialized(m_DownloadInfo.Size);
+
+	UE_LOG(LogNotice, Warning, TEXT("<%s>: A new file has been made available on the server. Size: %i, Final Size: %i"), *GetName(), info.Size, m_Data.Num());
 }
 
-bool APacketManager::IsDownloading() const
+bool APacketManager::FinalizeDownload()
 {
-	return m_bDownloading;
+	if (m_Data.Num() != m_BytesDownloaded)
+		return false;
+
+	int BufferIndex = 0;
+	int packetCount = FMath::DivideAndRoundUp(m_Data.Num(), PACKET_SIZE);
+	for (int index = 0; index < packetCount; index++)
+	{
+		auto found = m_DownloadMap.find(index);
+		if (found != m_DownloadMap.end())
+		{
+			for (int count = 0; count < found->second.Num(); count++)
+			{
+				m_Data[BufferIndex++] = found->second[count];
+			}
+		}
+		else
+		{
+			m_Data.Empty();
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool APacketManager::NewPacketAvailable() const
@@ -100,9 +119,15 @@ bool APacketManager::NewPacketAvailable() const
 	return m_LocalVersion != m_Version;
 }
 
+bool APacketManager::FinishedDownloading() const
+{
+	UE_LOG(LogNotice, Warning, TEXT("<%s>: Downloaded: %i, Total Size: %i"), *GetName(), m_BytesDownloaded, m_Data.Num());
+	return (m_Data.Num() == m_BytesDownloaded);
+}
+
 float APacketManager::GetDataIntegrityPercentage() const
 {
-	return m_Data.Num() ? (float)m_DownloadedSize / m_Data.Num() : 0;
+	return m_Data.Num() ? ((float)m_BytesDownloaded / m_Data.Num()) * 100.0f : 0;
 }
 
 FPacketInfo APacketManager::GetPacketInfo() const
@@ -119,165 +144,112 @@ int APacketManager::GetVersion() const
 
 void APacketManager::CleanUp()
 {
-}
-
-void APacketManager::Client_Ping_Implementation(const FVector & loc)
-{
-	UE_LOG(LogNotice, Warning, TEXT("<%s>: Ping!"), *GetName());
-}
-
-void APacketManager::GetSendPacket(TArray<uint8>& OutData, TArray<int32>& NextBit)
-{
-	bool bLastPacket = false;
-	TArray<uint8> sendingData;
-	auto nextBit = GetNextPacketData(sendingData);
-
-	// Send the new data to the client (if any exists)
-	if (sendingData.Num())
-	{
-		OutData = sendingData;
-		NextBit = BitsetToArray<TRANSFER_BITFIELD_SIZE>(nextBit);
-		m_Bitfield |= nextBit;
-		UE_LOG(LogNotice, Warning, TEXT("<%s>: Net connection sent packet"), *GetName());
-	}
-}
-
-void APacketManager::AddPacket()
-{
-}
-
-void APacketManager::NotifyNewDownload()
-{
-	m_LocalVersion = m_Version;
-	m_DownloadInfo.Size = m_Data.Num();
-
-	// Notify the client that new data is available
-	m_NotifyFunc.ExecuteIfBound();
-}
-
-void APacketManager::OnNewDataPosted()
-{
-	UE_LOG(LogNotice, Warning, TEXT("<%s>: A new file has been made available on the server"), *GetName());
-
-	m_Bitfield = 0;
-	m_DownloadedSize = 0;
-	m_bReadyToDownload = true;
-
-	// Resize the data buffer on the client to be able to hold the incoming data
 	m_Data.Empty();
-	m_Data.AddUninitialized(m_DownloadInfo.Size);
-
-	// Notify the client that new data is available
-	m_NotifyFunc.ExecuteIfBound();
+	m_DownloadMap.clear();
+	m_BytesDownloaded = 0;
+	m_nextPacketID = 0;
 }
 
-std::bitset<TRANSFER_BITFIELD_SIZE> APacketManager::GetNextPacketData(TArray<uint8>& Data)
+bool APacketManager::GetNextPacket(TArray<uint8>& Data, int& packetNum)
 {
 	Data.Empty();
 
-	// Get the next bit to represent outgoing package (assumes all bits before it are on)
-	int dataIndex = 0;
-	std::bitset<TRANSFER_BITFIELD_SIZE> NextBit = 0;
-	for (int index = 0; index < m_Bitfield.size(); index++)
-	{
-		if (m_Bitfield[index] == 0)
-		{
-			NextBit[index] = 1;
-			dataIndex = index * PACKET_SIZE;
-			break;
-		}
-	}
-
-	if (dataIndex == 0 && NextBit.none())
-	{
-		UE_LOG(LogNotice, Error, TEXT("<%s>:Byte buffer overload! Canceling download..."), *GetName());
-		return NextBit;
-	}
+	// Get the array index of the next packet
+	int dataIndex = m_nextPacketID * PACKET_SIZE;
 
 	// How many bytes are left that have not been copied over
 	int sendAmnt = 0;
 	int remain = m_Data.Num() - dataIndex;
+
 	if (remain > 0)
 	{
 		// Get bytes needed to transfer
 		sendAmnt = (remain > PACKET_SIZE) ? PACKET_SIZE : remain;
-
-		// Last packet is being sent
-		if (sendAmnt == remain)
-		{
-			m_bDownloading = false;
-		}
 
 		// Reserve memory to hold send amount
 		Data.AddUninitialized(sendAmnt);
 
 		// Copy memory from save binary to transfer data array
 		FMemory::Memcpy(Data.GetData(), m_Data.GetData() + dataIndex, sendAmnt);
+
+		// Set the packet num as the current next
+		packetNum = m_nextPacketID++;
+
+		return true;
 	}
 
-	return NextBit;
+	return false;
 }
 
-void APacketManager::Client_PostNewPacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
+bool APacketManager::AddPacket(const TArray<uint8>& Data, int packetNum)
 {
-	// Reset timer that tracks whether the last packet was sent
-	m_ElapsedTime = 0;
+	// Get the array index of the next packet
+	int dataIndex = m_nextPacketID * PACKET_SIZE;
 
-	// If there are changes to be made
-	auto RecievedPacketBit = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(Bitfield);
-
-	if (!(m_Bitfield^RecievedPacketBit).none())
+	if (dataIndex > GetPacketInfo().Size)
 	{
-		auto BFcurrentPacket = RecievedPacketBit;
-
-		// Get the position in the buffer where the new data should go
-		int CurrentIndex = 0;
-		for (int x = 0; x < TRANSFER_BITFIELD_SIZE; x++)
-		{
-			if (BFcurrentPacket[x] == true)
-			{
-				CurrentIndex = x * PACKET_SIZE;
-				break;
-			}
-		}
-
-		m_Bitfield |= RecievedPacketBit;
-		m_DownloadedSize += Data.Num();
-		FString BitsetStr(m_Bitfield.to_string().c_str());
-		UE_LOG(LogNotice, Warning, TEXT("<%s>: Downloading (%i/%i): Bitfield: %s"), *GetName(), m_DownloadedSize, m_Data.Num(), *BitsetStr);
-
-		// Transfer the nessesary data to the correct location in the buffer
-		FMemory::Memcpy(m_Data.GetData() + CurrentIndex, Data.GetData(), Data.Num());
-
-		if (m_DownloadedSize == m_Data.Num())
-		{
-			UE_LOG(LogNotice, Warning, TEXT("<%s>: Map download complete!"), *GetName());
-			m_bDownloading = false;
-			m_bReadyToDownload = false;
-		}
-
+		UE_LOG(LogNotice, Error, TEXT("<%s>:Byte buffer overload! Canceling download..."), *GetName());
+		return false;
 	}
-	else
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<%s>: A packet was ignored, data already sent!"), *GetName());
-	}
-}
 
-void APacketManager::Client_PostLastNewPacket_Implementation(const TArray<uint8>& Data, const TArray<int>& Bitfield)
-{
-	Client_PostNewPacket(Data, Bitfield);
-}
+	m_BytesDownloaded += Data.Num();
+	m_DownloadMap[packetNum] = Data;
 
-void APacketManager::Server_RequestPacket_Implementation(const TArray<int>& BFRecieved)
-{
-	UE_LOG(LogNotice, Warning, TEXT("<%s>: Client request to download acknowldged"), *GetName());
-
-	// Start the downloading process using the given bitfield
-	m_Bitfield = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(BFRecieved);
-	m_bDownloading = true;
-}
-
-bool APacketManager::Server_RequestPacket_Validate(const TArray<int>& BFRecieved)
-{
 	return true;
+
+	//// Reset timer that tracks whether the last packet was sent
+	//m_ElapsedTime = 0;
+
+	//// If there are changes to be made
+	//auto RecievedPacketBit = ArrayToBitset<TRANSFER_BITFIELD_SIZE>(Bitfield);
+
+	//if (!(m_Bitfield^RecievedPacketBit).none())
+	//{
+	//	auto BFcurrentPacket = RecievedPacketBit;
+
+	//	// Get the position in the buffer where the new data should go
+	//	int CurrentIndex = 0;
+	//	for (int x = 0; x < TRANSFER_BITFIELD_SIZE; x++)
+	//	{
+	//		if (BFcurrentPacket[x] == true)
+	//		{
+	//			CurrentIndex = x * PACKET_SIZE;
+	//			break;
+	//		}
+	//	}
+
+	//	m_Bitfield |= RecievedPacketBit;
+	//	m_DownloadedSize += Data.Num();
+	//	FString BitsetStr(m_Bitfield.to_string().c_str());
+	//	UE_LOG(LogNotice, Warning, TEXT("<%s>: Downloading (%i/%i): Bitfield: %s"), *GetName(), m_DownloadedSize, m_Data.Num(), *BitsetStr);
+
+	//	// Transfer the nessesary data to the correct location in the buffer
+	//	FMemory::Memcpy(m_Data.GetData() + CurrentIndex, Data.GetData(), Data.Num());
+
+	//	if (m_DownloadedSize == m_Data.Num())
+	//	{
+	//		UE_LOG(LogNotice, Warning, TEXT("<%s>: Map download complete!"), *GetName());
+	//		m_bDownloading = false;
+	//		m_bReadyToDownload = false;
+	//	}
+
+	//}
+	//else
+	//{
+	//	UE_LOG(LogNotice, Warning, TEXT("<%s>: A packet was ignored, data already sent!"), *GetName());
+	//}
+}
+
+void APacketManager::NotifyNewDownload()
+{
+	if (m_NotifiedVersionNo != m_Version)
+	{
+		m_NotifiedVersionNo = m_Version;
+		m_DownloadInfo.Size = m_Data.Num();
+
+		UE_LOG(LogNotice, Warning, TEXT("<%s>: Calling notify..."), *GetName());
+
+		// Notify the client that new data is available
+		m_NotifyFunc.ExecuteIfBound();
+	}
 }

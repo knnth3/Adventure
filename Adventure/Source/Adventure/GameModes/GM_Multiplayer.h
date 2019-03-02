@@ -45,6 +45,8 @@ private:
 	// Handles login attempt (ensure the function remains fast and simple or client will hang)
 	void LoginConnectedPlayer(AController * Player);
 
+	bool LoadMap(const FString & MapName);
+
 	bool m_bMapHasBeenQueued;
 	int m_PlayerIndexCount;
 	FString m_CurrentMapName;

@@ -24,10 +24,7 @@ void AGM_Multiplayer::StartGame()
 	{
 		UE_LOG(LogNotice, Warning, TEXT("<GameMode>: Map set and is ready for game start"));
 		GameInstance->StartSession();
-
-		//TArray<uint8> tempData;
-		//tempData.SetNumZeroed(1000);
-		//APacketManager::ServerOnly_SetData(tempData);
+		LoadMap(m_CurrentMapName);
 	}
 }
 
@@ -46,6 +43,11 @@ void AGM_Multiplayer::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: New player joined!"));
+	APC_Multiplayer* player = Cast<APC_Multiplayer>(NewPlayer);
+	if (player)
+	{
+		player->SetupPacketManager();
+	}
 }
 
 int AGM_Multiplayer::GeneratePlayerID()
@@ -85,4 +87,42 @@ void AGM_Multiplayer::LoginConnectedPlayer(AController * Player)
 			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has reconnected."), *FString(PlayerName.c_str()));
 		}
 	}
+}
+
+bool AGM_Multiplayer::LoadMap(const FString& MapName)
+{
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		WorldGrid->ServerOnly_SetMapName(MapName);
+	}
+
+	FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *MapName);
+	UMapSaveFile* Save = Cast<UMapSaveFile>(UBasicFunctions::LoadSaveGameEx(path));
+	if (Save)
+	{
+		FString CurrentLocation = Save->ActiveLocation;
+
+		for (auto& loc : Save->Locations)
+		{
+			if (loc.Name == CurrentLocation)
+			{
+				// Create a containter to store data that will be sent over
+				ULocationSave* Location = Cast<ULocationSave>(UGameplayStatics::CreateSaveGameObject(ULocationSave::StaticClass()));
+				Location->LocationData = loc;
+
+				// Pack data into a buffer
+				TArray<uint8> Buffer;
+				if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
+				{
+					APacketManager::ServerOnly_SetData(Buffer);
+
+					return true;
+				}
+
+			}
+		}
+	}
+
+	return false;
 }

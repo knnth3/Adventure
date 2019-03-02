@@ -15,9 +15,12 @@ class ADVENTURE_API APC_Multiplayer : public APlayerController
 	GENERATED_BODY()
 public:
 	APC_Multiplayer();
-	//virtual void BeginPlay() override;
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	// Setup PacketManager on new connections
+	void SetupPacketManager();
 
 	//Sets player ID (Server)
 	void SetPlayerID(const int ID);
@@ -30,24 +33,38 @@ public:
 	void ShowPathfindingDebugLines(bool Value);
 
 private:
+	UFUNCTION()
+	void GenerateGrid();
+	
+	UFUNCTION()
+	void SetupForDownloading();
 
-	//UFUNCTION()
-	//void OnNewDataAvailable();
+	UFUNCTION()
+	void CreatePacketManager();
 
-	//UFUNCTION()
-	//void OnBeginDownload();
+	UFUNCTION()
+	void OnDataSetNotify();
 
 	// Receive packet from server
-	//UFUNCTION(Client, Unreliable)
-	//void Client_PostPacket(const FVector& data, int packetNum);
+	UFUNCTION(Client, Reliable)
+	void Client_NotifyNewPacketAvailable(const FPacketInfo& info);
+
+	// Receive packet from server
+	UFUNCTION(Client, Reliable)
+	void Client_PostPacket(const TArray<uint8>& data, int packetNum);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_StartDownload();
 	
 	UPROPERTY()
 	int UniqueID;
 
-	//UPROPERTY(ReplicatedUsing = OnBeginDownload)
-	//FPacketInfo m_DLPacketInfo;
+	UPROPERTY()
+	FPacketInfo m_DLPacketInfo;
 
 	float m_ElapsedTime;
-	//bool m_bNewDownloadAvailable;
-	//APacketManager* m_DownloadManager;
+	bool m_bClientPendingDownloadStart;
+	bool m_bServerStartTiming;
+	bool m_bServerStartDownload;
+	APacketManager* m_PacketManager;
 };
