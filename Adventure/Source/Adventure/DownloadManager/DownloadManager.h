@@ -1,4 +1,16 @@
-// By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
+// Copyright 2019 Eric Marquez
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http ://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #pragma once
 
@@ -43,6 +55,8 @@ public:
 	void GetDataFromBuffer(TArray<uint8>& Data);
 
 	void SetOnDownloadFinishedCallback(const FNotifyDelegate& func);
+
+	void SetOnPacketReceivedCallback(const FNotifyDelegate& func);
 
 	bool NewPacketAvailable()const;
 
@@ -91,6 +105,7 @@ private:
 	int m_LocalVersion;
 	FPacketInfo m_DownloadInfo;
 	FTimerHandle m_BeginDownloadTimer;
+	FNotifyDelegate m_PacketReceivedDel;
 	FNotifyDelegate m_DownloadFinishedDel;
 	std::map<int, TArray<uint8>> m_DownloadMap;
 };
