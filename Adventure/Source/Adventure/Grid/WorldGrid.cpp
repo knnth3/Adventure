@@ -202,6 +202,23 @@ bool AWorldGrid::ServerOnly_RemoveBlockingObjects(const TArray<FVector>& EditBox
 	return true;
 }
 
+bool AWorldGrid::ServerOnly_RemoveBlockingObject(const FVector & Position)
+{
+	for (const auto& index : m_UsedObjectIndices)
+	{
+		auto InstancedMesh = GetObjectInstanceMesh(index);
+		if (InstancedMesh)
+		{
+			TArray<int32> indexArray = InstancedMesh->GetInstancesOverlappingSphere(Position, 1.0f, true);
+
+			// Remove all found instances
+			InstancedMesh->RemoveInstances(indexArray);
+		}
+	}
+
+	return true;
+}
+
 bool AWorldGrid::ServerOnly_AddPawn(int ClassIndex, const FGridCoordinate & Location, int OwningPlayerID)
 {
 	if (ClassIndex >= 0 && ClassIndex < MapPawnClasses.Num() && MapPawnClasses[ClassIndex])

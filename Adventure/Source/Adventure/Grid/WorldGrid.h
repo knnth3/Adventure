@@ -77,9 +77,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_AddBlockingObject(uint8 ClassIndex, const FTransform & transform);
 
-	// Removes a blocking object from the grid
+	// Removes blocking objects from the grid within a bounding box
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
 	bool ServerOnly_RemoveBlockingObjects(const TArray<FVector>& EditBoxVertices);
+
+	// Removes a blocking object from the grid given a traytraced position
+	UFUNCTION(BlueprintCallable, Category = "World Grid")
+	bool ServerOnly_RemoveBlockingObject(const FVector& Position);
 
 	// Adds a pawn to the grid
 	UFUNCTION(BlueprintCallable, Category = "World Grid")
