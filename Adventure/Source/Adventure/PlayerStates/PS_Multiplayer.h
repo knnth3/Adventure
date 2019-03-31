@@ -1,17 +1,27 @@
-// By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
+// Copyright 2019 Eric Marquez
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http ://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #pragma once
 
 #include <bitset>
 #include "Basics.h"
+#include "DownloadManager/DownloadManager.h"
 #include "Saves/MapSaveFile.h"
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
 #include "PS_Multiplayer.generated.h"
 
-/**
- * 
- */
 
 #define TRANSFER_BITFIELD_SIZE sizeof(int) * 8 * 5
 
@@ -55,12 +65,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player State")
 	int GetGameID() const;
 
-	// Server only function to load map from file
-	bool ServerOnly_LoadMap(const FString& MapName);
-
-	// Sets the map that the player state will use to query locations that will be displayed
-	bool LoadMap(const FString& MapName);
-
 	// Generates a new map with a given map size
 	void GenerateEmptyMap(const FString& MapName, const FGridCoordinate& MapSize);
 
@@ -69,9 +73,6 @@ protected:
 	// Sets the turn based player order
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn-Based Settings")
 	TArray<int> InitiativePlayerOrder;
-
-	UFUNCTION(BlueprintCallable, Category = "Player State")
-	void UpdateDataTransfer(float DeltaTime);
 
 	// Override for server to change player order
 	UFUNCTION(BlueprintCallable, Category = "Turn-Based Settings")
@@ -87,6 +88,12 @@ protected:
 
 private:
 
+	// Retrieves the data in the client download buffer and deserializes it to an FMapLocation
+	bool GetLocationFromDownloadBuffer(FMapLocation& Location);
+
+	// Transfers location data to owning client so that it may generate a grid
+	void GenerateGrid(const FMapLocation& Data);
+
 	// Unique identifier
 	UPROPERTY(Replicated)
 	int m_GameID;
@@ -98,43 +105,4 @@ private:
 	// Current active player
 	UPROPERTY(Replicated)
 	int m_CurrentPlayerActive;
-
-	// Server
-	bool m_bMapDownloaded;
-	std::bitset<TRANSFER_BITFIELD_SIZE> m_ServerSentBitfield;
-	bool m_bNeedsNextPacket;
-	float m_TotalTime;
-	TArray<uint8> m_RawSaveFileServer;
-
-	// Client
-	int m_DownloadedSize;
-	std::bitset<TRANSFER_BITFIELD_SIZE> m_ClientRecievedBitfield;
-	FLocationStats m_LocationStats;
-	TArray<uint8> m_RawSaveFileClient;
-	bool gotAuthority;
-
-	// Get raw data at m_NextPacket (TRANSFER_DATA_SIZE interval)
-	std::bitset<TRANSFER_BITFIELD_SIZE> GetNextPacketData(TArray<uint8>& Data, bool& LastPacket);
-
-	// Retrieves the data in the client download buffer and deserializes it to an FMapLocation
-	bool GetLocationFromDownloadBuffer(FMapLocation& Location);
-
-	// Transfers location data to owning client so that it may generate a grid
-	void GenerateGrid(const FMapLocation& Data);
-
-	// Server function sent from client to request more data from download
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_DownloadMap(const TArray<int>& BFRecieved);
-
-	// Client functin sent from server to give data to owning client
-	UFUNCTION(Client, Reliable)
-	void Client_RecievePacket(const TArray<uint8>& Data, const TArray<int>& Bitfield);
-
-	// Tells client to create a new map
-	UFUNCTION(Client, Reliable)
-	void Client_GenerateEmptyGrid(const FGridCoordinate& MapSize);
-
-	// Tell Client the information to unpack new location data
-	UFUNCTION(Client, Reliable)
-	void Client_SetLocationStats(const FLocationStats& Stats);
 };

@@ -1,9 +1,22 @@
-// By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
+// Copyright 2019 Eric Marquez
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http ://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #pragma once
 
 #include <vector>
 #include "CoreMinimal.h"
+#include "DownloadManager/DownloadManager.h"
 #include "GameFramework/PlayerController.h"
 #include "PC_Multiplayer.generated.h"
 
@@ -14,12 +27,8 @@ class ADVENTURE_API APC_Multiplayer : public APlayerController
 	GENERATED_BODY()
 public:
 	APC_Multiplayer();
-
-	// Sets the active save file(Server only)
-	void ServerOnly_SetActiveMapSave(const FString& Path);
-
-	// Sets the map name (Used when downloading finishes on client)
-	void SetMapName(const FString& Name);
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	//Sets player ID (Server)
 	void SetPlayerID(const int ID);
@@ -31,20 +40,32 @@ public:
 	UFUNCTION(Exec, Category = ExecFunctions)
 	void ShowPathfindingDebugLines(bool Value);
 
+	UFUNCTION(BlueprintCallable, Category = "Download Manager")
+	float GetDownloadPercentage() const;
+
+protected:
+	UFUNCTION(BlueprintImplementableEvent, Category = "Download Manager")
+	void OnDownloadCompleteEvent();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Download Manager")
+	void OnPacketReceivedEvent();
+
 private:
+	UFUNCTION()
+	void OnPacketReceived();
+
+	UFUNCTION()
+	void OnDownloadComplete();
+
+	UFUNCTION()
+	void GenerateGrid();
+
+	UFUNCTION()
+	void OnNewDownloadManager();
 	
 	UPROPERTY()
 	int UniqueID;
 
-	FString m_MapName;
-	TArray<uint8> m_RawSaveFile;
-	
-	// Client
-	int m_CurrentDownloadPacketID;
-	bool m_bMapDownloaded;
-
-	// Server
-	int m_NextPacket;
-	bool m_bNeedsNextPacket;
-	float m_TotalTime;
+	UPROPERTY(ReplicatedUsing = OnNewDownloadManager)
+	ADownloadManager* m_DownloadManager;
 };

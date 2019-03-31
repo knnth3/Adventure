@@ -1,4 +1,17 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 Eric Marquez
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http ://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "GS_Multiplayer.h"
 
 #include "Grid/WorldGrid.h"
@@ -41,46 +54,6 @@ void AGS_Multiplayer::AddNewPlayer(int PlayerID, FString PlayerName)
 
 void AGS_Multiplayer::GenerateGrid()
 {
-	if (HasAuthority())
-	{
-		UE_LOG(LogNotice, Warning, TEXT("<GameState>: Generate Grid"));
-		bool bGenerateNewMap = false;
-		// Ensure the map knows a a given map should be created
-		AGM_Multiplayer* Gamemode = Cast<AGM_Multiplayer>(AuthorityGameMode);
-		if (Gamemode)
-		{
-			TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-			if (WorldGrid)
-			{
-				WorldGrid->ServerOnly_SetMapName(Gamemode->GetMapName());
-				WorldGrid->ServerOnly_SetMapSize(Gamemode->GetMapSize());
-
-				APS_Multiplayer* PS = Cast<APS_Multiplayer>(PlayerArray[0]);
-				if (PS && !PS->ServerOnly_LoadMap(Gamemode->GetMapName()))
-				{
-					PS->GenerateEmptyMap(WorldGrid->GetMapName(), Gamemode->GetMapSize());
-				}
-			}
-
-			FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *Gamemode->GetMapName());
-			if (!FPaths::FileExists(path))
-			{
-				FWeaponInfo Winfo;
-				Winfo.Name = TEXT("Basic Sword");
-				Winfo.Description = TEXT("Ye ol faithful");
-				Winfo.VisualIndex = 1;
-				UInventoryDatabase::AddWeaponToDatabase(Winfo);
-
-				FConsumableInfo Cinfo;
-				Cinfo.Name = TEXT("Cake");
-				Cinfo.Description = TEXT("Delicious!");
-				Cinfo.HealthBonus = 1;
-				UInventoryDatabase::AddConsumableToDatabase(Cinfo);
-
-				bGenerateNewMap = true;
-			}
-		}
-	}
 }
 
 void AGS_Multiplayer::SetActivePlayer(const int ID)
@@ -160,17 +133,4 @@ int AGS_Multiplayer::GetPlayerID(FString PlayerName) const
 	}
 
 	return ID;
-}
-
-void AGS_Multiplayer::ServerOnly_LoadMapOnClients(const FString& MapName) const
-{
-	for (int x = 1; x < PlayerArray.Num(); x++)
-	{
-
-		APS_Multiplayer* MPS = Cast<APS_Multiplayer>(PlayerArray[x]);
-		if (MPS)
-		{
-			MPS->LoadMap(MapName);
-		}
-	}
 }

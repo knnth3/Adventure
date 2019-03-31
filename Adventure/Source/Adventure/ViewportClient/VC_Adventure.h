@@ -1,4 +1,16 @@
-// By: Eric Marquez. All information and code provided is free to use and can be used comercially.Use of such examples indicates no fault to the author for any damages caused by them. The author must be credited.
+// Copyright 2019 Eric Marquez
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http ://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #pragma once
 
@@ -15,6 +27,7 @@ class ADVENTURE_API UVC_Adventure : public UGameViewportClient
 	GENERATED_BODY()
 	
 public: 
+
 	/**
 	* Called after rendering the player views and HUDs to render menus, the console, etc.
 	* This is the last rendering call in the render loop
@@ -34,13 +47,10 @@ public:
 
 private:
 
-	// Values used by our screen fading
-	uint32 bFading : 1;
-	uint32 bToBlack : 1; // Fading to black will be applied even if alpha is 1
-	float FadeAlpha;
-	float FadeStartTime;
-	float FadeDuration;
-	bool bLoadNewLevel;
-	
-	
+	bool m_bLoadNewLevel = 0;
+	bool m_bFading = 1;
+	bool m_bToBlack = 1;
+	float m_FadeAlpha;
+	float m_FadeStartTime;
+	float m_FadeDuration;	
 };

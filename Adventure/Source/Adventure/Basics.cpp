@@ -1,4 +1,19 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 Eric Marquez
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http ://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Part of the code in this file is subject to Epic Game's Copyright notice:
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Basics.h"
 #include "FileManager.h"
@@ -18,6 +33,8 @@
 #define CM_TO_IN_FACTOR 2.54
 #define IN_TO_YD_FACTOR 36
 #define IN_TO_FT_FACTOR 12
+
+//---------------------------------------------------------------------------------------------------------!
 
 static const int UE4_SAVEGAME_FILE_TYPE_TAG = 0x53415647;		// "sAvG"
 
@@ -152,6 +169,8 @@ void FSaveGameHeaderCopy::Write(FMemoryWriter& MemoryWriter)
 	// Write the class name so we know what class to load to
 	MemoryWriter << SaveGameClassName;
 }
+
+//---------------------------------------------------------------------------------------------------------!
 
 FGridCoordinate::FGridCoordinate()
 {

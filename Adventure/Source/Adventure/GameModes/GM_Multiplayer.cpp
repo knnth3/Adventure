@@ -1,93 +1,62 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 Eric Marquez
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http ://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "GM_Multiplayer.h"
 
-#include "../PlayerControllers/PC_Multiplayer.h"
-#include "PlayerStates/PS_Multiplayer.h"
-#include "GI_Adventure.h"
 #include "Adventure.h"
+#include "GI_Adventure.h"
 #include "Grid/WorldGrid.h"
-#include "Character/SpectatorMapPawn.h"
+#include "Widgets/HUD_MPLobby.h"
+#include "PlayerStates/PS_Multiplayer.h"
 #include "GameStates/GS_Multiplayer.h"
-#include "Character/ConnectedPlayer.h"
-#include "Saves/MapSaveFile.h"
-#include "Widgets/W_GameBuilderUI.h"
+#include "PlayerControllers/PC_Multiplayer.h"
+#include "DownloadManager/DownloadManager.h"
 
 AGM_Multiplayer::AGM_Multiplayer()
 {
-	m_MapDNE = false;
+	m_bMapHasBeenQueued = false;
 	bUseSeamlessTravel = true;
 	m_PlayerIndexCount = 0;
-	m_GridDimensions = { 100, 100 };
 }
 
-FGridCoordinate AGM_Multiplayer::GetMapSize()const
+void AGM_Multiplayer::StartGame()
 {
-	return m_GridDimensions;
-}
-
-FString AGM_Multiplayer::GetMapName() const
-{
-	return m_CurrentMapName;
-}
-
-int AGM_Multiplayer::GetHostID() const
-{
-	return m_ConnnectedPlayers.at(TCHAR_TO_UTF8(*m_HostUsername));
-}
-
-void AGM_Multiplayer::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
-{
-	Super::InitGame(MapName, Options, ErrorMessage);
-
-	m_CurrentMapName = UGameplayStatics::ParseOption(Options, "SN");
-	UE_LOG(LogNotice, Warning, TEXT("<GameMode>: Game being initialized"));
-}
-
-void AGM_Multiplayer::HandleStartingNewPlayer_Implementation(APlayerController * NewPlayer)
-{
-	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
-	LoginConnectedPlayer(NewPlayer);
-}
-
-void AGM_Multiplayer::HandleSeamlessTravelPlayer(AController *& C)
-{
-	Super::HandleSeamlessTravelPlayer(C);
-
-	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has joined via seamless travel."), *C->PlayerState->GetPlayerName());
-	// LoginConnectedPlayer(C);
-}
-
-void AGM_Multiplayer::PostSeamlessTravel()
-{
-	Super::PostSeamlessTravel();
-	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: All players from previous level have joined."));
-}
-
-APlayerController * AGM_Multiplayer::Login(UPlayer * NewPlayer, ENetRole InRemoteRole, const FString & Portal, const FString & Options, const FUniqueNetIdRepl & UniqueId, FString & ErrorMessage)
-{
-	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Logging in client: UniqueID: %s"), *UniqueId.ToString());
-	return Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);;
-}
-
-void AGM_Multiplayer::PostLogin(APlayerController * NewPlayer)
-{
-	Super::PostLogin(NewPlayer);
-
-	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client is ready to recieve map download!"));
-	APS_Multiplayer* PS = NewPlayer->GetPlayerState<APS_Multiplayer>();
-	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
-
-	if (PS && WorldGrid && (m_MapDNE || !PS->LoadMap(WorldGrid->GetMapName())))
+	UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
+	if (GameInstance)
 	{
-		m_MapDNE = true;
-		PS->GenerateEmptyMap(WorldGrid->GetMapName(), WorldGrid->GetMapSize());
+		UE_LOG(LogNotice, Warning, TEXT("<GameMode>: Map set and is ready for game start"));
+		GameInstance->StartSession();
+		LoadMap(m_CurrentMapName);
 	}
 }
 
-void AGM_Multiplayer::Logout(AController * Exiting)
+void AGM_Multiplayer::SetMapToLoad(const FString & Name)
 {
-	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: Client has logged out"));
-	Super::Logout(Exiting);
+	m_CurrentMapName = Name;
+}
+
+void AGM_Multiplayer::GetMapToLoad(FString & Name)const
+{
+	Name = m_CurrentMapName;
+}
+
+void AGM_Multiplayer::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+
+	UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: New player joined!"));
+	LoginConnectedPlayer(NewPlayer);
 }
 
 int AGM_Multiplayer::GeneratePlayerID()
@@ -95,7 +64,6 @@ int AGM_Multiplayer::GeneratePlayerID()
 	return m_PlayerIndexCount++;
 }
 
-// Ensure the function remains fast and simple or client will hang
 void AGM_Multiplayer::LoginConnectedPlayer(AController * Player)
 {
 	APS_Multiplayer* currentPlayerState = Cast<APS_Multiplayer>(Player->PlayerState);
@@ -128,4 +96,42 @@ void AGM_Multiplayer::LoginConnectedPlayer(AController * Player)
 			UE_LOG(LogNotice, Warning, TEXT("<HandleNewConnection>: %s has reconnected."), *FString(PlayerName.c_str()));
 		}
 	}
+}
+
+bool AGM_Multiplayer::LoadMap(const FString& MapName)
+{
+	TActorIterator<AWorldGrid> WorldGrid(GetWorld());
+	if (WorldGrid)
+	{
+		WorldGrid->ServerOnly_SetMapName(MapName);
+	}
+
+	FString path = FString::Printf(TEXT("%sMaps/%s.map"), *FPaths::ProjectUserDir(), *MapName);
+	UMapSaveFile* Save = Cast<UMapSaveFile>(UBasicFunctions::LoadSaveGameEx(path));
+	if (Save)
+	{
+		FString CurrentLocation = Save->ActiveLocation;
+
+		for (auto& loc : Save->Locations)
+		{
+			if (loc.Name == CurrentLocation)
+			{
+				// Create a containter to store data that will be sent over
+				ULocationSave* Location = Cast<ULocationSave>(UGameplayStatics::CreateSaveGameObject(ULocationSave::StaticClass()));
+				Location->LocationData = loc;
+
+				// Pack data into a buffer
+				TArray<uint8> Buffer;
+				if (UBasicFunctions::ConvertSaveToBinary(Location, Buffer))
+				{
+					ADownloadManager::ServerOnly_SetData(Buffer);
+
+					return true;
+				}
+
+			}
+		}
+	}
+
+	return false;
 }
