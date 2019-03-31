@@ -6,7 +6,7 @@ Adventure is a 3D top down turn based game where friends can play out their hero
 It's based upon the large Franchise of DnD and influenced by the popular website Roll20. 
 
 With the power of Unreal Engine and Steam's API, maps that are dynamically created by the player's can be played
-and shared across the comunity to offer experiences unique to each's stories.
+and shared across the comunity to offer experiences unique to each's stories. (Using UE4 v.4.21)
 
 ## Features:
 - Connect and play with friends using Steam
@@ -26,3 +26,5 @@ and shared across the comunity to offer experiences unique to each's stories.
 - Optimization of all features to allow Adventure to run on lower end computers
 
 ###### The specs for running Adventure aren't too high as it's been tested on several laptops like Window's Surface but it is recommended to have around an Intel I7 core processor, GTX 960-970, and around 8 gb of ram.
+
+###### Some files may not load due to Github's file size limit. The project should still be able to be built and ran.
