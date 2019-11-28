@@ -2,8 +2,7 @@
 RPG turn based game
 This is a personal project I've been working on since the start of April 2, 2018. 
 
-Adventure is a 3D top down turn based game where friends can play out their hero's stories. 
-It's based upon the large Franchise of DnD and influenced by the popular website Roll20. 
+Adventure is greatly inspired by DnD. It's meant to be able to handle 2-6 friends on a co-op mission played through custom build worlds. It's a solo project so many things are missing but I hope someone can take this example and create something from it.
 
 With the power of Unreal Engine and Steam's API, maps that are dynamically created by the player's can be played
 and shared across the comunity to offer experiences unique to each's stories. (Using UE4 v.4.21)
