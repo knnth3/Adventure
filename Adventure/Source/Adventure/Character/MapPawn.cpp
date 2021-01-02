@@ -27,7 +27,7 @@ AMapPawn::AMapPawn()
 {
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	bReplicateMovement = false;
+	SetReplicateMovement(false);
 	bWasPathingSucessfull = false;
 	bRotatePawn = false;
 	bHasTarget = false;
@@ -85,7 +85,7 @@ AMapPawn::AMapPawn()
 	CameraBoom->bEnableCameraRotationLag = true;
 	CameraBoom->CameraRotationLagSpeed = 10.0f;
 	CameraBoom->bDoCollisionTest = false;
-	CameraBoom->bAbsoluteRotation = true;
+	CameraBoom->SetUsingAbsoluteRotation(true);
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));

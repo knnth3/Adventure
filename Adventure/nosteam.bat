@@ -1,0 +1,1 @@
+start "" "Adventure.exe" -game -log -nosteam

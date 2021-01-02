@@ -85,7 +85,7 @@ FSaveGameHeaderCopy::FSaveGameHeaderCopy(TSubclassOf<USaveGame> ObjectType)
 	, PackageFileUE4Version(GPackageFileUE4Version)
 	, SavedEngineVersion(FEngineVersion::Current())
 	, CustomVersionFormat(static_cast<int32>(ECustomVersionSerializationFormat::Latest))
-	, CustomVersions(FCustomVersionContainer::GetRegistered())
+	, CustomVersions(FCurrentCustomVersions::GetAll())
 	, SaveGameClassName(ObjectType->GetPathName())
 {}
 

@@ -28,7 +28,7 @@ AWorldGrid::AWorldGrid()
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 	bAlwaysRelevant = true;
-	bReplicateMovement = false;
+	SetReplicateMovement(false);
 	m_bMapIsLoaded = false;
 	m_bMapFileExists = false;
 	m_VerifyNode = nullptr;

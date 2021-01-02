@@ -52,10 +52,10 @@ void UVC_Adventure::DrawScreenFade(UCanvas* Canvas)
 {
 	if (m_bFading)
 	{
-		const UWorld* World = GetWorld();
-		if (World)
+		const UWorld* world = GetWorld();
+		if (world)
 		{
-			const float Time = World->GetTimeSeconds();
+			const float Time = world->GetTimeSeconds();
 			const float Alpha = FMath::Clamp((Time - m_FadeStartTime) / m_FadeDuration, 0.f, 1.f);
 
 			// Make sure that we stay black in a fade to black
@@ -76,11 +76,11 @@ void UVC_Adventure::DrawScreenFade(UCanvas* Canvas)
 				{
 					UE_LOG(LogNotice, Warning, TEXT("<ViewportClient>: Begining map transition."));
 					m_bLoadNewLevel = false;
-					UGI_Adventure* GameInstance = Cast<UGI_Adventure>(GetGameInstance());
-					if (GameInstance)
+					UGI_Adventure* gameInstance = Cast<UGI_Adventure>(GetGameInstance());
+					if (gameInstance)
 					{
 						m_bLoadNewLevel = false;
-						GameInstance->LoadNextMap();
+						gameInstance->LoadNextMap();
 					}
 				}
 			}
